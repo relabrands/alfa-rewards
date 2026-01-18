@@ -13,11 +13,17 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import AdminLiveMap from '@/components/admin/AdminLiveMap';
+import AdminUsers from '@/components/admin/AdminUsers';
+import AdminSettings from '@/components/admin/AdminSettings';
+
+type AdminView = 'dashboard' | 'map' | 'users' | 'settings';
 
 export default function AdminDashboard() {
   const { campaignMode, setCampaignMode, logout } = useApp();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [currentView, setCurrentView] = useState<AdminView>('dashboard');
   const [stats, setStats] = useState({
     totalSalesToday: 'RD$ 0k',
     activeClerks: 0,
@@ -51,7 +57,6 @@ export default function AdminDashboard() {
       title: '✅ Factura Aprobada',
       description: 'Los puntos han sido acreditados',
     });
-    // In real app, call updateScanStatus(id, 'approved')
     setFlaggedInvoices(prev => prev.filter(i => i.id !== id));
   };
 
@@ -61,59 +66,16 @@ export default function AdminDashboard() {
       description: 'Se ha notificado al dependiente',
       variant: 'destructive',
     });
-    // In real app, call updateScanStatus(id, 'rejected')
     setFlaggedInvoices(prev => prev.filter(i => i.id !== id));
   };
 
-  return (
-    <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-card border-r border-border flex flex-col h-screen sticky top-0">
-        <div className="p-6 border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-              <Pill className="h-6 w-6 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="font-bold text-foreground">Alfa Rewards</h1>
-              <p className="text-xs text-muted-foreground">Panel de Control</p>
-            </div>
-          </div>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-2">
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-primary text-primary-foreground">
-            <BarChart3 className="h-5 w-5" />
-            <span className="font-medium">Dashboard</span>
-          </button>
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted text-foreground transition-colors">
-            <Map className="h-5 w-5" />
-            <span className="font-medium">Mapa en Vivo</span>
-          </button>
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted text-foreground transition-colors">
-            <Users className="h-5 w-5" />
-            <span className="font-medium">Usuarios</span>
-          </button>
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted text-foreground transition-colors">
-            <Settings className="h-5 w-5" />
-            <span className="font-medium">Configuración</span>
-          </button>
-        </nav>
-
-        <div className="p-4 border-t border-border">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
-          >
-            <LogOut className="h-5 w-5" />
-            <span className="font-medium">Cerrar Sesión</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 p-6 overflow-auto">
-        <div className="max-w-7xl mx-auto space-y-6">
+  const renderContent = () => {
+    switch (currentView) {
+      case 'map': return <AdminLiveMap />;
+      case 'users': return <AdminUsers />;
+      case 'settings': return <AdminSettings />;
+      default: return (
+        <div className="space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
@@ -198,14 +160,14 @@ export default function AdminDashboard() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Live Map */}
-            <Card className="lg:col-span-1">
+            {/* Live Map Preview */}
+            <Card className="lg:col-span-1 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setCurrentView('map')}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Activity className="h-5 w-5 text-success animate-pulse" />
                   Escaneos en Vivo
                 </CardTitle>
-                <CardDescription>República Dominicana</CardDescription>
+                <CardDescription>República Dominicana (Clic para ampliar)</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="relative h-80 bg-muted rounded-lg overflow-hidden">
@@ -218,7 +180,6 @@ export default function AdminDashboard() {
                       stroke="hsl(var(--primary) / 0.3)"
                       strokeWidth="2"
                     />
-
                     {/* Live scan dots */}
                     {liveScanLocations.map((loc, i) => (
                       <g key={loc.id}>
@@ -229,27 +190,9 @@ export default function AdminDashboard() {
                           fill="hsl(var(--success))"
                           className="animate-pulse"
                         />
-                        <circle
-                          cx={100 + i * 60}
-                          cy={120 + (i % 2) * 40}
-                          r="16"
-                          fill="none"
-                          stroke="hsl(var(--success))"
-                          strokeWidth="2"
-                          opacity="0.5"
-                          className="animate-ping"
-                        />
                       </g>
                     ))}
                   </svg>
-
-                  {/* Legend */}
-                  <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className="w-3 h-3 rounded-full bg-success animate-pulse" />
-                      <span>{liveScanLocations.length} escaneos activos</span>
-                    </div>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -264,7 +207,7 @@ export default function AdminDashboard() {
                 <CardDescription>{flaggedInvoices.length} facturas pendientes de revisión</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="divide-y divide-border">
+                <div className="divide-y divide-border h-80 overflow-y-auto">
                   {flaggedInvoices.map((invoice) => {
                     const pharmacy = pharmacies.find(p => p.id === invoice.pharmacyId);
                     return (
@@ -299,10 +242,83 @@ export default function AdminDashboard() {
                       </div>
                     );
                   })}
+                  {flaggedInvoices.length === 0 && (
+                    <div className="p-8 text-center text-muted-foreground">
+                      <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-success/50" />
+                      <p>No hay facturas pendientes</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </div>
+        </div>
+      );
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex">
+      {/* Sidebar */}
+      <aside className="w-64 bg-card border-r border-border flex flex-col h-screen sticky top-0">
+        <div className="p-6 border-b border-border">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+              <Pill className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="font-bold text-foreground">Alfa Rewards</h1>
+              <p className="text-xs text-muted-foreground">Panel de Control</p>
+            </div>
+          </div>
+        </div>
+
+        <nav className="flex-1 p-4 space-y-2">
+          <button
+            onClick={() => setCurrentView('dashboard')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'dashboard' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
+          >
+            <BarChart3 className="h-5 w-5" />
+            <span className="font-medium">Dashboard</span>
+          </button>
+          <button
+            onClick={() => setCurrentView('map')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'map' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
+          >
+            <Map className="h-5 w-5" />
+            <span className="font-medium">Mapa en Vivo</span>
+          </button>
+          <button
+            onClick={() => setCurrentView('users')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'users' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
+          >
+            <Users className="h-5 w-5" />
+            <span className="font-medium">Usuarios</span>
+          </button>
+          <button
+            onClick={() => setCurrentView('settings')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'settings' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
+          >
+            <Settings className="h-5 w-5" />
+            <span className="font-medium">Configuración</span>
+          </button>
+        </nav>
+
+        <div className="p-4 border-t border-border">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            <LogOut className="h-5 w-5" />
+            <span className="font-medium">Cerrar Sesión</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 p-6 overflow-auto">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {renderContent()}
         </div>
       </main>
     </div>
