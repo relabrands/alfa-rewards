@@ -1,0 +1,317 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Alfa Rewards - Medical Tech Design System */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@layer base {
+  :root {
+    /* Medical Blue Palette */
+    --background: 210 20% 98%;
+    --foreground: 215 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+
+    /* Primary - Trustworthy Medical Blue */
+    --primary: 210 100% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Soft Blue */
+    --secondary: 210 40% 94%;
+    --secondary-foreground: 210 100% 35%;
+
+    /* Muted */
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 15% 45%;
+
+    /* Accent - Gold Rewards */
+    --accent: 45 100% 50%;
+    --accent-foreground: 30 80% 20%;
+
+    /* Gold palette */
+    --gold: 45 100% 50%;
+    --gold-light: 45 100% 70%;
+    --gold-dark: 38 90% 40%;
+
+    /* Success - Green */
+    --success: 145 65% 42%;
+    --success-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 20% 90%;
+    --input: 210 20% 90%;
+    --ring: 210 100% 40%;
+
+    --radius: 0.75rem;
+
+    /* Sidebar */
+    --sidebar-background: 215 25% 12%;
+    --sidebar-foreground: 210 20% 95%;
+    --sidebar-primary: 210 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 25% 18%;
+    --sidebar-accent-foreground: 210 20% 95%;
+    --sidebar-border: 215 25% 20%;
+    --sidebar-ring: 210 100% 50%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(210 100% 45%) 0%, hsl(210 100% 35%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(45 100% 55%) 0%, hsl(38 90% 45%) 100%);
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-gold: 0 10px 30px -10px hsla(45, 100%, 50%, 0.4);
+    --shadow-primary: 0 10px 30px -10px hsla(210, 100%, 40%, 0.3);
+  }
+
+  .dark {
+    --background: 215 25% 8%;
+    --foreground: 210 20% 95%;
+
+    --card: 215 25% 12%;
+    --card-foreground: 210 20% 95%;
+
+    --popover: 215 25% 12%;
+    --popover-foreground: 210 20% 95%;
+
+    --primary: 210 100% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 215 25% 18%;
+    --secondary-foreground: 210 100% 70%;
+
+    --muted: 215 25% 18%;
+    --muted-foreground: 210 15% 60%;
+
+    --accent: 45 100% 50%;
+    --accent-foreground: 30 80% 15%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 25% 20%;
+    --input: 215 25% 20%;
+    --ring: 210 100% 50%;
+
+    --sidebar-background: 215 25% 8%;
+    --sidebar-foreground: 210 20% 95%;
+    --sidebar-primary: 210 100% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 25% 15%;
+    --sidebar-accent-foreground: 210 20% 95%;
+    --sidebar-border: 215 25% 18%;
+    --sidebar-ring: 210 100% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  /* Glass Card Effect */
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-xl border border-white/20 shadow-lg;
+  }
+
+  /* Gold Button Variant */
+  .btn-gold {
+    background: var(--gradient-gold);
+    @apply text-accent-foreground font-semibold shadow-lg;
+    box-shadow: var(--shadow-gold);
+  }
+
+  .btn-gold:hover {
+    @apply opacity-90 scale-105;
+  }
+
+  /* Primary Gradient Button */
+  .btn-primary-gradient {
+    background: var(--gradient-primary);
+    @apply text-primary-foreground font-semibold shadow-lg;
+    box-shadow: var(--shadow-primary);
+  }
+
+  /* Pulsing FAB */
+  .fab-pulse {
+    @apply relative;
+  }
+
+  .fab-pulse::before {
+    content: '';
+    @apply absolute inset-0 rounded-full;
+    background: inherit;
+    animation: fab-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  /* Coin animation */
+  .coin {
+    @apply absolute w-8 h-8 rounded-full;
+    background: var(--gradient-gold);
+    box-shadow: inset 0 -3px 6px rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.3);
+  }
+
+  /* Live pulse indicator */
+  .pulse-dot {
+    @apply relative;
+  }
+
+  .pulse-dot::after {
+    content: '';
+    @apply absolute inset-0 rounded-full bg-success;
+    animation: pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Stats card hover */
+  .stats-card {
+    @apply transition-all duration-300 hover:scale-105 hover:shadow-lg;
+  }
+}
+
+@layer utilities {
+  /* Coin drop animation */
+  @keyframes coin-drop {
+    0% {
+      transform: translateY(-100vh) rotate(0deg);
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    70% {
+      transform: translateY(60vh) rotate(360deg);
+    }
+    80% {
+      transform: translateY(50vh) rotate(400deg);
+    }
+    90% {
+      transform: translateY(55vh) rotate(440deg);
+    }
+    100% {
+      transform: translateY(52vh) rotate(450deg);
+      opacity: 1;
+    }
+  }
+
+  .animate-coin-drop {
+    animation: coin-drop 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
+
+  /* FAB ping animation */
+  @keyframes fab-ping {
+    0% {
+      transform: scale(1);
+      opacity: 0.5;
+    }
+    75%, 100% {
+      transform: scale(1.5);
+      opacity: 0;
+    }
+  }
+
+  /* Pulse ring for live indicators */
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(0.8);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+
+  /* Counter animation */
+  @keyframes count-up {
+    from {
+      transform: translateY(10px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-count-up {
+    animation: count-up 0.5s ease-out;
+  }
+
+  /* Spin for roulette */
+  @keyframes spin-slow {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .animate-spin-slow {
+    animation: spin-slow 3s linear infinite;
+  }
+
+  /* Bounce settle for coins */
+  @keyframes bounce-settle {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    40% {
+      transform: translateY(-10px);
+    }
+    60% {
+      transform: translateY(-5px);
+    }
+  }
+
+  .animate-bounce-settle {
+    animation: bounce-settle 0.6s ease-out;
+  }
+
+  /* Shimmer effect */
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  /* Glow pulse */
+  @keyframes glow-pulse {
+    0%, 100% {
+      box-shadow: 0 0 20px hsla(45, 100%, 50%, 0.3);
+    }
+    50% {
+      box-shadow: 0 0 40px hsla(45, 100%, 50%, 0.6);
+    }
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+}
