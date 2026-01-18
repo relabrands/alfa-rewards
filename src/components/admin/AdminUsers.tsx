@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { getAllUsers } from '@/lib/db';
 import { User } from '@/lib/types';
-import { User as UserIcon, Shield, Briefcase, Search } from 'lucide-react';
+import { User as UserIcon, Users, Shield, Briefcase, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 export default function AdminUsers() {
