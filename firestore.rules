@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+  
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is accessing their own document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Rules for 'users' collection
+    match /users/{userId} {
+      // Allow reading own profile and any authenticated user can read (temporarily for team lists)
+      allow read: if isAuthenticated();
+      // Allow creating own profile on signup
+      allow create: if isOwner(userId);
+      // Allow updating own profile
+      allow update: if isOwner(userId);
+    }
+    
+    // Rules for 'registered_clerks'
+    match /registered_clerks/{clerkId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    // Rules for 'scans'
+    match /scans/{scanId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    // Rules for 'pharmacies'
+    match /pharmacies/{pharmacyId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only admin via console for now
+    }
+  }
+}
