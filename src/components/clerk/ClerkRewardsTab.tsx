@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
-import { rewards } from '@/lib/mockData';
+import { rewards } from '@/lib/constants';
 import { Gift, Smartphone, ShoppingCart, Trophy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -63,13 +63,12 @@ export function ClerkRewardsTab() {
         <div className="grid grid-cols-1 gap-4">
           {rewards.map((reward) => {
             const canRedeem = points >= reward.pointsCost;
-            
+
             return (
-              <Card 
-                key={reward.id} 
-                className={`overflow-hidden transition-all ${
-                  canRedeem ? 'hover:shadow-lg' : 'opacity-60'
-                }`}
+              <Card
+                key={reward.id}
+                className={`overflow-hidden transition-all ${canRedeem ? 'hover:shadow-lg' : 'opacity-60'
+                  }`}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-4">
@@ -79,9 +78,8 @@ export function ClerkRewardsTab() {
                     <div className="flex-1">
                       <h3 className="font-semibold">{reward.name}</h3>
                       <p className="text-sm text-muted-foreground">{reward.description}</p>
-                      <div className={`mt-1 text-sm font-bold ${
-                        canRedeem ? 'text-success' : 'text-muted-foreground'
-                      }`}>
+                      <div className={`mt-1 text-sm font-bold ${canRedeem ? 'text-success' : 'text-muted-foreground'
+                        }`}>
                         {reward.pointsCost.toLocaleString()} pts
                       </div>
                     </div>

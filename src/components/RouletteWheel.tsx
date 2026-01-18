@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { roulettePrizes } from '@/lib/mockData';
+import { roulettePrizes } from '@/lib/constants';
 
 interface RouletteWheelProps {
   isSpinning: boolean;
@@ -64,7 +64,7 @@ export function RouletteWheel({ isSpinning, onSpinComplete }: RouletteWheelProps
             </div>
           );
         })}
-        
+
         {/* Center circle */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-amber-200 to-amber-400 shadow-lg flex items-center justify-center border-4 border-amber-500">
           <span className="text-amber-800 font-bold text-xl">α</span>

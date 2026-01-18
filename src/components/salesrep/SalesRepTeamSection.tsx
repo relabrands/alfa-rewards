@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { registeredClerks } from '@/lib/mockData';
+import { RegisteredClerk } from '@/lib/types';
+import { getRegisteredClerks } from '@/lib/db';
+import { useApp } from '@/context/AppContext';
 import { Users, Search, MessageCircle, TrendingUp, CheckCircle2, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -11,17 +13,29 @@ import { es } from 'date-fns/locale';
 
 export function SalesRepTeamSection() {
   const { toast } = useToast();
+  const { currentUser } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
+  const [team, setTeam] = useState<RegisteredClerk[]>([]);
 
-  const filteredClerks = registeredClerks.filter(clerk =>
+  useEffect(() => {
+    const loadTeam = async () => {
+      if (currentUser?.id) {
+        const clerks = await getRegisteredClerks(currentUser.id);
+        setTeam(clerks as unknown as RegisteredClerk[]);
+      }
+    };
+    loadTeam();
+  }, [currentUser?.id]);
+
+  const filteredClerks = team.filter(clerk =>
     clerk.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     clerk.pharmacyName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const totalPoints = registeredClerks.reduce((sum, c) => sum + c.pointsGenerated, 0);
-  const activeClerks = registeredClerks.filter(c => c.status === 'active').length;
+  const totalPoints = team.reduce((sum, c) => sum + (c.pointsGenerated || 0), 0);
+  const activeClerks = team.filter(c => c.status === 'active').length;
 
-  const handleWhatsAppReminder = (clerk: typeof registeredClerks[0]) => {
+  const handleWhatsAppReminder = (clerk: RegisteredClerk) => {
     const message = encodeURIComponent(`¡Hola ${clerk.name}! 👋 Te recordamos que puedes ganar puntos escaneando facturas en el programa Alfa Rewards. ¡No pierdas tus premios! 🎁`);
     const phone = clerk.phone.replace(/\D/g, '');
     window.open(`https://wa.me/1${phone}?text=${message}`, '_blank');
@@ -46,12 +60,12 @@ export function SalesRepTeamSection() {
               <Users className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{registeredClerks.length}</p>
+              <p className="text-2xl font-bold">{team.length}</p>
               <p className="text-sm text-muted-foreground">Total Registrados</p>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
@@ -63,7 +77,7 @@ export function SalesRepTeamSection() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center">
@@ -145,7 +159,7 @@ export function SalesRepTeamSection() {
               </tbody>
             </table>
           </div>
-          
+
           {filteredClerks.length === 0 && (
             <div className="p-8 text-center text-muted-foreground">
               No se encontraron dependientes

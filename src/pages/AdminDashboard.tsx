@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useApp } from '@/context/AppContext';
-import { dashboardStats, scanRecords, liveScanLocations, pharmacies } from '@/lib/mockData';
-import { 
-  Map, Users, DollarSign, TrendingUp, CheckCircle2, XCircle, 
+import { liveScanLocations, pharmacies } from '@/lib/constants';
+import { ScanRecord } from '@/lib/types';
+import { getAdminStats, getFlaggedScans } from '@/lib/db';
+import {
+  Map, Users, DollarSign, TrendingUp, CheckCircle2, XCircle,
   AlertTriangle, Settings, LogOut, Pill, BarChart3, Activity
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +18,28 @@ export default function AdminDashboard() {
   const { campaignMode, setCampaignMode, logout } = useApp();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [stats, setStats] = useState({
+    totalSalesToday: 'RD$ 0k',
+    activeClerks: 0,
+    totalPharmacies: 0,
+    roi: '0%'
+  });
+  const [flaggedInvoices, setFlaggedInvoices] = useState<ScanRecord[]>([]);
+
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        const data = await getAdminStats();
+        setStats(data);
+
+        const flagged = await getFlaggedScans();
+        setFlaggedInvoices(flagged);
+      } catch (error) {
+        console.error("Error loading admin stats:", error);
+      }
+    };
+    loadDashboardData();
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -27,6 +51,8 @@ export default function AdminDashboard() {
       title: '✅ Factura Aprobada',
       description: 'Los puntos han sido acreditados',
     });
+    // In real app, call updateScanStatus(id, 'approved')
+    setFlaggedInvoices(prev => prev.filter(i => i.id !== id));
   };
 
   const handleReject = (id: string) => {
@@ -35,9 +61,9 @@ export default function AdminDashboard() {
       description: 'Se ha notificado al dependiente',
       variant: 'destructive',
     });
+    // In real app, call updateScanStatus(id, 'rejected')
+    setFlaggedInvoices(prev => prev.filter(i => i.id !== id));
   };
-
-  const flaggedInvoices = scanRecords.filter(s => s.status === 'flagged');
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -94,7 +120,7 @@ export default function AdminDashboard() {
               <h1 className="text-3xl font-bold text-foreground">Dashboard Director</h1>
               <p className="text-muted-foreground mt-1">Vista general del programa de lealtad</p>
             </div>
-            
+
             {/* Campaign Mode Toggle */}
             <Card className="p-4">
               <div className="flex items-center gap-4">
@@ -119,7 +145,7 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Ventas Hoy</p>
-                    <p className="text-2xl font-bold mt-1">{dashboardStats.totalSalesToday}</p>
+                    <p className="text-2xl font-bold mt-1">{stats.totalSalesToday}</p>
                   </div>
                   <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
                     <DollarSign className="h-6 w-6 text-success" />
@@ -127,13 +153,13 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Dependientes Activos</p>
-                    <p className="text-2xl font-bold mt-1">{dashboardStats.activeClerks}</p>
+                    <p className="text-2xl font-bold mt-1">{stats.activeClerks}</p>
                   </div>
                   <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                     <Users className="h-6 w-6 text-primary" />
@@ -141,13 +167,13 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Farmacias</p>
-                    <p className="text-2xl font-bold mt-1">{dashboardStats.totalPharmacies}</p>
+                    <p className="text-2xl font-bold mt-1">{stats.totalPharmacies}</p>
                   </div>
                   <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
                     <Map className="h-6 w-6 text-accent" />
@@ -155,13 +181,13 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">ROI</p>
-                    <p className="text-2xl font-bold mt-1 text-success">{dashboardStats.roi}</p>
+                    <p className="text-2xl font-bold mt-1 text-success">{stats.roi}</p>
                   </div>
                   <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center">
                     <TrendingUp className="h-6 w-6 text-gold-dark" />
@@ -192,7 +218,7 @@ export default function AdminDashboard() {
                       stroke="hsl(var(--primary) / 0.3)"
                       strokeWidth="2"
                     />
-                    
+
                     {/* Live scan dots */}
                     {liveScanLocations.map((loc, i) => (
                       <g key={loc.id}>
@@ -216,7 +242,7 @@ export default function AdminDashboard() {
                       </g>
                     ))}
                   </svg>
-                  
+
                   {/* Legend */}
                   <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 space-y-2">
                     <div className="flex items-center gap-2 text-sm">

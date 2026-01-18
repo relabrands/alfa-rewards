@@ -1,15 +1,28 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useApp } from '@/context/AppContext';
-import { registeredClerks } from '@/lib/mockData';
+import { getRegisteredClerks } from '@/lib/db';
+import { RegisteredClerk } from '@/lib/types';
 import { User, Phone, Briefcase, Users, TrendingUp, Award, Calendar } from 'lucide-react';
 
 export function SalesRepProfileSection() {
   const { currentUser } = useApp();
-  
-  const totalClerks = registeredClerks.length;
-  const activeClerks = registeredClerks.filter(c => c.status === 'active').length;
-  const totalPoints = registeredClerks.reduce((sum, c) => sum + c.pointsGenerated, 0);
+  const [team, setTeam] = useState<RegisteredClerk[]>([]);
+
+  useEffect(() => {
+    const loadTeam = async () => {
+      if (currentUser?.id) {
+        const clerks = await getRegisteredClerks(currentUser.id);
+        setTeam(clerks as unknown as RegisteredClerk[]);
+      }
+    };
+    loadTeam();
+  }, [currentUser?.id]);
+
+  const totalClerks = team.length;
+  const activeClerks = team.filter(c => c.status === 'active').length;
+  const totalPoints = team.reduce((sum, c) => sum + (c.pointsGenerated || 0), 0);
 
   const stats = [
     { label: 'Dependientes Activados', value: totalClerks, icon: Users, color: 'text-primary' },
@@ -76,7 +89,7 @@ export function SalesRepProfileSection() {
               <p className="font-medium">{currentUser.name}</p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
               <Phone className="h-5 w-5 text-primary" />
@@ -86,7 +99,7 @@ export function SalesRepProfileSection() {
               <p className="font-medium">{currentUser.phone || '809-555-5678'}</p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
               <Briefcase className="h-5 w-5 text-primary" />

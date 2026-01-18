@@ -6,15 +6,20 @@ import { CoinAnimation } from '@/components/CoinAnimation';
 import { RouletteWheel } from '@/components/RouletteWheel';
 import { Camera, TrendingUp, History, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { addScanRecord, updateUserPoints, getScanHistory } from '@/lib/db';
+import { ScanRecord } from '@/lib/types';
+import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 export function ClerkHomeTab() {
-  const { points, addPoints, campaignMode } = useApp();
+  const { points, addPoints, campaignMode, currentUser } = useApp();
   const { toast } = useToast();
   const [displayPoints, setDisplayPoints] = useState(points);
   const [isScanning, setIsScanning] = useState(false);
   const [showCoins, setShowCoins] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
   const [recentEarnings, setRecentEarnings] = useState<number | null>(null);
+  const [history, setHistory] = useState<ScanRecord[]>([]);
 
   useEffect(() => {
     if (displayPoints !== points) {
@@ -33,17 +38,50 @@ export function ClerkHomeTab() {
     }
   }, [points, displayPoints]);
 
-  const handleScanInvoice = () => {
+  useEffect(() => {
+    loadHistory();
+  }, [currentUser?.id]);
+
+  const loadHistory = async () => {
+    if (currentUser?.id) {
+      const scans = await getScanHistory(currentUser.id);
+      setHistory(scans);
+    }
+  };
+
+  const handleScanInvoice = async () => {
+    if (!currentUser) return;
+
     setIsScanning(true);
-    
-    setTimeout(() => {
+
+    // Simulate processing delay (OCR, etc.)
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    const earnedPoints = Math.floor(Math.random() * 200) + 100; // Mock calculation logic
+    setRecentEarnings(earnedPoints);
+
+    // Create Record in Firestore
+    try {
+      await addScanRecord({
+        clerkId: currentUser.id,
+        pharmacyId: currentUser.pharmacyId || 'ph1', // Default or from profile
+        invoiceAmount: earnedPoints * 10, // Mock amount
+        pointsEarned: earnedPoints,
+        status: 'approved'
+      });
+
+      // Update User Points in Firestore
+      const newTotal = (points || 0) + earnedPoints;
+      await updateUserPoints(currentUser.id, newTotal);
+
+      // Update Local State
+      addPoints(earnedPoints);
+      loadHistory(); // Refresh history
+
       setIsScanning(false);
-      const earnedPoints = Math.floor(Math.random() * 200) + 100;
-      setRecentEarnings(earnedPoints);
-      
+
       if (campaignMode === 'points') {
         setShowCoins(true);
-        addPoints(earnedPoints);
         toast({
           title: '💰 ¡Puntos Ganados!',
           description: `Has ganado ${earnedPoints} puntos`,
@@ -51,13 +89,30 @@ export function ClerkHomeTab() {
       } else {
         setIsSpinning(true);
       }
-    }, 1500);
+    } catch (error) {
+      console.error("Error creating scan:", error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo registrar el escaneo. Inténtalo de nuevo.',
+        variant: 'destructive',
+      });
+      setIsScanning(false);
+    }
   };
 
   const handleRouletteComplete = (prize: string) => {
     setIsSpinning(false);
     const earnedPoints = parseInt(prize.replace(/\D/g, '')) || 50;
+
+    // Assuming roulette points are "bonus" and also saved, for now just local add
+    // Ideally we should save this too as a "bonus" record type
     addPoints(earnedPoints);
+
+    // Update DB for roulette prize too
+    if (currentUser) {
+      updateUserPoints(currentUser.id, points + earnedPoints);
+    }
+
     toast({
       title: '🎰 ¡Ganaste en la Ruleta!',
       description: prize,
@@ -67,33 +122,33 @@ export function ClerkHomeTab() {
   return (
     <div className="min-h-screen bg-background pb-32">
       <CoinAnimation isActive={showCoins} onComplete={() => setShowCoins(false)} />
-      
+
       {/* Hero Section */}
       <div className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjEpIi8+PC9zdmc+')] opacity-50" />
-        
+
         <div className="relative px-4 py-8 text-center">
           <p className="text-primary-foreground/70 text-sm mb-2">Mis Puntos</p>
-          
+
           <div className="relative inline-block">
             <div className="text-6xl font-extrabold animate-count-up">
               {displayPoints.toLocaleString()}
             </div>
             <span className="text-2xl font-medium ml-2 text-primary-foreground/80">pts</span>
-            
+
             {recentEarnings && (
               <div className="absolute -right-16 top-0 text-gold font-bold animate-fade-in">
                 +{recentEarnings}
               </div>
             )}
           </div>
-          
+
           <div className="flex items-center justify-center gap-2 mt-4 text-primary-foreground/70">
             <TrendingUp className="h-4 w-4" />
             <span className="text-sm">+340 pts esta semana</span>
           </div>
         </div>
-        
+
         <svg className="absolute bottom-0 left-0 right-0" viewBox="0 0 400 30" preserveAspectRatio="none">
           <path d="M0 30 Q100 0 200 15 T400 30 L400 30 L0 30 Z" fill="hsl(var(--background))" />
         </svg>
@@ -114,7 +169,7 @@ export function ClerkHomeTab() {
         <div className="grid grid-cols-2 gap-4">
           <Card className="stats-card">
             <CardContent className="p-4 text-center">
-              <div className="text-3xl mb-1">12</div>
+              <div className="text-3xl mb-1">{history.filter(h => h.timestamp.toDateString() === new Date().toDateString()).length}</div>
               <p className="text-sm text-muted-foreground">Escaneos Hoy</p>
             </CardContent>
           </Card>
@@ -128,11 +183,10 @@ export function ClerkHomeTab() {
 
         {/* Mode Indicator */}
         <div className="flex items-center justify-center gap-2 py-2">
-          <div className={`px-4 py-2 rounded-full text-sm font-medium ${
-            campaignMode === 'points' 
-              ? 'bg-gold/20 text-gold-dark' 
-              : 'bg-primary/20 text-primary'
-          }`}>
+          <div className={`px-4 py-2 rounded-full text-sm font-medium ${campaignMode === 'points'
+            ? 'bg-gold/20 text-gold-dark'
+            : 'bg-primary/20 text-primary'
+            }`}>
             {campaignMode === 'points' ? '💰 Modo Puntos' : '🎰 Modo Ruleta'}
           </div>
         </div>
@@ -146,21 +200,23 @@ export function ClerkHomeTab() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {[
-              { time: 'Hace 2 min', desc: 'Factura escaneada', points: '+250' },
-              { time: 'Hace 1 hora', desc: 'Factura escaneada', points: '+180' },
-              { time: 'Ayer', desc: 'Recarga canjeada', points: '-500' },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                <div>
-                  <p className="text-sm font-medium">{item.desc}</p>
-                  <p className="text-xs text-muted-foreground">{item.time}</p>
+            {history.length > 0 ? (
+              history.slice(0, 5).map((item, i) => (
+                <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                  <div>
+                    <p className="text-sm font-medium">Factura escaneada</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(item.timestamp, { addSuffix: true, locale: es })}
+                    </p>
+                  </div>
+                  <span className={`font-bold text-success`}>
+                    +{item.pointsEarned}
+                  </span>
                 </div>
-                <span className={`font-bold ${item.points.startsWith('+') ? 'text-success' : 'text-destructive'}`}>
-                  {item.points}
-                </span>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-center text-sm text-muted-foreground py-4">Sin actividad reciente</p>
+            )}
           </CardContent>
         </Card>
       </div>

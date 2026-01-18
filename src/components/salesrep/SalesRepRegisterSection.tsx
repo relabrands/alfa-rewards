@@ -4,14 +4,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { pharmacies } from '@/lib/mockData';
+import { pharmacies } from '@/lib/constants';
 import { MapPin, Camera, CheckCircle2, User, Phone, CreditCard, Loader2, ScanLine } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useApp } from '@/context/AppContext';
+import { addRegisteredClerk } from '@/lib/db';
 
 export function SalesRepRegisterSection() {
   const { toast } = useToast();
+  const { currentUser } = useApp();
   const [isScanning, setIsScanning] = useState(false);
   const [isScanned, setIsScanned] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     idNumber: '',
@@ -37,14 +41,35 @@ export function SalesRepRegisterSection() {
     }, 2000);
   };
 
-  const handleRegister = () => {
-    toast({
-      title: '🎉 ¡Registro Exitoso!',
-      description: `${formData.name} ha sido registrado(a) en el programa Alfa Rewards`,
-      className: 'bg-success text-success-foreground',
-    });
-    setFormData({ name: '', idNumber: '', phone: '', pharmacy: '' });
-    setIsScanned(false);
+  const handleRegister = async () => {
+    if (!currentUser) return;
+
+    setIsSubmitting(true);
+    try {
+      await addRegisteredClerk({
+        ...formData,
+        cedula: formData.idNumber, // Mapping idNumber to cedula
+        pharmacyName: pharmacies.find(p => p.id === formData.pharmacy)?.name || 'Desconocida',
+        registeredBy: currentUser.id,
+      });
+
+      toast({
+        title: '🎉 ¡Registro Exitoso!',
+        description: `${formData.name} ha sido registrado(a) en el programa Alfa Rewards`,
+        className: 'bg-success text-success-foreground',
+      });
+      setFormData({ name: '', idNumber: '', phone: '', pharmacy: '' });
+      setIsScanned(false);
+    } catch (error) {
+      console.error("Error registering clerk:", error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo registrar el dependiente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -69,9 +94,9 @@ export function SalesRepRegisterSection() {
                 <div className="w-full h-full relative">
                   <div className="absolute inset-0 opacity-30">
                     <svg viewBox="0 0 400 200" className="w-full h-full">
-                      <path d="M0 100 Q100 50 200 100 T400 100" fill="none" stroke="currentColor" className="text-primary" strokeWidth="2"/>
-                      <path d="M50 150 Q150 100 250 150 T400 130" fill="none" stroke="currentColor" className="text-primary/50" strokeWidth="1"/>
-                      <rect x="150" y="60" width="100" height="60" fill="currentColor" className="text-primary/10" rx="4"/>
+                      <path d="M0 100 Q100 50 200 100 T400 100" fill="none" stroke="currentColor" className="text-primary" strokeWidth="2" />
+                      <path d="M50 150 Q150 100 250 150 T400 130" fill="none" stroke="currentColor" className="text-primary/50" strokeWidth="1" />
+                      <rect x="150" y="60" width="100" height="60" fill="currentColor" className="text-primary/10" rx="4" />
                     </svg>
                   </div>
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full">
@@ -118,10 +143,9 @@ export function SalesRepRegisterSection() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div 
-            className={`relative aspect-[4/3] rounded-xl border-2 border-dashed transition-all duration-300 overflow-hidden ${
-              isScanned ? 'border-success bg-success/5' : 'border-primary/30 bg-muted/50'
-            }`}
+          <div
+            className={`relative aspect-[4/3] rounded-xl border-2 border-dashed transition-all duration-300 overflow-hidden ${isScanned ? 'border-success bg-success/5' : 'border-primary/30 bg-muted/50'
+              }`}
           >
             {isScanned ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 animate-scale-in">
@@ -152,7 +176,7 @@ export function SalesRepRegisterSection() {
                 <span className="text-muted-foreground text-sm">Toque para escanear</span>
               </div>
             )}
-            
+
             {!isScanning && !isScanned && (
               <button
                 onClick={handleScan}
@@ -217,10 +241,14 @@ export function SalesRepRegisterSection() {
 
           <Button
             onClick={handleRegister}
-            disabled={!formData.name || !formData.idNumber || !formData.phone || !formData.pharmacy}
+            disabled={!formData.name || !formData.idNumber || !formData.phone || !formData.pharmacy || isSubmitting}
             className="w-full h-14 text-lg font-semibold btn-primary-gradient"
           >
-            <CheckCircle2 className="mr-2 h-5 w-5" />
+            {isSubmitting ? (
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            ) : (
+              <CheckCircle2 className="mr-2 h-5 w-5" />
+            )}
             Registrar & Activar
           </Button>
         </CardContent>

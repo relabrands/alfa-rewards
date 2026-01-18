@@ -1,17 +1,21 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { UserRole, mockUsers, User, pharmacies } from '@/lib/mockData';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { UserRole, User } from '@/lib/types';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, User as FirebaseUser } from 'firebase/auth';
+import { getUserProfile } from '@/lib/db';
 
 interface AppState {
   isAuthenticated: boolean;
   currentRole: UserRole;
-  currentUser: User;
+  currentUser: User | null;
   campaignMode: 'points' | 'roulette';
   points: number;
+  isLoading: boolean;
 }
 
 interface AppContextType extends AppState {
-  login: (role: UserRole, identifier: string) => void;
-  logout: () => void;
+  login: (email: string, pass: string) => Promise<void>;
+  logout: () => Promise<void>;
   setCampaignMode: (mode: 'points' | 'roulette') => void;
   addPoints: (amount: number) => void;
 }
@@ -28,55 +32,64 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>({
     isAuthenticated: false,
     currentRole: 'clerk',
-    currentUser: defaultUser,
+    currentUser: null,
     campaignMode: 'points',
-    points: 5400,
+    points: 0,
+    isLoading: true,
   });
 
-  const login = (role: UserRole, identifier: string) => {
-    let user: User;
-    
-    if (role === 'clerk') {
-      user = {
-        id: identifier,
-        name: 'María García',
-        role: 'clerk',
-        points: 5400,
-        pharmacyId: 'ph1',
-        phone: '809-555-1234',
-      };
-    } else if (role === 'salesRep') {
-      user = {
-        id: identifier,
-        name: 'Carlos Méndez',
-        role: 'salesRep',
-        phone: '809-555-5678',
-      };
-    } else {
-      user = {
-        id: identifier,
-        name: 'Roberto Sánchez',
-        role: role,
-        phone: '809-555-3456',
-      };
-    }
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const userProfile = await getUserProfile(firebaseUser.uid);
 
-    setState(prev => ({
-      ...prev,
-      isAuthenticated: true,
-      currentRole: role,
-      currentUser: user,
-    }));
+          if (userProfile) {
+            setState(prev => ({
+              ...prev,
+              isAuthenticated: true,
+              currentUser: userProfile,
+              currentRole: userProfile.role,
+              points: userProfile.points || 0,
+              isLoading: false,
+            }));
+          } else {
+            // User exists in Auth but not in Firestore (should not happen in normal flow)
+            console.error("User profile not found in Firestore");
+            setState(prev => ({
+              ...prev,
+              isAuthenticated: true,
+              currentUser: { id: firebaseUser.uid, name: firebaseUser.email || 'User', role: 'clerk' }, // Fallback
+              isLoading: false,
+            }));
+          }
+        } catch (error) {
+          console.error("Error fetching user profile:", error);
+          setState(prev => ({ ...prev, isLoading: false }));
+        }
+      } else {
+        setState(prev => ({
+          ...prev,
+          isAuthenticated: false,
+          currentRole: 'clerk',
+          currentUser: null,
+          points: 0,
+          isLoading: false,
+        }));
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const login = async (email: string, pass: string) => {
+    await signInWithEmailAndPassword(auth, email, pass);
+    // User state update handled by onAuthStateChanged
   };
 
-  const logout = () => {
-    setState({
-      isAuthenticated: false,
-      currentRole: 'clerk',
-      currentUser: defaultUser,
-      campaignMode: 'points',
-      points: 5400,
-    });
+  const logout = async () => {
+    await signOut(auth);
+    // User state update handled by onAuthStateChanged
   };
 
   const setCampaignMode = (mode: 'points' | 'roulette') => {
@@ -89,7 +102,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppContext.Provider value={{ ...state, login, logout, setCampaignMode, addPoints }}>
-      {children}
+      {!state.isLoading && children}
     </AppContext.Provider>
   );
 }

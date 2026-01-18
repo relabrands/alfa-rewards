@@ -13,56 +13,47 @@ export default function Login() {
   const { login } = useApp();
   const { toast } = useToast();
   const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!identifier.trim()) {
+    if (!identifier.trim() || !password.trim()) {
       toast({
-        title: 'Campo requerido',
-        description: 'Por favor ingresa tu cédula o código de empleado',
+        title: 'Campos requeridos',
+        description: 'Por favor ingresa tu correo y contraseña',
         variant: 'destructive',
       });
       return;
     }
 
     setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const id = identifier.trim().toUpperCase();
-    
-    if (id.startsWith('001') || id.startsWith('002')) {
-      login('clerk', id);
+
+    try {
+      await login(identifier, password);
+      // Navigation is automatically handled by AppContext state listener + Routes
+      // or we can force it if desired, but let's trust the reactive flow.
+
       toast({
         title: '¡Bienvenido/a!',
-        description: 'Accediendo como Dependiente...',
+        description: 'Iniciando sesión...',
       });
-      navigate('/clerk');
-    } else if (id.startsWith('REP')) {
-      login('salesRep', id);
+
+    } catch (error: any) {
+      console.error(error);
+      let message = 'Error al iniciar sesión';
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        message = 'Correo o contraseña incorrectos';
+      }
+
       toast({
-        title: '¡Bienvenido/a!',
-        description: 'Accediendo como Visitador...',
-      });
-      navigate('/sales-rep');
-    } else if (id === 'ADMIN' || id === 'DIRECTOR') {
-      login('director', id);
-      toast({
-        title: '¡Bienvenido/a!',
-        description: 'Accediendo como Director...',
-      });
-      navigate('/admin');
-    } else {
-      toast({
-        title: 'Credencial no válida',
-        description: 'Verifica tu cédula o código de empleado',
+        title: 'Error',
+        description: message,
         variant: 'destructive',
       });
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (
@@ -94,21 +85,36 @@ export default function Login() {
               </CardDescription>
             </div>
           </CardHeader>
-          
+
           <CardContent className="pt-4">
             <form onSubmit={handleLogin} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="identifier" className="text-sm font-medium">
-                  Cédula o Código de Empleado
+                <Label htmlFor="email" className="text-sm font-medium">
+                  Correo Electrónico
                 </Label>
                 <Input
-                  id="identifier"
-                  type="text"
-                  placeholder="001-1234567-8 o REP001"
+                  id="email"
+                  type="email"
+                  placeholder="usuario@alfarewards.com"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   className="h-14 text-lg px-4"
-                  autoComplete="off"
+                  autoComplete="email"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-sm font-medium">
+                  Contraseña
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-14 text-lg px-4"
+                  autoComplete="current-password"
                 />
               </div>
 
@@ -131,34 +137,11 @@ export default function Login() {
             {/* Demo hints */}
             <div className="mt-8 p-4 rounded-xl bg-muted/50 space-y-3">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Demo: Prueba estas credenciales
+                Nota Importante
               </p>
-              <div className="space-y-2 text-sm">
-                <button 
-                  type="button"
-                  onClick={() => setIdentifier('001-1234567-8')}
-                  className="w-full text-left px-3 py-2 rounded-lg bg-background hover:bg-accent transition-colors"
-                >
-                  <span className="font-mono text-primary">001-1234567-8</span>
-                  <span className="text-muted-foreground ml-2">→ Dependiente</span>
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setIdentifier('REP001')}
-                  className="w-full text-left px-3 py-2 rounded-lg bg-background hover:bg-accent transition-colors"
-                >
-                  <span className="font-mono text-primary">REP001</span>
-                  <span className="text-muted-foreground ml-2">→ Visitador</span>
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setIdentifier('ADMIN')}
-                  className="w-full text-left px-3 py-2 rounded-lg bg-background hover:bg-accent transition-colors"
-                >
-                  <span className="font-mono text-primary">ADMIN</span>
-                  <span className="text-muted-foreground ml-2">→ Director</span>
-                </button>
-              </div>
+              <p className="text-sm text-muted-foreground">
+                Para acceder, asegúrese de que su usuario haya sido registrado previamente por el administrador.
+              </p>
             </div>
           </CardContent>
         </Card>
