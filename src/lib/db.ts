@@ -142,3 +142,14 @@ export const getFlaggedScans = async () => {
         } as ScanRecord;
     });
 };
+// Admin: Get All Users
+export const getAllUsers = async () => {
+    const querySnapshot = await getDocs(collection(db, "users"));
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+};
+
+// Admin: Get All Pharmacies
+export const getAllPharmacies = async () => {
+    const querySnapshot = await getDocs(collection(db, "pharmacies"));
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pharmacy));
+};
