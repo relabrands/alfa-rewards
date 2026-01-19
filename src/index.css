@@ -62,16 +62,21 @@
     --sidebar-ring: 210 100% 50%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(210 100% 45%) 0%, hsl(210 100% 35%) 100%);
-    --gradient-gold: linear-gradient(135deg, hsl(45 100% 55%) 0%, hsl(38 90% 45%) 100%);
-    --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(188 100% 44%) 0%, hsl(210 100% 40%) 100%);
+    --gradient-coins: linear-gradient(135deg, #FFD700 0%, #FF8C00 100%);
+    /* Gold to Orange */
+    --gradient-action: linear-gradient(135deg, #00C2E0 0%, #0077E6 100%);
+    /* Cyan to Blue */
+    --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.4) 100%);
 
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --shadow-gold: 0 10px 30px -10px hsla(45, 100%, 50%, 0.4);
-    --shadow-primary: 0 10px 30px -10px hsla(210, 100%, 40%, 0.3);
+    --shadow-sm: 0 2px 8px -2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 5px 10px -5px rgba(0, 0, 0, 0.02);
+    --shadow-lg: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
+    --shadow-float: 0 10px 30px -5px rgba(0, 194, 224, 0.3);
+    /* Cyan Glow */
+    --shadow-gold: 0 10px 30px -5px rgba(255, 215, 0, 0.4);
   }
 
   .dark {
@@ -129,12 +134,38 @@
 
   /* Glass Card Effect */
   .glass-card {
-    @apply bg-card/80 backdrop-blur-xl border border-white/20 shadow-lg;
+    @apply bg-white/80 backdrop-blur-xl border border-white/40 shadow-sm;
+  }
+
+  /* Soft Card - The new standard */
+  .card-soft {
+    @apply bg-white rounded-[2rem] shadow-sm border border-slate-100;
+  }
+
+  /* Dopamine Gradients Buttons */
+  .btn-coin {
+    background: var(--gradient-coins);
+    @apply text-white font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 border-none;
+    box-shadow: var(--shadow-gold);
+  }
+
+  .btn-action {
+    background: var(--gradient-action);
+    @apply text-white font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 border-none;
+    box-shadow: var(--shadow-float);
+  }
+
+  /* Text Gradients */
+  .text-gradient-gold {
+    background: var(--gradient-coins);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
   /* Gold Button Variant */
   .btn-gold {
-    background: var(--gradient-gold);
+    background: var(--gradient-coins);
     @apply text-accent-foreground font-semibold shadow-lg;
     box-shadow: var(--shadow-gold);
   }

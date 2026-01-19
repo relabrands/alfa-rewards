@@ -193,28 +193,53 @@ export function ClerkHomeTab() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20 pb-24 pt-4 relative overflow-hidden">
-      {/* Decorative blobs */}
-      <div className="absolute top-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -ml-20 -mt-20 pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-64 h-64 bg-gold/10 rounded-full blur-3xl -mr-20 -mb-20 pointer-events-none" />
+    <div className="min-h-screen bg-[#FAFAFA] pb-24 pt-6 relative overflow-hidden">
+      {/* Decorative blobs - More subtle */}
+      <div className="absolute top-0 right-0 w-64 h-64 bg-[#00C2E0]/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+      <div className="absolute top-40 left-0 w-48 h-48 bg-[#FFD700]/5 rounded-full blur-3xl -ml-20 pointer-events-none" />
 
       <div className="px-4 space-y-8 max-w-md mx-auto relative z-10">
 
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">
-              Hola, {currentUser?.name?.split(' ')[0] || 'Usuario'} 👋
-            </h1>
-            <p className="text-muted-foreground text-sm font-medium">
-              {pharmacyName || currentUser?.email || 'Cargando farmacia...'}
-            </p>
+        {/* Header & Balance Card */}
+        <div className="relative z-20">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-lg border border-white/30 shadow-sm">
+                👋
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-foreground/90 leading-tight">
+                  Hola, {currentUser?.name?.split(' ')[0] || 'Usuario'}
+                </h1>
+                <p className="text-xs text-muted-foreground font-medium">
+                  {pharmacyName || 'Farmacia'}
+                </p>
+              </div>
+            </div>
+            {/* Notification Bell Placeholder */}
+            <button className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-muted-foreground hover:text-primary transition-colors border border-gray-100">
+              <History className="w-5 h-5" />
+            </button>
           </div>
-          <div className="text-right bg-white/50 backdrop-blur-sm p-2 rounded-xl border border-white/40 shadow-sm">
-            <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-1">Tus Puntos</div>
-            <div className="text-2xl font-black text-primary flex items-center justify-end gap-1">
-              <Sparkles className="w-4 h-4 text-gold animate-pulse" />
-              {points.toLocaleString()}
+
+          {/* Balance Card - Dopamine Gold */}
+          <div className="relative w-full h-48 rounded-[2.5rem] overflow-hidden shadow-gold transform transition-transform hover:scale-[1.02] duration-300">
+            {/* Background Gradient */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#FFD700] via-[#FFA500] to-[#FF8C00]"></div>
+
+            {/* Decorative Circles */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-full blur-2xl -mr-10 -mt-10"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full blur-xl -ml-5 -mb-5"></div>
+
+            <div className="relative z-10 flex flex-col items-center justify-center h-full text-white">
+              <span className="text-sm font-bold uppercase tracking-widest opacity-90 mb-1">Tu Balance</span>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-8 h-8 text-white animate-pulse" />
+                <span className="text-5xl font-black tracking-tighter drop-shadow-sm">{points.toLocaleString()}</span>
+              </div>
+              <div className="mt-4 bg-white/20 backdrop-blur-md px-6 py-2 rounded-full border border-white/30 text-xs font-bold shadow-inner">
+                Puntos Disponibles
+              </div>
             </div>
           </div>
         </div>
@@ -229,108 +254,94 @@ export function ClerkHomeTab() {
           onChange={handleFileChange}
         />
 
-        {/* Scan Button Card - Dopamine Style */}
-        <div className="relative group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-primary to-cyan-400 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 animate-tilt"></div>
-          <Card className="relative border-none shadow-2xl bg-gradient-to-br from-primary via-cyan-500 to-primary text-white overflow-hidden transform transition-all hover:scale-[1.02]">
+        {/* Scan Actions Grid */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* Main Scan Action */}
+          <button
+            onClick={handleScanClick}
+            disabled={!isActive || isScanning}
+            className="col-span-2 group relative h-32 rounded-[2rem] overflow-hidden shadow-float transition-all hover:shadow-lg active:scale-95"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-[#00C2E0] to-[#0077E6]"></div>
+            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
 
-            {/* Animated Background Elements */}
-            <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10 animate-pulse" />
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/10 rounded-full blur-2xl -ml-10 -mb-10" />
+            <div className="absolute top-4 right-4 bg-white/20 p-2 rounded-full backdrop-blur-sm">
+              <Scan className="w-6 h-6 text-white" />
+            </div>
 
-            <CardContent className="p-8 flex flex-col items-center justify-center text-center relative z-10">
-              <div className="mb-6 p-5 bg-white/20 rounded-full backdrop-blur-md shadow-inner ring-4 ring-white/10 animate-[pulse_3s_ease-in-out_infinite]">
-                <Scan className="w-16 h-16 text-white drop-shadow-md" />
+            <div className="relative z-10 h-full flex flex-col justify-end p-6 text-left">
+              <h3 className="text-xl font-bold text-white leading-none mb-1">Escanear Factura</h3>
+              <p className="text-blue-100 text-xs font-medium">Gana puntos al instante</p>
+            </div>
+
+            {isScanning && (
+              <div className="absolute inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-20">
+                <Loader2 className="w-8 h-8 text-white animate-spin" />
               </div>
-              <h2 className="text-3xl font-black mb-3 tracking-tight">Escanear Factura</h2>
-              <p className="text-white/90 mb-8 max-w-[220px] font-medium leading-relaxed">
-                ¡Suma puntos ahora! Toma una foto y gana recompensas al instante.
-              </p>
-              <Button
-                size="lg"
-                variant="secondary"
-                className="w-full font-bold text-primary text-lg h-14 shadow-xl hover:shadow-2xl transition-all hover:bg-white border-2 border-transparent hover:border-primary/20"
-                onClick={handleScanClick}
-                disabled={!isActive || isScanning}
-              >
-                {isScanning ? (
-                  <>
-                    <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                    Procesando...
-                  </>
-                ) : (
-                  <>
-                    <Camera className="mr-2 h-6 w-6" />
-                    ¡Escanear Ahora!
-                  </>
-                )}
-              </Button>
-              {!isActive && (
-                <div className="mt-4 flex items-center gap-2 text-xs bg-black/30 px-4 py-2 rounded-full backdrop-blur-sm text-white/90 font-medium">
-                  <XCircle className="h-4 w-4 text-red-300" />
-                  <span>Cuenta pendiente de verificación</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            )}
+          </button>
         </div>
 
-        {/* Recent Activity / Status */}
+        {!isActive && (
+          <div className="flex items-center gap-2 text-xs bg-red-50 text-red-600 px-4 py-3 rounded-xl border border-red-100">
+            <XCircle className="h-4 w-4" />
+            <span>Cuenta pendiente de verificación por el admin.</span>
+          </div>
+        )}
+
+        {/* Recent Activity / Status - Soft List */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="font-bold text-lg flex items-center gap-2 text-foreground/80">
-              <History className="h-5 w-5 text-primary" />
+          <div className="flex items-center justify-between px-2">
+            <h3 className="font-bold text-lg text-foreground/80">
               Actividad Reciente
             </h3>
+            <Button variant="ghost" size="sm" className="text-primary text-xs font-bold hover:bg-transparent hover:text-primary/80">Ver Todo</Button>
           </div>
 
-          <Card className="border-none shadow-lg bg-white/60 backdrop-blur-sm">
-            <CardContent className="p-0 divide-y divide-gray-100">
-              {recentScans.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground flex flex-col items-center gap-2">
-                  <History className="w-8 h-8 text-muted-foreground/30" />
-                  <p className="text-sm font-medium">Aún no tienes actividad.</p>
-                  <p className="text-xs">¡Escanea tu primera factura hoy!</p>
-                </div>
-              ) : (
-                recentScans.map((scan) => (
-                  <div key={scan.id} className="p-4 flex items-center justify-between hover:bg-white/50 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${scan.status === 'processed' ? 'bg-success/10 text-success ring-1 ring-success/20' :
-                          scan.status === 'error' ? 'bg-destructive/10 text-destructive ring-1 ring-destructive/20' : 'bg-secondary text-primary ring-1 ring-primary/20'
-                        }`}>
-                        {scan.status === 'processed' ? (
-                          <Zap className="h-6 w-6 fill-current" />
-                        ) : scan.status === 'error' ? (
-                          <AlertCircle className="h-6 w-6" />
-                        ) : (
-                          <Loader2 className="h-6 w-6 animate-spin" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-bold text-sm text-foreground">
-                          {scan.status === 'processed' ? 'Puntos Ganados' :
-                            scan.status === 'error' ? 'Intento Fallido' : 'Procesando...'}
-                        </p>
-                        <p className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                          {formatDate(scan.createdAt)}
-                        </p>
-                      </div>
+          <div className="space-y-3">
+            {recentScans.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground bg-white rounded-[2rem] shadow-sm border border-slate-50 flex flex-col items-center gap-2">
+                <History className="w-10 h-10 text-muted-foreground/20" />
+                <p className="text-sm font-medium">Sin actividad aún</p>
+              </div>
+            ) : (
+              recentScans.map((scan) => (
+                <div key={scan.id} className="group bg-white p-4 rounded-3xl shadow-sm border border-slate-50 flex items-center justify-between transition-all hover:shadow-md hover:scale-[1.01]">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${scan.status === 'processed' ? 'bg-[#E0F7FA] text-[#00C2E0]' :
+                        scan.status === 'error' ? 'bg-red-50 text-red-500' : 'bg-gray-50 text-gray-400'
+                      }`}>
+                      {scan.status === 'processed' ? (
+                        <Zap className="h-6 w-6 fill-current" />
+                      ) : scan.status === 'error' ? (
+                        <AlertCircle className="h-6 w-6" />
+                      ) : (
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      )}
                     </div>
-                    {scan.pointsEarned > 0 && (
-                      <div className="flex flex-col items-end">
-                        <span className="font-black text-success text-lg">+{scan.pointsEarned}</span>
-                        <span className="text-[10px] font-bold text-success/70 uppercase">Puntos</span>
-                      </div>
-                    )}
-                    {scan.status === 'error' && (
-                      <span className="text-xs font-bold text-destructive bg-destructive/10 px-2 py-1 rounded-full">Error</span>
-                    )}
+                    <div>
+                      <p className="font-bold text-sm text-foreground/90">
+                        {scan.status === 'processed' ? 'Puntos Ganados' :
+                          scan.status === 'error' ? 'Error al procesar' : 'Analizando...'}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">
+                        {formatDate(scan.createdAt)}
+                      </p>
+                    </div>
                   </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+                  {scan.pointsEarned > 0 && (
+                    <div className="text-right">
+                      <span className="block font-black text-[#00C2E0] text-lg">+{scan.pointsEarned}</span>
+                      <span className="block text-[9px] font-bold text-gray-400 uppercase">Coins</span>
+                    </div>
+                  )}
+                  {scan.status === 'error' && (
+                    <button className="text-xs font-bold text-red-500 bg-red-100 px-3 py-1 rounded-full">Revisar</button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
         {/* Roulette Modal */}

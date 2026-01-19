@@ -13,21 +13,20 @@ export function ClerkBottomNav({ activeTab, onTabChange }: ClerkBottomNavProps) 
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-100 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.03)] z-50">
       <div className="flex items-center justify-around h-16 max-w-md mx-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
-          
+
           return (
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-                isActive 
-                  ? 'text-primary' 
+              className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${isActive
+                  ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'
-              }`}
+                }`}
             >
               <Icon className={`h-5 w-5 ${isActive ? 'scale-110' : ''} transition-transform`} />
               <span className={`text-xs mt-1 ${isActive ? 'font-medium' : ''}`}>

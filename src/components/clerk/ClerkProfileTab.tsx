@@ -69,67 +69,69 @@ export function ClerkProfileTab() {
   return (
     <div className="min-h-screen bg-background pb-24 pt-4">
       <div className="px-4 space-y-6 max-w-md mx-auto">
-        {/* Profile Header */}
-        <div className="text-center py-6">
-          <Avatar className="w-24 h-24 mx-auto mb-4 ring-4 ring-primary/20">
-            <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-              {currentUser.name ? currentUser.name.split(' ').map(n => n[0]).join('') : 'U'}
-            </AvatarFallback>
-          </Avatar>
-          <h1 className="text-2xl font-bold">{currentUser.name}</h1>
-          <p className="text-muted-foreground">Dependiente</p>
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gold/10 text-gold-dark mt-3">
-            <span className="font-bold">{points.toLocaleString()}</span>
-            <span className="text-sm">puntos acumulados</span>
+        {/* Profile Header - Clean & Centered */}
+        <div className="flex flex-col items-center pt-8 pb-6">
+          <div className="relative mb-4 group">
+            <div className="absolute -inset-1 bg-gradient-to-tr from-primary to-blue-400 rounded-full blur opacity-40 group-hover:opacity-60 transition duration-500"></div>
+            <Avatar className="w-28 h-28 relative ring-4 ring-white shadow-xl">
+              <AvatarFallback className="bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600 text-4xl font-black">
+                {currentUser.name ? currentUser.name.split(' ').map(n => n[0]).join('') : 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="absolute bottom-1 right-1 bg-green-500 w-6 h-6 rounded-full border-4 border-white shadow-sm" />
+          </div>
+
+          <h1 className="text-2xl font-bold text-foreground mt-2">{currentUser.name} {currentUser.lastName || ''}</h1>
+          <p className="text-sm text-muted-foreground font-medium bg-slate-100 px-3 py-1 rounded-full mt-2">
+            {pharmacyName}
+          </p>
+        </div>
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all">
+            <span className="text-2xl font-black text-[#FFD700] drop-shadow-sm">{points.toLocaleString()}</span>
+            <span className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wide">Puntos</span>
+          </div>
+
+          <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all">
+            <span className="text-2xl font-black text-primary">{history.length}</span>
+            <span className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wide">Escaneos</span>
+          </div>
+
+          <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all">
+            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center mb-1">
+              <span className="text-slate-400 text-xs font-bold">#1</span>
+            </div>
+            <span className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wide">Nivel</span>
           </div>
         </div>
 
-        {/* User Info */}
-        <Card>
-          <CardContent className="p-4 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Nombre Completo</p>
-                <p className="font-medium">{currentUser.name} {currentUser.lastName || ''}</p>
-              </div>
+        {/* Menu Options */}
+        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-50 overflow-hidden divide-y divide-slate-50">
+          {/* Personal Info Group */}
+          <div className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 cursor-pointer">
+            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
+              <User className="w-5 h-5" />
             </div>
-
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <div className="h-5 w-5 text-primary font-bold text-xs flex items-center justify-center border border-primary rounded">ID</div>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Cédula</p>
-                <p className="font-medium">{currentUser.cedula || 'No registrada'}</p>
-              </div>
+            <div className="flex-1">
+              <h4 className="font-bold text-sm text-foreground">Información Personal</h4>
+              <p className="text-xs text-muted-foreground">{currentUser.cedula || 'ID no reg.'} • {currentUser.phone || 'Sin tel.'}</p>
             </div>
+            <ChevronRight className="w-5 h-5 text-slate-300" />
+          </div>
 
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Phone className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Teléfono</p>
-                <p className="font-medium">{currentUser.phone || 'N/A'}</p>
-              </div>
+          <div className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 cursor-pointer">
+            <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-500">
+              <MapPin className="w-5 h-5" />
             </div>
-
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <MapPin className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Farmacia</p>
-                <p className="font-medium">{pharmacyName}</p>
-              </div>
+            <div className="flex-1">
+              <h4 className="font-bold text-sm text-foreground">Mi Farmacia</h4>
+              <p className="text-xs text-muted-foreground">{pharmacyName}</p>
             </div>
-
-
-          </CardContent>
-        </Card>
+            <ChevronRight className="w-5 h-5 text-slate-300" />
+          </div>
+        </div>
 
         {/* Scan History */}
         <Card>
@@ -169,15 +171,14 @@ export function ClerkProfileTab() {
           </CardContent>
         </Card>
 
-        {/* Logout */}
-        <Button
-          variant="outline"
+        {/* Logout Button */}
+        <button
           onClick={handleLogout}
-          className="w-full h-12 text-destructive hover:text-destructive hover:bg-destructive/10"
+          className="w-full mt-6 py-4 rounded-xl flex items-center justify-center gap-2 text-red-500 font-bold hover:bg-red-50 transition-colors"
         >
-          <LogOut className="h-5 w-5 mr-2" />
-          Cerrar Sesión
-        </Button>
+          <LogOut className="w-5 h-5" />
+          <span>Cerrar Sesión</span>
+        </button>
       </div>
     </div>
   );
