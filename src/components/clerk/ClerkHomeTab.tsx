@@ -1,11 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
-import { Scan, Camera, CheckCircle2, XCircle, History, Zap, Loader2 } from 'lucide-react';
+import { Scan, Camera, CheckCircle2, XCircle, History, Zap, Loader2, AlertCircle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { db, storage } from '@/lib/firebase';
-import { collection, addDoc, doc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, onSnapshot, serverTimestamp, query, where, orderBy, limit, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export function ClerkHomeTab() {
@@ -13,7 +13,49 @@ export function ClerkHomeTab() {
   const { toast } = useToast();
   const [isScanning, setIsScanning] = useState(false);
   const [showRoulette, setShowRoulette] = useState(false);
+  const [pharmacyName, setPharmacyName] = useState<string>('');
+  const [recentScans, setRecentScans] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch Pharmacy Name
+  useEffect(() => {
+    const fetchPharmacy = async () => {
+      if (currentUser?.pharmacyId) {
+        try {
+          const pharRef = doc(db, 'pharmacies', currentUser.pharmacyId);
+          const pharSnap = await getDoc(pharRef);
+          if (pharSnap.exists()) {
+            setPharmacyName(pharSnap.data().name);
+          }
+        } catch (error) {
+          console.error("Error fetching pharmacy:", error);
+        }
+      }
+    };
+    fetchPharmacy();
+  }, [currentUser?.pharmacyId]);
+
+  // Fetch Recent Activity (Scans)
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    const q = query(
+      collection(db, 'scans'),
+      where('userId', '==', currentUser.id),
+      orderBy('createdAt', 'desc'),
+      limit(5)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const scans = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setRecentScans(scans);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser?.id]);
 
   const handleScanClick = () => {
     if (!isActive) {
@@ -37,7 +79,9 @@ export function ClerkHomeTab() {
         userId: currentUser.id,
         status: 'uploading',
         createdAt: serverTimestamp(),
-        userName: currentUser.name
+        userName: currentUser.name,
+        userEmail: currentUser.email, // Added for easier tracking
+        pharmacyId: currentUser.pharmacyId || null
       });
 
       // 2. Upload Image to Storage
@@ -58,7 +102,7 @@ export function ClerkHomeTab() {
         description: "Subiendo imagen y procesando con IA. Esto puede tomar unos segundos.",
       });
 
-      // 4. Listen for Result
+      // 4. Listen for Result (handled by general listener, but here for immediate feedback)
       const unsubscribe = onSnapshot(doc(db, 'scans', scanRef.id), (docSnapshot) => {
         const data = docSnapshot.data();
         if (!data) return;
@@ -72,14 +116,15 @@ export function ClerkHomeTab() {
           const productNames = productsFound.map((p: any) => p.product).join(', ');
 
           if (earnedPoints > 0) {
-            addPoints(earnedPoints);
+            // Points update handled via user listener in AppContext usually, 
+            // but we can locally trigger if needed or just let the global state update.
+            // addPoints(earnedPoints); // Rely on backend or global listener to avoid double count
+
             toast({
               title: "¡Factura Aprobada! 🎉",
               description: `Detectamos: ${productNames}. Ganaste ${earnedPoints} puntos.`,
             });
 
-            // Simple logic: if points > 50, maybe trigger roulette?
-            // Or keep the random logic:
             if (Math.random() > 0.7) setShowRoulette(true);
 
           } else {
@@ -130,6 +175,13 @@ export function ClerkHomeTab() {
     setShowRoulette(false);
   };
 
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return 'Reciente';
+    // Handle Firestore Timestamp
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return new Intl.DateTimeFormat('es-DO', { hour: 'numeric', minute: 'numeric', hour12: true }).format(date);
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24 pt-4 relative">
       <div className="px-4 space-y-6 max-w-md mx-auto">
@@ -141,7 +193,7 @@ export function ClerkHomeTab() {
               Hola, {currentUser?.name?.split(' ')[0] || 'Usuario'} 👋
             </h1>
             <p className="text-muted-foreground text-sm">
-              {currentUser?.email || 'Farmacia Central'}
+              {pharmacyName || currentUser?.email || 'Cargando farmacia...'}
             </p>
           </div>
           <div className="text-right">
@@ -211,19 +263,42 @@ export function ClerkHomeTab() {
 
           <Card>
             <CardContent className="p-0 divide-y divide-border">
-              {/* Mock Activity Items */}
-              <div className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
-                    <CheckCircle2 className="h-5 w-5 text-success" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm">Factura Aprobada</p>
-                    <p className="text-xs text-muted-foreground">Hace 2 horas</p>
-                  </div>
+              {recentScans.length === 0 ? (
+                <div className="p-6 text-center text-muted-foreground text-sm">
+                  No hay actividad reciente.
                 </div>
-                <span className="font-bold text-success">+150 pts</span>
-              </div>
+              ) : (
+                recentScans.map((scan) => (
+                  <div key={scan.id} className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${scan.status === 'processed' ? 'bg-success/10' :
+                          scan.status === 'error' ? 'bg-destructive/10' : 'bg-muted'
+                        }`}>
+                        {scan.status === 'processed' ? (
+                          <CheckCircle2 className="h-5 w-5 text-success" />
+                        ) : scan.status === 'error' ? (
+                          <AlertCircle className="h-5 w-5 text-destructive" />
+                        ) : (
+                          <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">
+                          {scan.status === 'processed' ? 'Factura Aprobada' :
+                            scan.status === 'error' ? 'Error al procesar' : 'Procesando...'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{formatDate(scan.createdAt)}</p>
+                      </div>
+                    </div>
+                    {scan.pointsEarned > 0 && (
+                      <span className="font-bold text-success">+{scan.pointsEarned} pts</span>
+                    )}
+                    {scan.status === 'error' && (
+                      <span className="text-xs text-destructive">Falló</span>
+                    )}
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
         </div>

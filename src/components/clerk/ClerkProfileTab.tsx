@@ -3,9 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useApp } from '@/context/AppContext';
-import { pharmacies } from '@/lib/constants';
+// import { pharmacies } from '@/lib/constants'; // Removed static
 import { ScanRecord } from '@/lib/types';
 import { getScanHistory } from '@/lib/db';
+import { db } from '@/lib/firebase'; // Added
+import { doc, getDoc } from 'firebase/firestore'; // Added
 import { User, Phone, MapPin, History, LogOut, ChevronRight, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -15,18 +17,35 @@ export function ClerkProfileTab() {
   const { currentUser, points, logout } = useApp();
   const navigate = useNavigate();
   const [history, setHistory] = useState<ScanRecord[]>([]);
-
-  const pharmacy = pharmacies.find(p => p.id === currentUser?.pharmacyId);
+  const [pharmacyName, setPharmacyName] = useState<string>('Cargando...');
 
   useEffect(() => {
-    const loadHistory = async () => {
+    const loadData = async () => {
       if (currentUser?.id) {
+        // Load History
         const scans = await getScanHistory(currentUser.id);
         setHistory(scans);
       }
+
+      // Load Pharmacy
+      if (currentUser?.pharmacyId) {
+        try {
+          const pharDoc = await getDoc(doc(db, 'pharmacies', currentUser.pharmacyId));
+          if (pharDoc.exists()) {
+            setPharmacyName(pharDoc.data().name);
+          } else {
+            setPharmacyName('Desconocida');
+          }
+        } catch (e) {
+          console.error("Error loading pharmacy", e);
+          setPharmacyName('Error loading');
+        }
+      } else {
+        setPharmacyName('No asignada');
+      }
     };
-    loadHistory();
-  }, [currentUser?.id]);
+    loadData();
+  }, [currentUser?.id, currentUser?.pharmacyId]);
 
   const handleLogout = () => {
     logout();
@@ -93,7 +112,7 @@ export function ClerkProfileTab() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Farmacia</p>
-                <p className="font-medium">{pharmacy?.name || 'No Asignada'}</p>
+                <p className="font-medium">{pharmacyName}</p>
               </div>
             </div>
           </CardContent>

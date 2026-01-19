@@ -24,7 +24,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.processIdentity = exports.processInvoice = void 0;
-const functions = __importStar(require("firebase-functions"));
+const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 const vertexai_1 = require("@google-cloud/vertexai");
 admin.initializeApp();
@@ -37,7 +37,7 @@ const location = 'us-central1'; // Or your preferred region
 const vertexAI = new vertexai_1.VertexAI({ project: project, location: location });
 // Instantiate Gemini model
 const model = vertexAI.preview.getGenerativeModel({
-    model: 'gemini-1.5-flash-001',
+    model: 'gemini-2.5-flash',
     generationConfig: {
         'maxOutputTokens': 2048,
         'temperature': 0.4,
@@ -120,15 +120,27 @@ exports.processInvoice = functions.firestore
         const matchedDetails = [];
         if (aiData.matches && Array.isArray(aiData.matches)) {
             aiData.matches.forEach((match) => {
-                const productConfig = products.find((p) => p.name.toLowerCase() === match.product.toLowerCase());
+                // Normalize strings for comparison: lowercase and trim
+                const matchName = (match.product || '').toLowerCase().trim();
+                const productConfig = products.find((p) => {
+                    const dbName = (p.name || '').toLowerCase().trim();
+                    return dbName === matchName || dbName.includes(matchName) || matchName.includes(dbName);
+                });
                 if (productConfig) {
-                    const points = (match.quantity || 1) * (productConfig.points || 0);
+                    const pointsPerUnit = Number(productConfig.points) || 0;
+                    const quantity = Number(match.quantity) || 1;
+                    const points = quantity * pointsPerUnit;
+                    console.log(`Match Found: "${match.product}" -> "${productConfig.name}" | Qty: ${quantity} | Pts/Unit: ${pointsPerUnit} | Total: ${points}`);
                     totalPoints += points;
                     matchedDetails.push({
-                        product: match.product,
-                        quantity: match.quantity,
-                        points: points
+                        product: productConfig.name,
+                        quantity: quantity,
+                        points: points,
+                        unitPoints: pointsPerUnit
                     });
+                }
+                else {
+                    console.warn(`No DB match for AI product: "${match.product}"`);
                 }
             });
         }
