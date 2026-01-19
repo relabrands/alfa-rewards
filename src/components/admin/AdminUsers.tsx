@@ -19,7 +19,7 @@ export default function AdminUsers() {
     const [search, setSearch] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [newRep, setNewRep] = useState({ name: '', email: '', password: '', phone: '' });
+    const [newRep, setNewRep] = useState({ name: '', email: '', password: '', phone: '', zone: '' });
 
     useEffect(() => {
         loadUsers();
@@ -37,19 +37,25 @@ export default function AdminUsers() {
             const userCredential = await createUserWithEmailAndPassword(auth, newRep.email, newRep.password);
             const user = userCredential.user;
 
+            // Simple parsing of semicolon separated zones
+            const zoneArray = newRep.zone
+                ? newRep.zone.split(';').map(z => z.trim()).filter(z => z.length > 0)
+                : [];
+
             await createUserProfile(user.uid, {
                 id: user.uid,
                 name: newRep.name,
                 email: newRep.email,
                 phone: newRep.phone,
                 role: 'salesRep',
-                status: 'active', // Admin created reps are active by default
+                status: 'active',
+                zone: zoneArray,
                 avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`
             });
 
             toast({ title: "Visitador Creado", description: "El usuario ha sido registrado exitosamente." });
             setIsDialogOpen(false);
-            setNewRep({ name: '', email: '', password: '', phone: '' });
+            setNewRep({ name: '', email: '', password: '', phone: '', zone: '' });
             loadUsers(); // Refresh list
         } catch (error: any) {
             console.error(error);
@@ -126,6 +132,15 @@ export default function AdminUsers() {
                                     <div className="space-y-2">
                                         <Label htmlFor="phone">Teléfono</Label>
                                         <Input id="phone" value={newRep.phone} onChange={(e) => setNewRep({ ...newRep, phone: e.target.value })} required />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="zone">Zonas Asignadas (Separa por ';')</Label>
+                                        <Input
+                                            id="zone"
+                                            value={newRep.zone}
+                                            onChange={(e) => setNewRep({ ...newRep, zone: e.target.value })}
+                                            placeholder="Ej: Evaristo Morales; Piantini"
+                                        />
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="password">Contraseña Temporal</Label>

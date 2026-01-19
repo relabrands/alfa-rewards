@@ -7,22 +7,40 @@ import { getPendingUsers, updateUserStatus } from "@/lib/db";
 import { User } from "@/lib/types";
 import { CheckCircle2, XCircle, Clock, UserCheck, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useApp } from "@/context/AppContext";
 
 export function SalesRepApprovals() {
     const { toast } = useToast();
+    const { currentUser } = useApp();
     const [pendingUsers, setPendingUsers] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [filter, setFilter] = useState("");
 
     useEffect(() => {
-        loadPendingUsers();
-    }, []);
+        if (currentUser) {
+            loadPendingUsers();
+        }
+    }, [currentUser]);
 
     const loadPendingUsers = async () => {
         try {
-            // In a real app, you might filter by the sales rep's assigned pharmacies
-            const users = await getPendingUsers();
-            setPendingUsers(users);
+            const allPending = await getPendingUsers();
+
+            // Zone Filtering Logic
+            let filteredByZone = allPending;
+
+            // If the Sales Rep has specific zones assigned, filter users
+            if (currentUser?.zone && currentUser.zone.length > 0) {
+                filteredByZone = allPending.filter(user => {
+                    // Check if user has a sector (stored in user.zone logic we added)
+                    // And if that sector matches any of the sales rep's zones
+                    const userSector = user.zone?.[0]; // We stored sector in zone[0]
+                    if (!userSector) return false; // Or true if we want to show unzoned? Better false for security
+                    return currentUser.zone?.includes(userSector);
+                });
+            }
+
+            setPendingUsers(filteredByZone);
         } catch (error) {
             console.error(error);
             toast({

@@ -47,7 +47,7 @@ service cloud.firestore {
     // Rules for 'pharmacies'
     match /pharmacies/{pharmacyId} {
       allow read: if isAuthenticated();
-      allow write: if false; // Only admin via console for now
+      allow write: if isAdmin();
     }
   }
 }

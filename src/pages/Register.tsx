@@ -67,6 +67,8 @@ export default function Register() {
             const user = userCredential.user;
 
             // 2. Create Firestore Profile with 'pending' status
+            const selectedPharmacy = pharmacies.find(p => p.id === formData.pharmacyId);
+
             await createUserProfile(user.uid, {
                 id: user.uid,
                 name: formData.firstName,
@@ -77,6 +79,8 @@ export default function Register() {
                 status: 'pending',
                 pharmacyId: formData.pharmacyId,
                 points: 0,
+                // Save sector for zone-based routing
+                zone: selectedPharmacy?.sector ? [selectedPharmacy.sector] : [],
                 avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`
             });
 
