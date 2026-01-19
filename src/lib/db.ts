@@ -256,3 +256,26 @@ export const createProduct = async (data: Omit<Product, 'id'>) => {
 export const deleteProduct = async (id: string) => {
     await deleteDoc(doc(db, "products", id));
 };
+
+// Admin System Reset
+export const resetSystemDatabase = async () => {
+    // 1. Reset all Users' points to 0
+    const usersSnapshot = await getDocs(collection(db, "users"));
+    const userUpdates = usersSnapshot.docs.map(userDoc =>
+        updateDoc(doc(db, "users", userDoc.id), { points: 0 })
+    );
+
+    // 2. Delete all Scans
+    const scansSnapshot = await getDocs(collection(db, "scans"));
+    const scanDeletes = scansSnapshot.docs.map(scanDoc =>
+        deleteDoc(doc(db, "scans", scanDoc.id))
+    );
+
+    // 3. Delete all Registered Clerks (Optional, but keeps things clean)
+    const clerksSnapshot = await getDocs(collection(db, "registered_clerks"));
+    const clerkDeletes = clerksSnapshot.docs.map(clerkDoc =>
+        deleteDoc(doc(db, "registered_clerks", clerkDoc.id))
+    );
+
+    await Promise.all([...userUpdates, ...scanDeletes, ...clerkDeletes]);
+};

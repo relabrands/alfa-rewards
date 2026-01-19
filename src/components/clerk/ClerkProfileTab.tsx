@@ -220,27 +220,6 @@ export function ClerkProfileTab() {
           </CardContent>
         </Card>
 
-        {/* Reset Points Button (Hidden/Dev) */}
-        <div className="mt-8 text-center pb-8">
-          <button
-            onClick={async () => {
-              if (confirm("¿RESET DATABASE DE PUNTOS? Esto pondrá tus puntos en 0.")) {
-                try {
-                  await updateDoc(doc(db, 'users', currentUser.id), { points: 0 });
-                  alert("Puntos reseteados a 0.");
-                  window.location.reload();
-                } catch (e) {
-                  alert("Error al resetear.");
-                  console.error(e);
-                }
-              }
-            }}
-            className="text-[10px] text-slate-300 hover:text-red-400 font-mono tracking-widest uppercase transition-colors"
-          >
-            [ RESET PUNTOS DB ]
-          </button>
-        </div>
-
         {/* Logout Button */}
         <button
           onClick={handleLogout}
