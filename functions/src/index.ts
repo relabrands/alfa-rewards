@@ -154,3 +154,70 @@ export const processInvoice = functions.firestore
             return null;
         }
     });
+
+export const processIdentity = functions.firestore
+    .document('identity_scans/{scanId}')
+    .onUpdate(async (change, context) => {
+        const newData = change.after.data();
+        const previousData = change.before.data();
+
+        if (!newData || newData.status !== 'uploaded' || previousData?.status === 'uploaded') {
+            return null;
+        }
+
+        const scanId = context.params.scanId;
+        console.log(`Processing ID scan ${scanId}`);
+
+        try {
+            const bucketName = admin.storage().bucket().name;
+            const storagePath = newData.storagePath;
+
+            const filePart = {
+                fileData: {
+                    fileUri: `gs://${bucketName}/${storagePath}`,
+                    mimeType: 'image/jpeg',
+                },
+            };
+
+            const prompt = `
+                Analyze this Dominican Republic ID Card (Cédula).
+                Extract the Name and ID Number (Cédula).
+                Return a valid JSON object ONLY:
+                {
+                    "name": "Full Name",
+                    "idNumber": "000-0000000-0",
+                    "confidence": "high/medium/low"
+                }
+            `;
+
+            const textPart = { text: prompt };
+
+            const result = await model.generateContent({
+                contents: [{ role: 'user', parts: [filePart, textPart] }],
+            });
+
+            const response = result.response;
+            const textResponse = response.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (!textResponse) throw new Error("Empty AI response");
+
+            const jsonStr = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+            const aiData = JSON.parse(jsonStr);
+
+            await db.collection('identity_scans').doc(scanId).update({
+                status: 'processed',
+                data: aiData,
+                processedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+            return { success: true, data: aiData };
+
+        } catch (error) {
+            console.error("Error processing ID:", error);
+            await db.collection('identity_scans').doc(scanId).update({
+                status: 'error',
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
+            return null;
+        }
+    });

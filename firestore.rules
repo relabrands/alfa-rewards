@@ -49,5 +49,22 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // Rules for 'products'
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Rules for 'rewards'
+    match /rewards/{rewardId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Rules for 'identity_scans' (for Cedula OCR)
+    match /identity_scans/{scanId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

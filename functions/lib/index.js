@@ -23,7 +23,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.processInvoice = void 0;
+exports.processIdentity = exports.processInvoice = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const vertexai_1 = require("@google-cloud/vertexai");
@@ -151,6 +151,62 @@ exports.processInvoice = functions.firestore
     catch (error) {
         console.error("Error processing invoice:", error);
         await db.collection('scans').doc(scanId).update({
+            status: 'error',
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        return null;
+    }
+});
+exports.processIdentity = functions.firestore
+    .document('identity_scans/{scanId}')
+    .onUpdate(async (change, context) => {
+    var _a, _b, _c, _d, _e;
+    const newData = change.after.data();
+    const previousData = change.before.data();
+    if (!newData || newData.status !== 'uploaded' || (previousData === null || previousData === void 0 ? void 0 : previousData.status) === 'uploaded') {
+        return null;
+    }
+    const scanId = context.params.scanId;
+    console.log(`Processing ID scan ${scanId}`);
+    try {
+        const bucketName = admin.storage().bucket().name;
+        const storagePath = newData.storagePath;
+        const filePart = {
+            fileData: {
+                fileUri: `gs://${bucketName}/${storagePath}`,
+                mimeType: 'image/jpeg',
+            },
+        };
+        const prompt = `
+                Analyze this Dominican Republic ID Card (Cédula).
+                Extract the Name and ID Number (Cédula).
+                Return a valid JSON object ONLY:
+                {
+                    "name": "Full Name",
+                    "idNumber": "000-0000000-0",
+                    "confidence": "high/medium/low"
+                }
+            `;
+        const textPart = { text: prompt };
+        const result = await model.generateContent({
+            contents: [{ role: 'user', parts: [filePart, textPart] }],
+        });
+        const response = result.response;
+        const textResponse = (_e = (_d = (_c = (_b = (_a = response.candidates) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.content) === null || _c === void 0 ? void 0 : _c.parts) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.text;
+        if (!textResponse)
+            throw new Error("Empty AI response");
+        const jsonStr = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+        const aiData = JSON.parse(jsonStr);
+        await db.collection('identity_scans').doc(scanId).update({
+            status: 'processed',
+            data: aiData,
+            processedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        return { success: true, data: aiData };
+    }
+    catch (error) {
+        console.error("Error processing ID:", error);
+        await db.collection('identity_scans').doc(scanId).update({
             status: 'error',
             error: error instanceof Error ? error.message : 'Unknown error'
         });
