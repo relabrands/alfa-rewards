@@ -7,9 +7,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Badge } from '@/components/ui/badge';
 import { useToast } from "@/hooks/use-toast";
-import { getPharmacies, createPharmacy } from '@/lib/db';
+import { getPharmacies, createPharmacy, updatePharmacy } from '@/lib/db';
 import { Pharmacy } from '@/lib/types';
-import { Building2, Plus, Upload, Loader2, Search, FileSpreadsheet } from 'lucide-react';
+import { Building2, Plus, Upload, Loader2, Search, FileSpreadsheet, Pencil } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SECTORS } from '@/lib/constants';
 
 export default function AdminPharmacies() {
     const { toast } = useToast();
@@ -251,12 +253,13 @@ export default function AdminPharmacies() {
                                 <TableHead>Dirección / Sector</TableHead>
                                 <TableHead>Código Cliente</TableHead>
                                 <TableHead className="text-right">Estado</TableHead>
+                                <TableHead className="text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredPharmacies.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center">
+                                    <TableCell colSpan={5} className="h-24 text-center">
                                         No se encontraron resultados
                                     </TableCell>
                                 </TableRow>
@@ -278,6 +281,9 @@ export default function AdminPharmacies() {
                                                 {p.isActive ? 'Activa' : 'Inactiva'}
                                             </Badge>
                                         </TableCell>
+                                        <TableCell className="text-right">
+                                            <EditPharmacyDialog pharmacy={p} onUpdate={loadPharmacies} />
+                                        </TableCell>
                                     </TableRow>
                                 ))
                             )}
@@ -286,5 +292,98 @@ export default function AdminPharmacies() {
                 </div>
             </CardContent>
         </Card>
+    );
+}
+
+function EditPharmacyDialog({ pharmacy, onUpdate }: { pharmacy: Pharmacy, onUpdate: () => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
+    const [data, setData] = useState({
+        name: pharmacy.name,
+        address: pharmacy.address,
+        sector: pharmacy.sector || '',
+        clientCode: pharmacy.clientCode || '',
+        isActive: pharmacy.isActive
+    });
+
+    const handleUpdate = async () => {
+        setIsLoading(true);
+        try {
+            await updatePharmacy(pharmacy.id, data);
+            toast({ title: 'Farmacia Actualizada', description: 'Los cambios han sido guardados.' });
+            setIsOpen(false);
+            onUpdate();
+        } catch (error) {
+            console.error(error);
+            toast({ title: 'Error', description: 'No se pudo actualizar', variant: 'destructive' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="sm">
+                    <Pencil className="h-4 w-4" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Editar Farmacia</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label>Nombre</Label>
+                        <Input value={data.name} onChange={e => setData({ ...data, name: e.target.value })} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Dirección</Label>
+                        <Input value={data.address} onChange={e => setData({ ...data, address: e.target.value })} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Sector</Label>
+                        <Select
+                            value={data.sector}
+                            onValueChange={(value) => setData({ ...data, sector: value })}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecciona un sector" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {SECTORS.map((sector) => (
+                                    <SelectItem key={sector} value={sector}>
+                                        {sector}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Código Cliente</Label>
+                        <Input value={data.clientCode} onChange={e => setData({ ...data, clientCode: e.target.value })} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Estado</Label>
+                        <Select
+                            value={data.isActive ? 'active' : 'inactive'}
+                            onValueChange={(value) => setData({ ...data, isActive: value === 'active' })}
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="active">Activa</SelectItem>
+                                <SelectItem value="inactive">Inactiva</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <Button onClick={handleUpdate} disabled={isLoading} className="w-full">
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Guardar Cambios'}
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
     );
 }

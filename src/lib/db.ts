@@ -53,6 +53,11 @@ export const createPharmacy = async (data: Omit<Pharmacy, 'id'>) => {
     return docRef.id;
 };
 
+export const updatePharmacy = async (id: string, data: Partial<Pharmacy>) => {
+    const docRef = doc(db, "pharmacies", id);
+    await updateDoc(docRef, data);
+};
+
 // Scans
 export const addScanRecord = async (scanData: Omit<ScanRecord, "id" | "timestamp">) => {
     const docRef = await addDoc(collection(db, "scans"), {
