@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Label } from "@/components/ui/label";
 import { useApp } from '@/context/AppContext';
-import { getRegisteredClerks } from '@/lib/db';
+import { getTeamMembers } from '@/lib/db';
 import { RegisteredClerk } from '@/lib/types';
 import { User, Phone, Briefcase, Users, TrendingUp, Award, Calendar } from 'lucide-react';
 
@@ -14,13 +14,15 @@ export function SalesRepProfileSection() {
 
   useEffect(() => {
     const loadTeam = async () => {
-      if (currentUser?.id) {
-        const clerks = await getRegisteredClerks(currentUser.id);
-        setTeam(clerks as unknown as RegisteredClerk[]);
+      if (currentUser?.zone && currentUser.zone.length > 0) {
+        const clerks = await getTeamMembers(currentUser.zone);
+        setTeam(clerks as RegisteredClerk[]);
+      } else {
+        setTeam([]);
       }
     };
     loadTeam();
-  }, [currentUser?.id]);
+  }, [currentUser?.zone]);
 
   const totalClerks = team.length;
   const activeClerks = team.filter(c => c.status === 'active').length;
