@@ -32,7 +32,8 @@ export function ClerkProfileTab() {
         try {
           const pharDoc = await getDoc(doc(db, 'pharmacies', currentUser.pharmacyId));
           if (pharDoc.exists()) {
-            setPharmacyName(pharDoc.data().name);
+            const data = pharDoc.data();
+            setPharmacyName(`${data.name} ${data.sector ? `- ${data.sector}` : ''}`);
           } else {
             setPharmacyName('Desconocida');
           }
@@ -91,8 +92,18 @@ export function ClerkProfileTab() {
                 <User className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Nombre</p>
-                <p className="font-medium">{currentUser.name}</p>
+                <p className="text-sm text-muted-foreground">Nombre Completo</p>
+                <p className="font-medium">{currentUser.name} {currentUser.lastName || ''}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <div className="h-5 w-5 text-primary font-bold text-xs flex items-center justify-center border border-primary rounded">ID</div>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Cédula</p>
+                <p className="font-medium">{currentUser.cedula || 'No registrada'}</p>
               </div>
             </div>
 
@@ -115,6 +126,8 @@ export function ClerkProfileTab() {
                 <p className="font-medium">{pharmacyName}</p>
               </div>
             </div>
+
+
           </CardContent>
         </Card>
 
