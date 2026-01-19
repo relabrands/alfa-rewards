@@ -167,6 +167,11 @@ export const updateUserStatus = async (uid: string, status: 'active' | 'pending'
     await updateDoc(docRef, { status });
 };
 
+export const updateUserProfile = async (uid: string, data: Partial<User>) => {
+    const docRef = doc(db, "users", uid);
+    await updateDoc(docRef, data);
+};
+
 export const getPendingUsers = async (pharmacyId?: string) => {
     let q;
     if (pharmacyId) {

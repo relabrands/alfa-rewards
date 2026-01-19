@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+import { Label } from "@/components/ui/label";
 import { useApp } from '@/context/AppContext';
 import { getRegisteredClerks } from '@/lib/db';
 import { RegisteredClerk } from '@/lib/types';
@@ -57,6 +59,44 @@ export function SalesRepProfileSection() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <Label>Nombre Completo</Label>
+          <Input value={`${currentUser.name} ${currentUser.lastName || ''}`} disabled />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Correo Electrónico</Label>
+          <Input value={currentUser.email || ''} disabled />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Rol</Label>
+          <div className="flex items-center space-x-2">
+            <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
+              Visitador Médico
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Zonas Asignadas</Label>
+          <Input
+            value={currentUser.zone && currentUser.zone.length > 0 ? currentUser.zone.join(', ') : 'Sin zonas asignadas'}
+            disabled
+          />
+        </div>
+      </div>
+
+      <div className="bg-muted/50 p-4 rounded-lg flex items-start gap-3">
+        <div className="mt-1">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="16" y2="12" /><line x1="12" x2="12.01" y1="8" y2="8" /></svg>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Para actualizar tu información personal o zonas asignadas, por favor contacta a tu gerente directo.
+        </p>
+      </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

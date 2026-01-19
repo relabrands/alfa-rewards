@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { getAllUsers, createUserProfile } from '@/lib/db';
+import { getAllUsers, createUserProfile, updateUserProfile } from '@/lib/db';
 import { User } from '@/lib/types';
 import { User as UserIcon, Users, Shield, Briefcase, Search, PlusCircle, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -166,7 +166,7 @@ export default function AdminUsers() {
                                 <TableHead>Usuario</TableHead>
                                 <TableHead>Rol</TableHead>
                                 <TableHead>Ubicación / Detalles</TableHead>
-                                <TableHead className="text-right">Puntos</TableHead>
+                                <TableHead className="text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -188,14 +188,20 @@ export default function AdminUsers() {
                                         {user.status === 'pending' && <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800 border-yellow-200">Pendiente</Badge>}
                                     </TableCell>
                                     <TableCell>
-                                        {user.pharmacyId ? (
+                                        {user.role === 'salesRep' && user.zone && (
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-xs text-muted-foreground font-semibold">Zonas:</span>
+                                                <span className="text-xs">{user.zone.join(', ')}</span>
+                                            </div>
+                                        )}
+                                        {user.pharmacyId && (
                                             <span className="flex items-center gap-1 text-xs">
                                                 <Briefcase className="h-3 w-3" /> {user.pharmacyId}
                                             </span>
-                                        ) : '-'}
+                                        )}
                                     </TableCell>
-                                    <TableCell className="text-right font-mono">
-                                        {user.points ? user.points.toLocaleString() : 0}
+                                    <TableCell className="text-right">
+                                        <EditUserDialog user={user} onUpdate={loadUsers} />
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -204,5 +210,89 @@ export default function AdminUsers() {
                 </div>
             </CardContent>
         </Card>
+    );
+}
+
+function EditUserDialog({ user, onUpdate }: { user: User, onUpdate: () => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
+    const [data, setData] = useState({
+        name: user.name || '',
+        phone: user.phone || '',
+        role: user.role,
+        zone: user.zone ? user.zone.join('; ') : ''
+    });
+
+    const handleUpdate = async () => {
+        setIsLoading(true);
+        try {
+            const updates: Partial<User> = {
+                name: data.name,
+                phone: data.phone,
+                role: data.role as any,
+            };
+
+            if (data.role === 'salesRep') {
+                updates.zone = data.zone.split(';').map(z => z.trim()).filter(z => z.length > 0);
+            }
+
+            await updateUserProfile(user.id, updates);
+            toast({ title: 'Usuario Actualizado', description: 'Los cambios han sido guardados.' });
+            setIsOpen(false);
+            onUpdate();
+        } catch (error) {
+            console.error(error);
+            toast({ title: 'Error', description: 'No se pudo actualizar', variant: 'destructive' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="sm">
+                    <Users className="h-4 w-4" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Editar Usuario</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label>Nombre</Label>
+                        <Input value={data.name} onChange={e => setData({ ...data, name: e.target.value })} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Teléfono</Label>
+                        <Input value={data.phone} onChange={e => setData({ ...data, phone: e.target.value })} />
+                    </div>
+                    {data.role === 'salesRep' && (
+                        <div className="space-y-2">
+                            <Label>Zonas (Separa por ';')</Label>
+                            <Input value={data.zone} onChange={e => setData({ ...data, zone: e.target.value })} />
+                        </div>
+                    )}
+                    <div className="space-y-2">
+                        <Label>Rol</Label>
+                        <select
+                            className="w-full p-2 border rounded-md"
+                            value={data.role}
+                            onChange={e => setData({ ...data, role: e.target.value as any })}
+                        >
+                            <option value="clerk">Dependiente</option>
+                            <option value="salesRep">Visitador</option>
+                            <option value="manager">Manager</option>
+                            <option value="director">Director</option>
+                        </select>
+                    </div>
+                    <Button onClick={handleUpdate} disabled={isLoading} className="w-full">
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Guardar Cambios'}
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
     );
 }
