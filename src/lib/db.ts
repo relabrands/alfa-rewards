@@ -153,3 +153,28 @@ export const getAllPharmacies = async () => {
     const querySnapshot = await getDocs(collection(db, "pharmacies"));
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pharmacy));
 };
+// User Management
+export const updateUserStatus = async (uid: string, status: 'active' | 'pending' | 'disabled') => {
+    const docRef = doc(db, "users", uid);
+    await updateDoc(docRef, { status });
+};
+
+export const getPendingUsers = async (pharmacyId?: string) => {
+    let q;
+    if (pharmacyId) {
+        q = query(
+            collection(db, "users"),
+            where("role", "==", "clerk"),
+            where("status", "==", "pending"),
+            where("pharmacyId", "==", pharmacyId)
+        );
+    } else {
+        q = query(
+            collection(db, "users"),
+            where("role", "==", "clerk"),
+            where("status", "==", "pending")
+        );
+    }
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as User));
+};

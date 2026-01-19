@@ -1,10 +1,10 @@
-import { UserPlus, Users, User, LogOut, Pill } from 'lucide-react';
+import { UserPlus, Users, User, LogOut, Pill, UserCheck } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { useNavigate } from 'react-router-dom';
 
 interface SalesRepSidebarProps {
-  activeSection: 'register' | 'team' | 'profile';
-  onSectionChange: (section: 'register' | 'team' | 'profile') => void;
+  activeSection: 'register' | 'team' | 'profile' | 'approvals';
+  onSectionChange: (section: 'register' | 'team' | 'profile' | 'approvals') => void;
 }
 
 export function SalesRepSidebar({ activeSection, onSectionChange }: SalesRepSidebarProps) {
@@ -13,6 +13,7 @@ export function SalesRepSidebar({ activeSection, onSectionChange }: SalesRepSide
 
   const menuItems = [
     { id: 'register' as const, label: 'Registrar Nuevo', icon: UserPlus },
+    { id: 'approvals' as const, label: 'Aprobaciones', icon: UserCheck },
     { id: 'team' as const, label: 'Mi Equipo', icon: Users },
     { id: 'profile' as const, label: 'Mi Perfil', icon: User },
   ];
@@ -42,16 +43,15 @@ export function SalesRepSidebar({ activeSection, onSectionChange }: SalesRepSide
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeSection === item.id;
-          
+
           return (
             <button
               key={item.id}
               onClick={() => onSectionChange(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'hover:bg-muted text-foreground'
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-primary text-primary-foreground'
+                : 'hover:bg-muted text-foreground'
+                }`}
             >
               <Icon className="h-5 w-5" />
               <span className="font-medium">{item.label}</span>
@@ -73,7 +73,7 @@ export function SalesRepSidebar({ activeSection, onSectionChange }: SalesRepSide
             <p className="text-xs text-muted-foreground">Visitador</p>
           </div>
         </div>
-        
+
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"

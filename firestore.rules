@@ -12,14 +12,26 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
+    // Helper function to fetch requestor data
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isSalesRep() {
+      return getUserData().role == 'salesRep';
+    }
+
+    function isAdmin() {
+      return getUserData().role == 'manager' || getUserData().role == 'director';
+    }
+
     // Rules for 'users' collection
     match /users/{userId} {
-      // Allow reading own profile and any authenticated user can read (temporarily for team lists)
       allow read: if isAuthenticated();
-      // Allow creating own profile on signup
-      allow create: if isOwner(userId);
-      // Allow updating own profile
-      allow update: if isOwner(userId);
+      // Allow creating own profile OR Admin creating any profile
+      allow create: if isOwner(userId) || isAdmin();
+      // Allow updating own profile OR Sales Rep (approvals) OR Admin
+      allow update: if isOwner(userId) || isSalesRep() || isAdmin();
     }
     
     // Rules for 'registered_clerks'

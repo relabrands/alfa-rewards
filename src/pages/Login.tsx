@@ -144,6 +144,14 @@ export default function Login() {
               </p>
             </div>
           </CardContent>
+          <div className="p-4 text-center bg-muted/50 border-t">
+            <p className="text-sm text-muted-foreground">
+              ¿Eres dependiente y no tienes cuenta?{' '}
+              <a href="/register" className="font-medium text-primary hover:underline">
+                Regístrate aquí
+              </a>
+            </p>
+          </div>
         </Card>
       </main>
 

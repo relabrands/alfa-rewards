@@ -3,11 +3,16 @@ export type UserRole = 'clerk' | 'salesRep' | 'manager' | 'director';
 export interface User {
     id: string;
     name: string;
+    lastName?: string;
     role: UserRole;
     points?: number;
     pharmacyId?: string;
     phone?: string;
     avatar?: string;
+    email?: string;
+    cedula?: string;
+    zone?: string[];
+    status?: 'active' | 'pending' | 'disabled';
 }
 
 export interface Pharmacy {
