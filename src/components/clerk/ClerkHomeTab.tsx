@@ -1,242 +1,256 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useRef } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
-import { CoinAnimation } from '@/components/CoinAnimation';
-import { RouletteWheel } from '@/components/RouletteWheel';
-import { Camera, TrendingUp, History, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { addScanRecord, updateUserPoints, getScanHistory } from '@/lib/db';
-import { ScanRecord } from '@/lib/types';
-import { formatDistanceToNow } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { Scan, Camera, CheckCircle2, XCircle, History, Zap, Loader2 } from 'lucide-react';
+import { useToast } from "@/hooks/use-toast";
+import { db, storage } from '@/lib/firebase';
+import { collection, addDoc, doc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export function ClerkHomeTab() {
-  const { points, addPoints, campaignMode, currentUser } = useApp();
+  const { currentUser, isActive, addPoints, points } = useApp();
   const { toast } = useToast();
-  const [displayPoints, setDisplayPoints] = useState(points);
   const [isScanning, setIsScanning] = useState(false);
-  const [showCoins, setShowCoins] = useState(false);
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [recentEarnings, setRecentEarnings] = useState<number | null>(null);
-  const [history, setHistory] = useState<ScanRecord[]>([]);
+  const [showRoulette, setShowRoulette] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (displayPoints !== points) {
-      const diff = points - displayPoints;
-      const step = Math.ceil(diff / 20);
-      const timer = setInterval(() => {
-        setDisplayPoints(prev => {
-          if (prev + step >= points) {
-            clearInterval(timer);
-            return points;
-          }
-          return prev + step;
-        });
-      }, 50);
-      return () => clearInterval(timer);
+  const handleScanClick = () => {
+    if (!isActive) {
+      toast({
+        title: "Cuenta Inactiva",
+        description: "Tu cuenta debe ser activada por el representante.",
+        variant: "destructive"
+      });
+      return;
     }
-  }, [points, displayPoints]);
-
-  useEffect(() => {
-    loadHistory();
-  }, [currentUser?.id]);
-
-  const loadHistory = async () => {
-    if (currentUser?.id) {
-      const scans = await getScanHistory(currentUser.id);
-      setHistory(scans);
-    }
+    fileInputRef.current?.click();
   };
 
-  const handleScanInvoice = async () => {
+  const processImage = async (file: File) => {
     if (!currentUser) return;
-
     setIsScanning(true);
 
-    // Simulate processing delay (OCR, etc.)
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    const earnedPoints = Math.floor(Math.random() * 200) + 100; // Mock calculation logic
-    setRecentEarnings(earnedPoints);
-
-    // Create Record in Firestore
     try {
-      await addScanRecord({
-        clerkId: currentUser.id,
-        pharmacyId: currentUser.pharmacyId || 'ph1', // Default or from profile
-        invoiceAmount: earnedPoints * 10, // Mock amount
-        pointsEarned: earnedPoints,
-        status: 'approved'
+      // 1. Create initial Scan Document
+      const scanRef = await addDoc(collection(db, 'scans'), {
+        userId: currentUser.id,
+        status: 'uploading',
+        createdAt: serverTimestamp(),
+        userName: currentUser.name
       });
 
-      // Update User Points in Firestore
-      const newTotal = (points || 0) + earnedPoints;
-      await updateUserPoints(currentUser.id, newTotal);
+      // 2. Upload Image to Storage
+      const storagePath = `invoices/${currentUser.id}/${scanRef.id}.jpg`;
+      const storageRef = ref(storage, storagePath);
+      await uploadBytes(storageRef, file);
+      const downloadUrl = await getDownloadURL(storageRef);
 
-      // Update Local State
-      addPoints(earnedPoints);
-      loadHistory(); // Refresh history
+      // 3. Trigger Cloud Function by updating Status
+      await updateDoc(scanRef, {
+        status: 'uploaded',
+        imageUrl: downloadUrl,
+        storagePath: storagePath
+      });
 
-      setIsScanning(false);
-
-      if (campaignMode === 'points') {
-        setShowCoins(true);
-        toast({
-          title: '💰 ¡Puntos Ganados!',
-          description: `Has ganado ${earnedPoints} puntos`,
-        });
-      } else {
-        setIsSpinning(true);
-      }
-    } catch (error) {
-      console.error("Error creating scan:", error);
       toast({
-        title: 'Error',
-        description: 'No se pudo registrar el escaneo. Inténtalo de nuevo.',
-        variant: 'destructive',
+        title: "Analizando...",
+        description: "Subiendo imagen y procesando con IA. Esto puede tomar unos segundos.",
       });
+
+      // 4. Listen for Result
+      const unsubscribe = onSnapshot(doc(db, 'scans', scanRef.id), (docSnapshot) => {
+        const data = docSnapshot.data();
+        if (!data) return;
+
+        if (data.status === 'processed') {
+          setIsScanning(false);
+          unsubscribe();
+
+          const earnedPoints = data.pointsEarned || 0;
+          const productsFound = data.productsFound || [];
+          const productNames = productsFound.map((p: any) => p.product).join(', ');
+
+          if (earnedPoints > 0) {
+            addPoints(earnedPoints);
+            toast({
+              title: "¡Factura Aprobada! 🎉",
+              description: `Detectamos: ${productNames}. Ganaste ${earnedPoints} puntos.`,
+            });
+
+            // Simple logic: if points > 50, maybe trigger roulette?
+            // Or keep the random logic:
+            if (Math.random() > 0.7) setShowRoulette(true);
+
+          } else {
+            toast({
+              title: "Sin productos válidos",
+              description: "La IA analizó la factura pero no encontró productos participantes.",
+              variant: "destructive"
+            });
+          }
+        } else if (data.status === 'error') {
+          setIsScanning(false);
+          unsubscribe();
+          toast({
+            title: "Error de Análisis",
+            description: data.error || "Ocurrió un error al procesar la factura.",
+            variant: "destructive"
+          });
+        }
+      });
+
+    } catch (error) {
+      console.error("Scan flow error:", error);
       setIsScanning(false);
+      toast({
+        title: "Error",
+        description: "No se pudo subir la imagen. Verifica tu conexión.",
+        variant: "destructive"
+      });
     }
   };
 
-  const handleRouletteComplete = (prize: string) => {
-    setIsSpinning(false);
-    const earnedPoints = parseInt(prize.replace(/\D/g, '')) || 50;
-
-    // Assuming roulette points are "bonus" and also saved, for now just local add
-    // Ideally we should save this too as a "bonus" record type
-    addPoints(earnedPoints);
-
-    // Update DB for roulette prize too
-    if (currentUser) {
-      updateUserPoints(currentUser.id, points + earnedPoints);
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      processImage(file);
     }
+  };
 
-    toast({
-      title: '🎰 ¡Ganaste en la Ruleta!',
-      description: prize,
-    });
+  const handleSpinRoulette = () => {
+    const won = Math.random() > 0.5;
+    if (won) {
+      const prizePoints = 50;
+      addPoints(prizePoints);
+      toast({ title: "¡Ganaste en la Ruleta!", description: `+${prizePoints} puntos extra.` });
+    } else {
+      toast({ title: "Suerte para la próxima", description: "No ganaste premio esta vez." });
+    }
+    setShowRoulette(false);
   };
 
   return (
-    <div className="min-h-screen bg-background pb-32">
-      <CoinAnimation isActive={showCoins} onComplete={() => setShowCoins(false)} />
+    <div className="min-h-screen bg-background pb-24 pt-4 relative">
+      <div className="px-4 space-y-6 max-w-md mx-auto">
 
-      {/* Hero Section */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjEpIi8+PC9zdmc+')] opacity-50" />
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">
+              Hola, {currentUser?.name?.split(' ')[0] || 'Usuario'} 👋
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              {currentUser?.email || 'Farmacia Central'}
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Tus Puntos</div>
+            <div className="text-2xl font-black text-primary">{points.toLocaleString()}</div>
+          </div>
+        </div>
 
-        <div className="relative px-4 py-8 text-center">
-          <p className="text-primary-foreground/70 text-sm mb-2">Mis Puntos</p>
+        {/* hidden input for camera */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handleFileChange}
+        />
 
-          <div className="relative inline-block">
-            <div className="text-6xl font-extrabold animate-count-up">
-              {displayPoints.toLocaleString()}
+        {/* Scan Button Card */}
+        <Card className="border-none shadow-xl bg-gradient-to-br from-primary to-primary/90 text-primary-foreground overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10" />
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-2xl -ml-10 -mb-10" />
+
+          <CardContent className="p-8 flex flex-col items-center justify-center text-center relative z-10">
+            <div className="mb-4 p-4 bg-white/20 rounded-full backdrop-blur-sm animate-pulse">
+              <Scan className="w-12 h-12" />
             </div>
-            <span className="text-2xl font-medium ml-2 text-primary-foreground/80">pts</span>
-
-            {recentEarnings && (
-              <div className="absolute -right-16 top-0 text-gold font-bold animate-fade-in">
-                +{recentEarnings}
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-center gap-2 mt-4 text-primary-foreground/70">
-            <TrendingUp className="h-4 w-4" />
-            <span className="text-sm">+340 pts esta semana</span>
-          </div>
-        </div>
-
-        <svg className="absolute bottom-0 left-0 right-0" viewBox="0 0 400 30" preserveAspectRatio="none">
-          <path d="M0 30 Q100 0 200 15 T400 30 L400 30 L0 30 Z" fill="hsl(var(--background))" />
-        </svg>
-      </div>
-
-      {/* Roulette Mode */}
-      {campaignMode === 'roulette' && isSpinning && (
-        <div className="fixed inset-0 bg-background/95 backdrop-blur-sm z-40 flex items-center justify-center">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold mb-8 animate-pulse">🎰 ¡Gira la Ruleta!</h2>
-            <RouletteWheel isSpinning={isSpinning} onSpinComplete={handleRouletteComplete} />
-          </div>
-        </div>
-      )}
-
-      <div className="px-4 py-6 space-y-6 max-w-md mx-auto animate-fade-in">
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card className="stats-card">
-            <CardContent className="p-4 text-center">
-              <div className="text-3xl mb-1">{history.filter(h => h.timestamp.toDateString() === new Date().toDateString()).length}</div>
-              <p className="text-sm text-muted-foreground">Escaneos Hoy</p>
-            </CardContent>
-          </Card>
-          <Card className="stats-card">
-            <CardContent className="p-4 text-center">
-              <div className="text-3xl mb-1">🏆</div>
-              <p className="text-sm text-muted-foreground">Top 5% Ranking</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Mode Indicator */}
-        <div className="flex items-center justify-center gap-2 py-2">
-          <div className={`px-4 py-2 rounded-full text-sm font-medium ${campaignMode === 'points'
-            ? 'bg-gold/20 text-gold-dark'
-            : 'bg-primary/20 text-primary'
-            }`}>
-            {campaignMode === 'points' ? '💰 Modo Puntos' : '🎰 Modo Ruleta'}
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <History className="h-5 w-5 text-muted-foreground" />
-              Actividad Reciente
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {history.length > 0 ? (
-              history.slice(0, 5).map((item, i) => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                  <div>
-                    <p className="text-sm font-medium">Factura escaneada</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(item.timestamp, { addSuffix: true, locale: es })}
-                    </p>
-                  </div>
-                  <span className={`font-bold text-success`}>
-                    +{item.pointsEarned}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <p className="text-center text-sm text-muted-foreground py-4">Sin actividad reciente</p>
+            <h2 className="text-2xl font-bold mb-2">Escanear Factura</h2>
+            <p className="text-primary-foreground/80 mb-6 max-w-[200px]">
+              Toma una foto a la factura. La IA detectará los productos automáticamente.
+            </p>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="w-full font-bold text-primary shadow-lg hover:shadow-xl transition-all"
+              onClick={handleScanClick}
+              disabled={!isActive || isScanning}
+            >
+              {isScanning ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Procesando IA...
+                </>
+              ) : (
+                <>
+                  <Camera className="mr-2 h-5 w-5" />
+                  Abrir Cámara
+                </>
+              )}
+            </Button>
+            {!isActive && (
+              <p className="mt-4 text-xs bg-black/20 px-3 py-1 rounded-full flex items-center gap-1">
+                <XCircle className="h-3 w-3" /> Cuenta no verificada
+              </p>
             )}
           </CardContent>
         </Card>
-      </div>
 
-      {/* Floating Action Button */}
-      <div className="fixed bottom-24 left-1/2 -translate-x-1/2">
-        <Button
-          onClick={handleScanInvoice}
-          disabled={isScanning || isSpinning}
-          className="relative h-20 w-20 rounded-full btn-gold text-lg font-bold shadow-2xl hover:scale-110 transition-transform fab-pulse"
-        >
-          {isScanning ? (
-            <Loader2 className="h-8 w-8 animate-spin" />
-          ) : (
-            <div className="flex flex-col items-center">
-              <Camera className="h-7 w-7" />
-              <span className="text-[10px] mt-0.5">Escanear</span>
-            </div>
-          )}
-        </Button>
+        {/* Recent Activity / Status */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold flex items-center gap-2">
+              <History className="h-4 w-4 text-primary" />
+              Actividad Reciente
+            </h3>
+          </div>
+
+          <Card>
+            <CardContent className="p-0 divide-y divide-border">
+              {/* Mock Activity Items */}
+              <div className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
+                    <CheckCircle2 className="h-5 w-5 text-success" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Factura Aprobada</p>
+                    <p className="text-xs text-muted-foreground">Hace 2 horas</p>
+                  </div>
+                </div>
+                <span className="font-bold text-success">+150 pts</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Roulette Modal */}
+        {showRoulette && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in">
+            <Card className="w-full max-w-sm bg-gradient-to-b from-background to-muted border-primary/20 shadow-2xl">
+              <CardContent className="p-8 text-center space-y-6">
+                <div className="w-24 h-24 mx-auto bg-primary/10 rounded-full flex items-center justify-center animate-bounce">
+                  <span className="text-6xl">🎰</span>
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-primary">¡Giro de Suerte!</h2>
+                  <p className="text-muted-foreground">Has desbloqueado un giro gratis</p>
+                </div>
+                <Button
+                  size="lg"
+                  className="w-full text-lg font-bold animate-pulse"
+                  onClick={handleSpinRoulette}
+                >
+                  Girar Ahora
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

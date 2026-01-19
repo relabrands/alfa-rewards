@@ -12,9 +12,10 @@ import {
     orderBy,
     limit,
     Timestamp,
-    serverTimestamp
+    serverTimestamp,
+    deleteDoc
 } from "firebase/firestore";
-import { User, Pharmacy, ScanRecord } from "./types";
+import { User, Pharmacy, ScanRecord, Reward, Product } from "./types";
 
 // Users
 export const getUserProfile = async (uid: string): Promise<User | null> => {
@@ -222,4 +223,36 @@ export const getPendingUsers = async (pharmacyId?: string) => {
     }
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as User));
+};
+
+// Rewards Management
+export const getRewards = async () => {
+    const q = query(collection(db, "rewards"));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Reward));
+};
+
+export const createReward = async (data: Omit<Reward, 'id'>) => {
+    const docRef = await addDoc(collection(db, "rewards"), data);
+    return docRef.id;
+};
+
+export const deleteReward = async (id: string) => {
+    await deleteDoc(doc(db, "rewards", id));
+};
+
+// Product Management (For AI Scan)
+export const getProducts = async () => {
+    const q = query(collection(db, "products"));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+};
+
+export const createProduct = async (data: Omit<Product, 'id'>) => {
+    const docRef = await addDoc(collection(db, "products"), data);
+    return docRef.id;
+};
+
+export const deleteProduct = async (id: string) => {
+    await deleteDoc(doc(db, "products", id));
 };

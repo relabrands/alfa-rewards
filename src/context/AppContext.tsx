@@ -18,6 +18,7 @@ interface AppContextType extends AppState {
   logout: () => Promise<void>;
   setCampaignMode: (mode: 'points' | 'roulette') => void;
   addPoints: (amount: number) => void;
+  isActive: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -101,7 +102,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AppContext.Provider value={{ ...state, login, logout, setCampaignMode, addPoints }}>
+    <AppContext.Provider value={{
+      ...state,
+      login,
+      logout,
+      setCampaignMode,
+      addPoints,
+      isActive: state.currentUser?.status === 'active'
+    }}>
       {!state.isLoading && children}
     </AppContext.Provider>
   );

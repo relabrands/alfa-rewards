@@ -58,6 +58,14 @@ export interface RegisteredClerk {
     pointsGenerated: number;
 }
 
+export interface Product {
+    id: string;
+    name: string;
+    keywords: string[]; // e.g., ["aspirina", "bayer"]
+    points: number;
+    image?: string;
+}
+
 // Stats Interfaces
 export interface DashboardStats {
     totalSalesToday: string | number;

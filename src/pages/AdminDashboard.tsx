@@ -9,7 +9,7 @@ import { ScanRecord, DashboardStats } from '@/lib/types';
 import { getAdminStats, getFlaggedScans } from '@/lib/db';
 import {
   Map, Users, DollarSign, TrendingUp, CheckCircle2, XCircle,
-  AlertTriangle, Settings, LogOut, Pill, BarChart3, Activity, Building2
+  AlertTriangle, Settings, LogOut, Pill, BarChart3, Activity, Building2, Gift
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -17,8 +17,10 @@ import AdminLiveMap from '@/components/admin/AdminLiveMap';
 import AdminUsers from '@/components/admin/AdminUsers';
 import AdminSettings from '@/components/admin/AdminSettings';
 import AdminPharmacies from '@/components/admin/AdminPharmacies';
+import AdminRewards from '@/components/admin/AdminRewards';
+import AdminProducts from '@/components/admin/AdminProducts';
 
-type AdminView = 'dashboard' | 'map' | 'users' | 'pharmacies' | 'settings';
+type AdminView = 'dashboard' | 'map' | 'users' | 'pharmacies' | 'settings' | 'rewards' | 'products';
 
 export default function AdminDashboard() {
   const { campaignMode, setCampaignMode, logout, currentUser } = useApp();
@@ -40,7 +42,6 @@ export default function AdminDashboard() {
         try {
           const data = await getAdminStats();
           setStats(data);
-
           const flagged = await getFlaggedScans();
           setFlaggedInvoices(flagged);
         } catch (error) {
@@ -57,19 +58,12 @@ export default function AdminDashboard() {
   };
 
   const handleApprove = (id: string) => {
-    toast({
-      title: '✅ Factura Aprobada',
-      description: 'Los puntos han sido acreditados',
-    });
+    toast({ title: '✅ Factura Aprobada', description: 'Los puntos han sido acreditados' });
     setFlaggedInvoices(prev => prev.filter(i => i.id !== id));
   };
 
   const handleReject = (id: string) => {
-    toast({
-      title: '❌ Factura Rechazada',
-      description: 'Se ha notificado al dependiente',
-      variant: 'destructive',
-    });
+    toast({ title: '❌ Factura Rechazada', description: 'Se ha notificado al dependiente', variant: 'destructive' });
     setFlaggedInvoices(prev => prev.filter(i => i.id !== id));
   };
 
@@ -78,17 +72,16 @@ export default function AdminDashboard() {
       case 'map': return <AdminLiveMap />;
       case 'users': return <AdminUsers />;
       case 'pharmacies': return <AdminPharmacies />;
+      case 'rewards': return <AdminRewards />;
+      case 'products': return <AdminProducts />;
       case 'settings': return <AdminSettings />;
       default: return (
         <div className="space-y-6">
-          {/* Header */}
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-foreground">Dashboard Director</h1>
               <p className="text-muted-foreground mt-1">Vista general del programa de lealtad</p>
             </div>
-
-            {/* Campaign Mode Toggle */}
             <Card className="p-4">
               <div className="flex items-center gap-4">
                 <span className={`font-medium ${campaignMode === 'points' ? 'text-gold-dark' : 'text-muted-foreground'}`}>
@@ -105,7 +98,6 @@ export default function AdminDashboard() {
             </Card>
           </div>
 
-          {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
               <CardContent className="p-6">
@@ -120,7 +112,6 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
-
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -134,7 +125,6 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
-
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -148,7 +138,6 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
-
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -165,7 +154,6 @@ export default function AdminDashboard() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Live Map Preview */}
             <Card className="lg:col-span-1 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setCurrentView('map')}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -176,25 +164,16 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="relative h-80 bg-muted rounded-lg overflow-hidden">
-                  {/* Simplified DR Map */}
                   <svg viewBox="0 0 400 300" className="w-full h-full">
-                    {/* Map outline */}
                     <path
                       d="M50 150 Q80 100 150 90 Q200 80 250 100 Q300 120 350 100 Q380 90 390 120 Q400 150 380 180 Q350 200 300 210 Q250 220 200 200 Q150 180 100 190 Q60 200 50 180 Z"
                       fill="hsl(var(--primary) / 0.1)"
                       stroke="hsl(var(--primary) / 0.3)"
                       strokeWidth="2"
                     />
-                    {/* Live scan dots */}
                     {liveScanLocations.map((loc, i) => (
                       <g key={loc.id}>
-                        <circle
-                          cx={100 + i * 60}
-                          cy={120 + (i % 2) * 40}
-                          r="8"
-                          fill="hsl(var(--success))"
-                          className="animate-pulse"
-                        />
+                        <circle cx={100 + i * 60} cy={120 + (i % 2) * 40} r="8" fill="hsl(var(--success))" className="animate-pulse" />
                       </g>
                     ))}
                   </svg>
@@ -202,7 +181,6 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
 
-            {/* Validation Queue */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -227,20 +205,10 @@ export default function AdminDashboard() {
                           </p>
                         </div>
                         <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleApprove(invoice.id)}
-                            className="text-success border-success/30 hover:bg-success/10"
-                          >
+                          <Button size="sm" variant="outline" onClick={() => handleApprove(invoice.id)} className="text-success border-success/30 hover:bg-success/10">
                             <CheckCircle2 className="h-4 w-4" />
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleReject(invoice.id)}
-                            className="text-destructive border-destructive/30 hover:bg-destructive/10"
-                          >
+                          <Button size="sm" variant="outline" onClick={() => handleReject(invoice.id)} className="text-destructive border-destructive/30 hover:bg-destructive/10">
                             <XCircle className="h-4 w-4" />
                           </Button>
                         </div>
@@ -264,7 +232,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
       <aside className="w-64 bg-card border-r border-border flex flex-col h-screen sticky top-0">
         <div className="p-6 border-b border-border">
           <div className="flex items-center gap-3">
@@ -279,55 +246,36 @@ export default function AdminDashboard() {
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
-          <button
-            onClick={() => setCurrentView('dashboard')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'dashboard' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
-          >
-            <BarChart3 className="h-5 w-5" />
-            <span className="font-medium">Dashboard</span>
+          <button onClick={() => setCurrentView('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'dashboard' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
+            <BarChart3 className="h-5 w-5" /> <span className="font-medium">Dashboard</span>
           </button>
-          <button
-            onClick={() => setCurrentView('map')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'map' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
-          >
-            <Map className="h-5 w-5" />
-            <span className="font-medium">Mapa en Vivo</span>
+          <button onClick={() => setCurrentView('map')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'map' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
+            <Map className="h-5 w-5" /> <span className="font-medium">Mapa en Vivo</span>
           </button>
-          <button
-            onClick={() => setCurrentView('users')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'users' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
-          >
-            <Users className="h-5 w-5" />
-            <span className="font-medium">Usuarios</span>
+          <button onClick={() => setCurrentView('users')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'users' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
+            <Users className="h-5 w-5" /> <span className="font-medium">Usuarios</span>
           </button>
-          <button
-            onClick={() => setCurrentView('pharmacies')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'pharmacies' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
-          >
-            <Building2 className="h-5 w-5" />
-            <span className="font-medium">Farmacias</span>
+          <button onClick={() => setCurrentView('pharmacies')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'pharmacies' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
+            <Building2 className="h-5 w-5" /> <span className="font-medium">Farmacias</span>
           </button>
-          <button
-            onClick={() => setCurrentView('settings')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'settings' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
-          >
-            <Settings className="h-5 w-5" />
-            <span className="font-medium">Configuración</span>
+          <button onClick={() => setCurrentView('rewards')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'rewards' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
+            <Gift className="h-5 w-5" /> <span className="font-medium">Premios</span>
+          </button>
+          <button onClick={() => setCurrentView('products')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'products' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
+            <Pill className="h-5 w-5" /> <span className="font-medium">Productos (IA)</span>
+          </button>
+          <button onClick={() => setCurrentView('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'settings' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
+            <Settings className="h-5 w-5" /> <span className="font-medium">Configuración</span>
           </button>
         </nav>
 
         <div className="p-4 border-t border-border">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
-          >
-            <LogOut className="h-5 w-5" />
-            <span className="font-medium">Cerrar Sesión</span>
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors">
+            <LogOut className="h-5 w-5" /> <span className="font-medium">Cerrar Sesión</span>
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 p-6 overflow-auto">
         <div className="max-w-7xl mx-auto space-y-6">
           {renderContent()}
