@@ -98,16 +98,43 @@ export const addRegisteredClerk = async (data: any) => {
     return docRef.id;
 };
 
-export const getRegisteredClerks = async (salesRepId: string) => {
-    // In a real app we would query where("registeredBy", "==", salesRepId)
-    // For now getting all or filtering client side if needed, but let's try to query
-    // We assume the data saved includes registeredBy
-    const q = query(
-        collection(db, "registered_clerks"),
-        where("registeredBy", "==", salesRepId)
-    );
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+// Get Team Members (Clerks in Sales Rep Zones)
+export const getTeamMembers = async (zones: string[]): Promise<any[]> => {
+    if (!zones || zones.length === 0) return [];
+
+    // 1. Get all clerks
+    const q = query(collection(db, "users"), where("role", "==", "clerk"));
+    const snapshot = await getDocs(q);
+    const allClerks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+
+    // 2. Filter by Zone
+    const myClerks = allClerks.filter(clerk => {
+        const clerkSector = clerk.zone?.[0]; // Clerk's pharmacy sector
+        if (!clerkSector) return false;
+        // Case-insensitive match
+        return zones.some(z => z.toLowerCase() === clerkSector.toLowerCase());
+    });
+
+    // 3. Resolve Pharmacy Names
+    const pharmacies = await getPharmacies();
+    const phMap = new Map(pharmacies.map(p => [p.id, p]));
+
+    // 4. Map to RegisteredClerk interface
+    return myClerks.map(clerk => {
+        const ph = clerk.pharmacyId ? phMap.get(clerk.pharmacyId) : undefined;
+        return {
+            id: clerk.id,
+            name: `${clerk.name} ${clerk.lastName || ''}`.trim(),
+            cedula: clerk.cedula || 'N/A',
+            phone: clerk.phone || 'N/A',
+            pharmacyId: clerk.pharmacyId || '',
+            pharmacyName: ph ? ph.name : 'Desconocida',
+            registeredBy: 'system',
+            registeredAt: new Date(), // Fallback
+            status: clerk.status || 'pending',
+            pointsGenerated: clerk.points || 0
+        };
+    });
 };
 
 // Admin Stats
@@ -194,5 +221,5 @@ export const getPendingUsers = async (pharmacyId?: string) => {
         );
     }
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as User));
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as User));
 };

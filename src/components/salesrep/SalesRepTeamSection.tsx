@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { RegisteredClerk } from '@/lib/types';
-import { getRegisteredClerks } from '@/lib/db';
+import { getTeamMembers } from '@/lib/db';
 import { useApp } from '@/context/AppContext';
 import { Users, Search, MessageCircle, TrendingUp, CheckCircle2, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -19,13 +19,15 @@ export function SalesRepTeamSection() {
 
   useEffect(() => {
     const loadTeam = async () => {
-      if (currentUser?.id) {
-        const clerks = await getRegisteredClerks(currentUser.id);
-        setTeam(clerks as unknown as RegisteredClerk[]);
+      if (currentUser?.zone && currentUser.zone.length > 0) {
+        const clerks = await getTeamMembers(currentUser.zone);
+        setTeam(clerks as RegisteredClerk[]);
+      } else {
+        setTeam([]);
       }
     };
     loadTeam();
-  }, [currentUser?.id]);
+  }, [currentUser?.zone]);
 
   const filteredClerks = team.filter(clerk =>
     clerk.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
