@@ -8,16 +8,19 @@ import { ScanRecord } from '@/lib/types';
 import { getScanHistory } from '@/lib/db';
 import { db } from '@/lib/firebase'; // Added
 import { doc, getDoc } from 'firebase/firestore'; // Added
-import { User, Phone, MapPin, History, LogOut, ChevronRight, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { User, Phone, MapPin, History, LogOut, ChevronRight, CheckCircle2, Clock, AlertCircle, Coins, ChevronDown, ChevronUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { updateDoc } from 'firebase/firestore'; // Re-added for reset
 
 export function ClerkProfileTab() {
   const { currentUser, points, logout } = useApp();
   const navigate = useNavigate();
   const [history, setHistory] = useState<ScanRecord[]>([]);
   const [pharmacyName, setPharmacyName] = useState<string>('Cargando...');
+  const [showInfo, setShowInfo] = useState(false);
+  const [showPharmacyInfo, setShowPharmacyInfo] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -45,8 +48,10 @@ export function ClerkProfileTab() {
         setPharmacyName('No asignada');
       }
     };
-    loadData();
-  }, [currentUser?.id, currentUser?.pharmacyId]);
+    if (currentUser) {
+      loadData();
+    }
+  }, [currentUser, currentUser?.id, currentUser?.pharmacyId]);
 
   const handleLogout = () => {
     logout();
@@ -87,11 +92,14 @@ export function ClerkProfileTab() {
           </p>
         </div>
 
-        {/* Stats Row */}
+        {/* Stats Row - Gamified */}
         <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all">
-            <span className="text-2xl font-black text-[#FFD700] drop-shadow-sm">{points.toLocaleString()}</span>
-            <span className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wide">Puntos</span>
+          <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all group">
+            <div className="flex items-center gap-1">
+              <span className="text-2xl font-black text-[#FFD700] drop-shadow-sm">{points.toLocaleString()}</span>
+              <Coins className="w-4 h-4 text-[#FFD700]" />
+            </div>
+            <span className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wide group-hover:text-[#FFD700] transition-colors">Coins</span>
           </div>
 
           <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all">
@@ -101,35 +109,76 @@ export function ClerkProfileTab() {
 
           <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all">
             <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center mb-1">
-              <span className="text-slate-400 text-xs font-bold">#1</span>
+              <span className="text-slate-400 text-xs font-bold">Nvl {Math.floor(points / 1000) + 1}</span>
             </div>
             <span className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wide">Nivel</span>
           </div>
         </div>
 
-        {/* Menu Options */}
+        {/* Menu Options - Interactive */}
         <div className="bg-white rounded-[2rem] shadow-sm border border-slate-50 overflow-hidden divide-y divide-slate-50">
           {/* Personal Info Group */}
-          <div className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 cursor-pointer">
-            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
-              <User className="w-5 h-5" />
+          <div
+            className="p-4 hover:bg-slate-50 transition-colors cursor-pointer"
+            onClick={() => setShowInfo(!showInfo)}
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
+                <User className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-sm text-foreground">Información Personal</h4>
+                <p className="text-xs text-muted-foreground">Ver detalles de la cuenta</p>
+              </div>
+              {showInfo ? <ChevronUp className="w-5 h-5 text-slate-300" /> : <ChevronDown className="w-5 h-5 text-slate-300" />}
             </div>
-            <div className="flex-1">
-              <h4 className="font-bold text-sm text-foreground">Información Personal</h4>
-              <p className="text-xs text-muted-foreground">{currentUser.cedula || 'ID no reg.'} • {currentUser.phone || 'Sin tel.'}</p>
-            </div>
-            <ChevronRight className="w-5 h-5 text-slate-300" />
+
+            {showInfo && (
+              <div className="mt-4 pl-14 space-y-2 text-sm animate-in slide-in-from-top-2 fade-in duration-200">
+                <div>
+                  <span className="text-xs text-muted-foreground block">Cédula</span>
+                  <span className="font-medium text-foreground">{currentUser.cedula || 'No registrada'}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Teléfono</span>
+                  <span className="font-medium text-foreground">{currentUser.phone || 'No registrado'}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Email</span>
+                  <span className="font-medium text-foreground">{currentUser.email || 'No registrado'}</span>
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 cursor-pointer">
-            <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-500">
-              <MapPin className="w-5 h-5" />
+          <div
+            className="p-4 hover:bg-slate-50 transition-colors cursor-pointer"
+            onClick={() => setShowPharmacyInfo(!showPharmacyInfo)}
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-500">
+                <MapPin className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-sm text-foreground">Mi Farmacia</h4>
+                <p className="text-xs text-muted-foreground">{pharmacyName}</p>
+              </div>
+              {showPharmacyInfo ? <ChevronUp className="w-5 h-5 text-slate-300" /> : <ChevronDown className="w-5 h-5 text-slate-300" />}
             </div>
-            <div className="flex-1">
-              <h4 className="font-bold text-sm text-foreground">Mi Farmacia</h4>
-              <p className="text-xs text-muted-foreground">{pharmacyName}</p>
-            </div>
-            <ChevronRight className="w-5 h-5 text-slate-300" />
+
+            {showPharmacyInfo && (
+              <div className="mt-4 pl-14 space-y-2 text-sm animate-in slide-in-from-top-2 fade-in duration-200">
+                <div>
+                  <span className="text-xs text-muted-foreground block">Nombre</span>
+                  <span className="font-medium text-foreground">{pharmacyName}</span>
+                </div>
+                {/* Add more pharmacy details here if available in context/fetch */}
+                <div>
+                  <span className="text-xs text-muted-foreground block">ID Farmacia</span>
+                  <span className="font-mono text-xs text-slate-400">{currentUser.pharmacyId || 'N/A'}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -171,10 +220,31 @@ export function ClerkProfileTab() {
           </CardContent>
         </Card>
 
+        {/* Reset Points Button (Hidden/Dev) */}
+        <div className="mt-8 text-center pb-8">
+          <button
+            onClick={async () => {
+              if (confirm("¿RESET DATABASE DE PUNTOS? Esto pondrá tus puntos en 0.")) {
+                try {
+                  await updateDoc(doc(db, 'users', currentUser.id), { points: 0 });
+                  alert("Puntos reseteados a 0.");
+                  window.location.reload();
+                } catch (e) {
+                  alert("Error al resetear.");
+                  console.error(e);
+                }
+              }
+            }}
+            className="text-[10px] text-slate-300 hover:text-red-400 font-mono tracking-widest uppercase transition-colors"
+          >
+            [ RESET PUNTOS DB ]
+          </button>
+        </div>
+
         {/* Logout Button */}
         <button
           onClick={handleLogout}
-          className="w-full mt-6 py-4 rounded-xl flex items-center justify-center gap-2 text-red-500 font-bold hover:bg-red-50 transition-colors"
+          className="w-full mt-2 py-4 rounded-xl flex items-center justify-center gap-2 text-red-500 font-bold hover:bg-red-50 transition-colors mb-20"
         >
           <LogOut className="w-5 h-5" />
           <span>Cerrar Sesión</span>

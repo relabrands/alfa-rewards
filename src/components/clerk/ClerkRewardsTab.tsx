@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
 import { getRewards } from '@/lib/db';
 import { Reward } from '@/lib/types';
-import { Gift, Smartphone, ShoppingCart, Trophy, Loader2 } from 'lucide-react';
+import { Gift, Sparkles, AlertCircle, Loader2, Coins } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export function ClerkRewardsTab() {
@@ -30,9 +30,9 @@ export function ClerkRewardsTab() {
 
   const categories = [
     { id: 'all', label: 'Todos', icon: Gift },
-    { id: 'topup', label: 'Recargas', icon: Smartphone },
-    { id: 'voucher', label: 'Vales', icon: ShoppingCart },
-    { id: 'prize', label: 'Premios', icon: Trophy },
+    { id: 'topup', label: 'Recargas', icon: Sparkles },
+    { id: 'voucher', label: 'Vales', icon: AlertCircle },
+    { id: 'prize', label: 'Premios', icon: Coins },
   ];
 
   const filteredRewards = selectedCategory === 'all'
@@ -63,8 +63,8 @@ export function ClerkRewardsTab() {
           <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-600 mb-2">Canjear Premios</h1>
 
           <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-slate-50 border border-slate-100 shadow-inner">
-            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#FFD700] to-[#FF8C00] flex items-center justify-center text-[10px] text-white font-bold shadow-gold">
-              $
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FFD700] to-[#FF8C00] flex items-center justify-center text-white shadow-gold">
+              <Coins className="w-4 h-4" />
             </div>
             <span className="font-bold text-lg text-foreground/80">{points.toLocaleString()}</span>
             <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide ml-1">Puntos Disp.</span>

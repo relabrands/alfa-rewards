@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
-import { Scan, Camera, CheckCircle2, XCircle, History, Zap, Loader2, AlertCircle, Sparkles } from 'lucide-react';
+import { Scan, Camera, CheckCircle2, XCircle, History, Zap, Loader2, AlertCircle, Coins, Trophy } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { db, storage } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, onSnapshot, serverTimestamp, query, where, orderBy, limit, getDoc } from 'firebase/firestore';
@@ -218,28 +218,36 @@ export function ClerkHomeTab() {
             </div>
             {/* Notification Bell Placeholder */}
             <button className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-muted-foreground hover:text-primary transition-colors border border-gray-100">
-              <History className="w-5 h-5" />
+              <Trophy className="w-5 h-5 text-[#FFD700]" />
             </button>
           </div>
 
-          {/* Balance Card - Dopamine Gold */}
-          <div className="relative w-full h-48 rounded-[2.5rem] overflow-hidden shadow-gold transform transition-transform hover:scale-[1.02] duration-300">
+          {/* Balance Card - Gamified */}
+          <div className="relative w-full h-52 rounded-[2.5rem] overflow-hidden shadow-gold transform transition-transform hover:scale-[1.02] duration-300">
             {/* Background Gradient */}
             <div className="absolute inset-0 bg-gradient-to-br from-[#FFD700] via-[#FFA500] to-[#FF8C00]"></div>
 
-            {/* Decorative Circles */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-full blur-2xl -mr-10 -mt-10"></div>
+            {/* Decorative Coins/Circles */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-full blur-2xl -mr-10 -mt-10 animate-pulse"></div>
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full blur-xl -ml-5 -mb-5"></div>
 
-            <div className="relative z-10 flex flex-col items-center justify-center h-full text-white">
-              <span className="text-sm font-bold uppercase tracking-widest opacity-90 mb-1">Tu Balance</span>
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-8 h-8 text-white animate-pulse" />
-                <span className="text-5xl font-black tracking-tighter drop-shadow-sm">{points.toLocaleString()}</span>
+            <div className="relative z-10 flex flex-col items-center justify-center h-full text-white pt-2">
+              <span className="text-xs font-bold uppercase tracking-widest opacity-90 mb-1">Mis Coins</span>
+              <div className="flex items-center gap-2 mb-4">
+                <Coins className="w-8 h-8 text-white drop-shadow-md" />
+                <span className="text-6xl font-black tracking-tighter drop-shadow-sm">{points.toLocaleString()}</span>
               </div>
-              <div className="mt-4 bg-white/20 backdrop-blur-md px-6 py-2 rounded-full border border-white/30 text-xs font-bold shadow-inner">
-                Puntos Disponibles
+
+              {/* Level Progress Bar */}
+              <div className="w-4/5 bg-black/10 h-3 rounded-full overflow-hidden backdrop-blur-sm border border-white/20 relative">
+                <div
+                  className="h-full bg-white shadow-sm rounded-full"
+                  style={{ width: `${(points % 1000) / 10}%` }}
+                />
               </div>
+              <p className="text-[10px] font-bold mt-2 opacity-90">
+                Nivel {Math.floor(points / 1000) + 1} • {(1000 - (points % 1000)).toLocaleString()} para el siguiente nivel
+              </p>
             </div>
           </div>
         </div>
@@ -256,27 +264,35 @@ export function ClerkHomeTab() {
 
         {/* Scan Actions Grid */}
         <div className="grid grid-cols-2 gap-4">
-          {/* Main Scan Action */}
+          {/* Main Scan Action - Game Button Style */}
           <button
             onClick={handleScanClick}
             disabled={!isActive || isScanning}
-            className="col-span-2 group relative h-32 rounded-[2rem] overflow-hidden shadow-float transition-all hover:shadow-lg active:scale-95"
+            className="col-span-2 group relative h-36 rounded-[2.5rem] overflow-hidden shadow-float transition-all hover:scale-[1.02] active:scale-95"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-[#00C2E0] to-[#0077E6]"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-[#00C2E0] to-[#0077E6] animate-gradient-x"></div>
             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
 
-            <div className="absolute top-4 right-4 bg-white/20 p-2 rounded-full backdrop-blur-sm">
-              <Scan className="w-6 h-6 text-white" />
+            {/* Pulse Rings */}
+            <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
+
+            <div className="absolute top-5 right-5 bg-white/20 p-3 rounded-full backdrop-blur-md shadow-inner">
+              <Camera className="w-8 h-8 text-white drop-shadow-md" />
             </div>
 
-            <div className="relative z-10 h-full flex flex-col justify-end p-6 text-left">
-              <h3 className="text-xl font-bold text-white leading-none mb-1">Escanear Factura</h3>
-              <p className="text-blue-100 text-xs font-medium">Gana puntos al instante</p>
+            <div className="relative z-10 h-full flex flex-col justify-end p-8 text-left">
+              <h3 className="text-3xl font-black text-white leading-none mb-1 drop-shadow-md italic uppercase">
+                ¡Jugar!
+              </h3>
+              <p className="text-blue-100 text-sm font-bold flex items-center gap-1">
+                Escanear para ganar ✨
+              </p>
             </div>
 
             {isScanning && (
-              <div className="absolute inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-20">
-                <Loader2 className="w-8 h-8 text-white animate-spin" />
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex flex-col items-center justify-center z-20">
+                <Loader2 className="w-10 h-10 text-white animate-spin mb-2" />
+                <span className="text-white font-bold animate-pulse">Procesando...</span>
               </div>
             )}
           </button>
@@ -309,7 +325,7 @@ export function ClerkHomeTab() {
                 <div key={scan.id} className="group bg-white p-4 rounded-3xl shadow-sm border border-slate-50 flex items-center justify-between transition-all hover:shadow-md hover:scale-[1.01]">
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${scan.status === 'processed' ? 'bg-[#E0F7FA] text-[#00C2E0]' :
-                        scan.status === 'error' ? 'bg-red-50 text-red-500' : 'bg-gray-50 text-gray-400'
+                      scan.status === 'error' ? 'bg-red-50 text-red-500' : 'bg-gray-50 text-gray-400'
                       }`}>
                       {scan.status === 'processed' ? (
                         <Zap className="h-6 w-6 fill-current" />
