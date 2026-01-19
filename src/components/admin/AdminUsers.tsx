@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { getAllUsers, createUserProfile, updateUserProfile } from '@/lib/db';
 import { User } from '@/lib/types';
-import { User as UserIcon, Users, Shield, Briefcase, Search, PlusCircle, Loader2 } from 'lucide-react';
+import { User as UserIcon, Users, Shield, Briefcase, Search, PlusCircle, Loader2, Check, ChevronsUpDown, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -12,6 +12,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SECTORS } from '@/lib/constants';
+import { cn } from "@/lib/utils";
 
 export default function AdminUsers() {
     const { toast } = useToast();
@@ -19,7 +23,9 @@ export default function AdminUsers() {
     const [search, setSearch] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [newRep, setNewRep] = useState({ name: '', email: '', password: '', phone: '', zone: '' });
+
+    // Changed zone to string[] for better handling
+    const [newRep, setNewRep] = useState({ name: '', email: '', password: '', phone: '', zone: [] as string[] });
 
     useEffect(() => {
         loadUsers();
@@ -37,11 +43,6 @@ export default function AdminUsers() {
             const userCredential = await createUserWithEmailAndPassword(auth, newRep.email, newRep.password);
             const user = userCredential.user;
 
-            // Simple parsing of semicolon separated zones
-            const zoneArray = newRep.zone
-                ? newRep.zone.split(';').map(z => z.trim()).filter(z => z.length > 0)
-                : [];
-
             await createUserProfile(user.uid, {
                 id: user.uid,
                 name: newRep.name,
@@ -49,13 +50,13 @@ export default function AdminUsers() {
                 phone: newRep.phone,
                 role: 'salesRep',
                 status: 'active',
-                zone: zoneArray,
+                zone: newRep.zone, // Now passing array directly
                 avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`
             });
 
             toast({ title: "Visitador Creado", description: "El usuario ha sido registrado exitosamente." });
             setIsDialogOpen(false);
-            setNewRep({ name: '', email: '', password: '', phone: '', zone: '' });
+            setNewRep({ name: '', email: '', password: '', phone: '', zone: [] });
             loadUsers(); // Refresh list
         } catch (error: any) {
             console.error(error);
@@ -134,12 +135,10 @@ export default function AdminUsers() {
                                         <Input id="phone" value={newRep.phone} onChange={(e) => setNewRep({ ...newRep, phone: e.target.value })} required />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="zone">Zonas Asignadas (Separa por ';')</Label>
-                                        <Input
-                                            id="zone"
-                                            value={newRep.zone}
-                                            onChange={(e) => setNewRep({ ...newRep, zone: e.target.value })}
-                                            placeholder="Ej: Evaristo Morales; Piantini"
+                                        <Label htmlFor="zone">Zonas Asignadas</Label>
+                                        <ZoneMultiSelect
+                                            selectedZones={newRep.zone}
+                                            onChange={(zones) => setNewRep({ ...newRep, zone: zones })}
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -191,7 +190,11 @@ export default function AdminUsers() {
                                         {user.role === 'salesRep' && user.zone && (
                                             <div className="flex flex-col gap-1">
                                                 <span className="text-xs text-muted-foreground font-semibold">Zonas:</span>
-                                                <span className="text-xs">{user.zone.join(', ')}</span>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {user.zone.map(z => (
+                                                        <Badge key={z} variant="secondary" className="text-[10px] px-1 py-0">{z}</Badge>
+                                                    ))}
+                                                </div>
                                             </div>
                                         )}
                                         {user.pharmacyId && (
@@ -221,7 +224,7 @@ function EditUserDialog({ user, onUpdate }: { user: User, onUpdate: () => void }
         name: user.name || '',
         phone: user.phone || '',
         role: user.role,
-        zone: user.zone ? user.zone.join('; ') : ''
+        zone: user.zone || [] as string[]
     });
 
     const handleUpdate = async () => {
@@ -234,7 +237,7 @@ function EditUserDialog({ user, onUpdate }: { user: User, onUpdate: () => void }
             };
 
             if (data.role === 'salesRep') {
-                updates.zone = data.zone.split(';').map(z => z.trim()).filter(z => z.length > 0);
+                updates.zone = data.zone;
             }
 
             await updateUserProfile(user.id, updates);
@@ -271,8 +274,11 @@ function EditUserDialog({ user, onUpdate }: { user: User, onUpdate: () => void }
                     </div>
                     {data.role === 'salesRep' && (
                         <div className="space-y-2">
-                            <Label>Zonas (Separa por ';')</Label>
-                            <Input value={data.zone} onChange={e => setData({ ...data, zone: e.target.value })} />
+                            <Label>Zonas</Label>
+                            <ZoneMultiSelect
+                                selectedZones={data.zone}
+                                onChange={(zones) => setData({ ...data, zone: zones })}
+                            />
                         </div>
                     )}
                     <div className="space-y-2">
@@ -294,5 +300,85 @@ function EditUserDialog({ user, onUpdate }: { user: User, onUpdate: () => void }
                 </div>
             </DialogContent>
         </Dialog>
+    );
+}
+
+function ZoneMultiSelect({ selectedZones, onChange }: { selectedZones: string[], onChange: (zones: string[]) => void }) {
+    const [open, setOpen] = useState(false);
+
+    const handleSelect = (currentValue: string) => {
+        if (selectedZones.includes(currentValue)) {
+            onChange(selectedZones.filter(z => z !== currentValue));
+        } else {
+            onChange([...selectedZones, currentValue]);
+        }
+        setOpen(false);
+    };
+
+    const removeZone = (zoneToRemove: string) => {
+        onChange(selectedZones.filter(z => z !== zoneToRemove));
+    };
+
+    return (
+        <div className="space-y-2">
+            <div className="flex flex-wrap gap-2 mb-2">
+                {selectedZones.map(zone => (
+                    <Badge key={zone} variant="secondary" className="flex items-center gap-1 pl-2 pr-1 py-1">
+                        {zone}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-4 w-4 rounded-full ml-1 hover:bg-destructive/10 hover:text-destructive p-0"
+                            onClick={() => removeZone(zone)}
+                        >
+                            <X className="h-3 w-3" />
+                        </Button>
+                    </Badge>
+                ))}
+            </div>
+
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        className="w-full justify-between"
+                    >
+                        <span className="text-muted-foreground font-normal">
+                            {selectedZones.length > 0 ? "Agregar otra zona..." : "Seleccionar zonas..."}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                    <Command>
+                        <CommandInput placeholder="Buscar sector..." />
+                        <CommandList>
+                            <CommandEmpty>No encontrado.</CommandEmpty>
+                            <CommandGroup className="max-h-64 overflow-auto">
+                                {SECTORS.map((sector) => (
+                                    <CommandItem
+                                        key={sector}
+                                        value={sector}
+                                        onSelect={() => handleSelect(sector)}
+                                    >
+                                        <div className={cn(
+                                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                            selectedZones.includes(sector)
+                                                ? "bg-primary text-primary-foreground"
+                                                : "opacity-50 [&_svg]:invisible"
+                                        )}>
+                                            <Check className={cn("h-4 w-4", selectedZones.includes(sector) ? "opacity-100" : "opacity-0")} />
+                                        </div>
+                                        {sector}
+                                    </CommandItem>
+                                ))}
+                            </CommandGroup>
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
+        </div>
     );
 }
