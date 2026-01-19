@@ -144,22 +144,34 @@ export default function AdminPharmacies() {
                                 </DialogHeader>
                                 <form onSubmit={handleSingleCreate} className="space-y-4">
                                     <div className="space-y-2">
-                                        <Label>Nombre</Label>
-                                        <Input value={newPharmacy.name} onChange={e => setNewPharmacy({ ...newPharmacy, name: e.target.value })} required />
+                                        <Label htmlFor="name">Nombre de Farmacia</Label>
+                                        <Input id="name" value={newPharmacy.name} onChange={(e) => setNewPharmacy({ ...newPharmacy, name: e.target.value })} required />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>Dirección</Label>
-                                        <Input value={newPharmacy.address} onChange={e => setNewPharmacy({ ...newPharmacy, address: e.target.value })} required />
+                                        <Label htmlFor="address">Dirección</Label>
+                                        <Input id="address" value={newPharmacy.address} onChange={(e) => setNewPharmacy({ ...newPharmacy, address: e.target.value })} required />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label>Sector</Label>
-                                            <Input value={newPharmacy.sector} onChange={e => setNewPharmacy({ ...newPharmacy, sector: e.target.value })} />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>Cód. Cliente</Label>
-                                            <Input value={newPharmacy.clientCode} onChange={e => setNewPharmacy({ ...newPharmacy, clientCode: e.target.value })} />
-                                        </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="sector">Sector / Zona</Label>
+                                        <Select
+                                            value={newPharmacy.sector}
+                                            onValueChange={(value) => setNewPharmacy({ ...newPharmacy, sector: value })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Selecciona un sector" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {SECTORS.map((sector) => (
+                                                    <SelectItem key={sector} value={sector}>
+                                                        {sector}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="clientCode">Código de Cliente (Opcional)</Label>
+                                        <Input id="clientCode" value={newPharmacy.clientCode || ''} onChange={(e) => setNewPharmacy({ ...newPharmacy, clientCode: e.target.value })} />
                                     </div>
                                     <DialogFooter>
                                         <Button type="submit" disabled={isLoading}>
