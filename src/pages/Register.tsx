@@ -163,7 +163,9 @@ export default function Register() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         {pharmacies.map(p => (
-                                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                            <SelectItem key={p.id} value={p.id}>
+                                                {p.name} {p.sector ? `— ${p.sector}` : ''} {p.clientCode ? `(${p.clientCode})` : ''}
+                                            </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>

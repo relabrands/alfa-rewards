@@ -40,9 +40,17 @@ export const updateUserPoints = async (uid: string, newPoints: number) => {
 
 // Pharmacies
 export const getPharmacies = async (): Promise<Pharmacy[]> => {
-    const q = query(collection(db, "pharmacies"));
+    const q = query(collection(db, "pharmacies"), orderBy("name"));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pharmacy));
+};
+
+export const createPharmacy = async (data: Omit<Pharmacy, 'id'>) => {
+    const docRef = await addDoc(collection(db, "pharmacies"), {
+        ...data,
+        isActive: true
+    });
+    return docRef.id;
 };
 
 // Scans

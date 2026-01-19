@@ -21,6 +21,9 @@ export interface Pharmacy {
     address: string;
     lat: number;
     lng: number;
+    sector?: string;
+    clientCode?: string;
+    isActive?: boolean;
 }
 
 export interface ScanRecord {

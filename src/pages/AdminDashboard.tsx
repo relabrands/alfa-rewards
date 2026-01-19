@@ -5,27 +5,29 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useApp } from '@/context/AppContext';
 import { liveScanLocations, pharmacies } from '@/lib/constants';
-import { ScanRecord } from '@/lib/types';
+import { ScanRecord, DashboardStats } from '@/lib/types';
 import { getAdminStats, getFlaggedScans } from '@/lib/db';
 import {
   Map, Users, DollarSign, TrendingUp, CheckCircle2, XCircle,
-  AlertTriangle, Settings, LogOut, Pill, BarChart3, Activity
+  AlertTriangle, Settings, LogOut, Pill, BarChart3, Activity, Building2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import AdminLiveMap from '@/components/admin/AdminLiveMap';
 import AdminUsers from '@/components/admin/AdminUsers';
 import AdminSettings from '@/components/admin/AdminSettings';
+import AdminPharmacies from '@/components/admin/AdminPharmacies';
 
-type AdminView = 'dashboard' | 'map' | 'users' | 'settings';
+type AdminView = 'dashboard' | 'map' | 'users' | 'pharmacies' | 'settings';
 
 export default function AdminDashboard() {
-  const { campaignMode, setCampaignMode, logout } = useApp();
+  const { campaignMode, setCampaignMode, logout, currentUser } = useApp();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [currentView, setCurrentView] = useState<AdminView>('dashboard');
-  const [stats, setStats] = useState({
-    totalSalesToday: 'RD$ 0k',
+
+  const [stats, setStats] = useState<DashboardStats>({
+    totalSalesToday: 0,
     activeClerks: 0,
     totalPharmacies: 0,
     roi: '0%'
@@ -33,19 +35,21 @@ export default function AdminDashboard() {
   const [flaggedInvoices, setFlaggedInvoices] = useState<ScanRecord[]>([]);
 
   useEffect(() => {
-    const loadDashboardData = async () => {
-      try {
-        const data = await getAdminStats();
-        setStats(data);
+    if (currentView === 'dashboard') {
+      const loadDashboardData = async () => {
+        try {
+          const data = await getAdminStats();
+          setStats(data);
 
-        const flagged = await getFlaggedScans();
-        setFlaggedInvoices(flagged);
-      } catch (error) {
-        console.error("Error loading admin stats:", error);
-      }
-    };
-    loadDashboardData();
-  }, []);
+          const flagged = await getFlaggedScans();
+          setFlaggedInvoices(flagged);
+        } catch (error) {
+          console.error("Error loading admin stats:", error);
+        }
+      };
+      loadDashboardData();
+    }
+  }, [currentView]);
 
   const handleLogout = () => {
     logout();
@@ -73,6 +77,7 @@ export default function AdminDashboard() {
     switch (currentView) {
       case 'map': return <AdminLiveMap />;
       case 'users': return <AdminUsers />;
+      case 'pharmacies': return <AdminPharmacies />;
       case 'settings': return <AdminSettings />;
       default: return (
         <div className="space-y-6">
@@ -294,6 +299,13 @@ export default function AdminDashboard() {
           >
             <Users className="h-5 w-5" />
             <span className="font-medium">Usuarios</span>
+          </button>
+          <button
+            onClick={() => setCurrentView('pharmacies')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'pharmacies' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
+          >
+            <Building2 className="h-5 w-5" />
+            <span className="font-medium">Farmacias</span>
           </button>
           <button
             onClick={() => setCurrentView('settings')}
