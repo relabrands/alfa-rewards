@@ -74,6 +74,7 @@ export default function Register() {
                 name: formData.firstName,
                 lastName: formData.lastName,
                 cedula: formData.cedula,
+                email: formData.email, // Added email field
                 phone: formData.phone,
                 role: 'clerk',
                 status: 'pending',

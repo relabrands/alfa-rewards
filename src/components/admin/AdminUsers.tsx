@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { getAllUsers, createUserProfile, updateUserProfile } from '@/lib/db';
-import { User } from '@/lib/types';
+import { getAllUsers, createUserProfile, updateUserProfile, getPharmacies } from '@/lib/db';
+import { User, Pharmacy } from '@/lib/types';
 import { User as UserIcon, Users, Shield, Briefcase, Search, PlusCircle, Loader2, Check, ChevronsUpDown, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 export default function AdminUsers() {
     const { toast } = useToast();
     const [users, setUsers] = useState<User[]>([]);
+    const [pharmacies, setPharmacies] = useState<Record<string, Pharmacy>>({});
     const [search, setSearch] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -28,8 +30,21 @@ export default function AdminUsers() {
     const [newRep, setNewRep] = useState({ name: '', email: '', password: '', phone: '', zone: [] as string[] });
 
     useEffect(() => {
-        loadUsers();
+        loadData();
     }, []);
+
+    const loadData = async () => {
+        const [usersData, pharmaciesData] = await Promise.all([
+            getAllUsers(),
+            getPharmacies()
+        ]);
+
+        setUsers(usersData);
+
+        const phMap: Record<string, Pharmacy> = {};
+        pharmaciesData.forEach(p => phMap[p.id] = p);
+        setPharmacies(phMap);
+    };
 
     const loadUsers = async () => {
         const data = await getAllUsers();
@@ -71,7 +86,8 @@ export default function AdminUsers() {
     };
 
     const filteredUsers = users.filter(u =>
-        u.name.toLowerCase().includes(search.toLowerCase()) ||
+        (u.name && u.name.toLowerCase().includes(search.toLowerCase())) ||
+        (u.lastName && u.lastName.toLowerCase().includes(search.toLowerCase())) ||
         u.role.toLowerCase().includes(search.toLowerCase()) ||
         (u.pharmacyId && u.pharmacyId.toLowerCase().includes(search.toLowerCase()))
     );
@@ -169,45 +185,56 @@ export default function AdminUsers() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredUsers.map((user) => (
-                                <TableRow key={user.id}>
-                                    <TableCell className="font-medium">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                                                {user.name ? user.name.charAt(0).toUpperCase() : '?'}
-                                            </div>
-                                            <div>
-                                                <p>{user.name || 'Sin Nombre'}</p>
-                                                <p className="text-xs text-muted-foreground">{user.email || user.phone || 'N/A'}</p>
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        {getRoleBadge(user.role)}
-                                        {user.status === 'pending' && <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800 border-yellow-200">Pendiente</Badge>}
-                                    </TableCell>
-                                    <TableCell>
-                                        {user.role === 'salesRep' && user.zone && (
-                                            <div className="flex flex-col gap-1">
-                                                <span className="text-xs text-muted-foreground font-semibold">Zonas:</span>
-                                                <div className="flex flex-wrap gap-1">
-                                                    {user.zone.map(z => (
-                                                        <Badge key={z} variant="secondary" className="text-[10px] px-1 py-0">{z}</Badge>
-                                                    ))}
+                            {filteredUsers.map((user) => {
+                                const pharmacy = user.pharmacyId ? pharmacies[user.pharmacyId] : null;
+                                return (
+                                    <TableRow key={user.id}>
+                                        <TableCell className="font-medium">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                                                    {user.name ? user.name.charAt(0).toUpperCase() : '?'}
+                                                </div>
+                                                <div>
+                                                    <p>{user.name} {user.lastName}</p>
+                                                    <p className="text-xs text-muted-foreground">{user.email || user.phone || 'N/A'}</p>
                                                 </div>
                                             </div>
-                                        )}
-                                        {user.pharmacyId && (
-                                            <span className="flex items-center gap-1 text-xs">
-                                                <Briefcase className="h-3 w-3" /> {user.pharmacyId}
-                                            </span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <EditUserDialog user={user} onUpdate={loadUsers} />
-                                    </TableCell>
-                                </TableRow>
-                            ))}
+                                        </TableCell>
+                                        <TableCell>
+                                            {getRoleBadge(user.role)}
+                                            {user.status === 'pending' && <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800 border-yellow-200">Pendiente</Badge>}
+                                        </TableCell>
+                                        <TableCell>
+                                            {user.role === 'salesRep' && user.zone && (
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-xs text-muted-foreground font-semibold">Zonas:</span>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {user.zone.map(z => (
+                                                            <Badge key={z} variant="secondary" className="text-[10px] px-1 py-0">{z}</Badge>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {user.pharmacyId && (
+                                                <div className="flex flex-col gap-0.5">
+                                                    <span className="flex items-center gap-1 text-sm font-medium">
+                                                        <Briefcase className="h-3 w-3 text-muted-foreground" />
+                                                        {pharmacy ? pharmacy.name : user.pharmacyId}
+                                                    </span>
+                                                    {pharmacy?.sector && (
+                                                        <span className="text-xs text-muted-foreground ml-4">
+                                                            {pharmacy.sector}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <EditUserDialog user={user} onUpdate={loadUsers} />
+                                        </TableCell>
+                                    </TableRow>
+                                )
+                            })}
                         </TableBody>
                     </Table>
                 </div>
