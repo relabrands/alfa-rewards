@@ -11,7 +11,7 @@ import { getPharmacies, createPharmacy, updatePharmacy } from '@/lib/db';
 import { Pharmacy, User } from '@/lib/types';
 import { Building2, Plus, Upload, Loader2, Search, FileSpreadsheet, Pencil } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DR_LOCATIONS } from '@/lib/constants';
+import { SECTORS, DR_LOCATIONS } from '@/lib/locations';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 

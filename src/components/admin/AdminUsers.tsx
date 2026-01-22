@@ -15,7 +15,7 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { SECTORS } from '@/lib/constants';
+import { SECTORS } from '@/lib/locations';
 import { cn } from "@/lib/utils";
 
 export default function AdminUsers() {
