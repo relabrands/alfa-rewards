@@ -11,6 +11,7 @@ import { Icon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { DR_LOCATIONS } from '@/lib/locations';
 
 // --- Types ---
 interface Pharmacy {
@@ -20,6 +21,7 @@ interface Pharmacy {
     lat: number;
     lng: number;
     zone: string;
+    city?: string; // Add city support
     assigned_rep_id: string;
     status: 'active' | 'inactive';
     image?: string;
@@ -41,7 +43,6 @@ interface SalesRep {
 }
 
 // --- Icons ---
-// Using reliable CDN for markers to avoid broken images in Vercel
 const createIcon = (color: string) => new Icon({
     iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/markers/marker-icon-2x-${color}.png`,
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -76,14 +77,10 @@ export default function DirectorMapAnalytics() {
     // Data State
     const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
     const [clerks, setClerks] = useState<Clerk[]>([]);
-    const [reps, setReps] = useState<SalesRep[]>([
-        { id: '1', name: 'Carlos Gomez' },
-        { id: '2', name: 'Ana Reyes' },
-        { id: '3', name: 'Luis Diaz' }
-    ]);
+    const [reps, setReps] = useState<SalesRep[]>([]);
 
     // Filter State
-    const [selectedZone, setSelectedZone] = useState<string>("all");
+    const [selectedCity, setSelectedCity] = useState<string>("all");
     const [selectedRepId, setSelectedRepId] = useState<string>("all");
     const [selectedStatus, setSelectedStatus] = useState<string>("all");
 
@@ -98,16 +95,16 @@ export default function DirectorMapAnalytics() {
                 const data = doc.data();
                 const lat = data.coordinates?.lat || data.lat || 18.48;
                 const lng = data.coordinates?.lng || data.lng || -69.93;
-                // Determine status securely
                 const performanceStatus = data.status === 'inactive' ? 'low' :
-                    (data.monthlySales > 50000 ? 'high' : 'avg'); // simple heuristic if available
+                    (data.monthlySales > 50000 ? 'high' : 'avg');
 
                 return {
                     id: doc.id,
                     name: data.name,
                     address: data.address || 'Dirección no disponible',
-                    zone: data.zone || 'Sin Zona',
-                    assigned_rep_id: data.assigned_rep_id || '1',
+                    zone: data.zone || data.sector || 'Sin Zona',
+                    city: data.city || 'Desconocido', // Map new city field
+                    assigned_rep_id: data.assigned_rep_id || '',
                     status: data.status || 'active',
                     image: data.image || 'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=300&q=80',
                     lat,
@@ -120,20 +117,31 @@ export default function DirectorMapAnalytics() {
         return () => unsubscribe();
     }, []);
 
-    // 2. Derive Filters
-    const zones = useMemo(() => Array.from(new Set(pharmacies.map(p => p.zone).filter(Boolean))), [pharmacies]);
+    // 2. Fetch Real Sales Reps
+    useEffect(() => {
+        const q = query(collection(db, "users"), where("role", "==", "salesRep"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const loadedReps = snapshot.docs.map(doc => ({
+                id: doc.id,
+                name: `${doc.data().name} ${doc.data().lastName || ''}`.trim()
+            }));
+            setReps(loadedReps);
+        });
+        return () => unsubscribe();
+    }, []);
 
     // 3. Filtered Data
     const filteredPharmacies = useMemo(() => {
         return pharmacies.filter(p => {
-            const matchZone = selectedZone === "all" || p.zone === selectedZone;
+            // Filter by City instead of Zone (match AdminPharmacies creation logic)
+            const matchCity = selectedCity === "all" || p.city === selectedCity || p.zone === selectedCity; // Fallback to zone check for old data
             const matchRep = selectedRepId === "all" || p.assigned_rep_id === selectedRepId;
             const matchStatus = selectedStatus === "all" ||
                 (selectedStatus === 'high' && p.performanceStatus === 'high') ||
                 (selectedStatus === 'low' && p.performanceStatus === 'low');
-            return matchZone && matchRep && matchStatus;
+            return matchCity && matchRep && matchStatus;
         });
-    }, [pharmacies, selectedZone, selectedRepId, selectedStatus]);
+    }, [pharmacies, selectedCity, selectedRepId, selectedStatus]);
 
     // 4. Calculate Bounds for Auto-Zoom
     const mapBounds = useMemo(() => {
@@ -154,7 +162,7 @@ export default function DirectorMapAnalytics() {
         setClerks(pClerks);
     };
 
-    // AI Insight (Mocked)
+    // AI Insight
     const aiInsight = useMemo(() => {
         if (!selectedPharmacy) return null;
         const isHigh = selectedPharmacy.performanceStatus === 'high';
@@ -167,10 +175,10 @@ export default function DirectorMapAnalytics() {
     }, [selectedPharmacy]);
 
     return (
-        <div className="h-[calc(100vh-8rem)] relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+        <div className="h-[calc(100vh-8rem)] relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-slate-200 shadow-sm isolate">
 
-            {/* Top Floating Filter Panel */}
-            <div className="absolute top-4 left-4 z-[1000] w-72 flex flex-col gap-2">
+            {/* Top Floating Filter Panel - High Z-Index & Isolate */}
+            <div className="absolute top-4 left-4 z-[5000] w-72 flex flex-col gap-2 pointer-events-auto">
                 <Card className="bg-white/95 backdrop-blur-sm shadow-xl border-white/50">
                     <CardHeader className="p-4 pb-2">
                         <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-800">
@@ -178,16 +186,18 @@ export default function DirectorMapAnalytics() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 pt-2 flex flex-col gap-3">
-                        {/* Zone Filter */}
+                        {/* City Filter */}
                         <div className="space-y-1.5">
-                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Zona Geográfica</label>
-                            <Select value={selectedZone} onValueChange={setSelectedZone}>
-                                <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200">
-                                    <SelectValue placeholder="Todas las Zonas" />
+                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Ciudad / Zona</label>
+                            <Select value={selectedCity} onValueChange={setSelectedCity}>
+                                <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200 w-full">
+                                    <SelectValue placeholder="Todas las Ciudades" />
                                 </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todas las Zonas</SelectItem>
-                                    {zones.map(z => <SelectItem key={z} value={z}>{z}</SelectItem>)}
+                                <SelectContent className="z-[5002] max-h-60">
+                                    <SelectItem value="all">Todas las Ciudades</SelectItem>
+                                    {Object.keys(DR_LOCATIONS).sort().map(city => (
+                                        <SelectItem key={city} value={city}>{city}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -196,12 +206,16 @@ export default function DirectorMapAnalytics() {
                         <div className="space-y-1.5">
                             <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Vendedor Asignado</label>
                             <Select value={selectedRepId} onValueChange={setSelectedRepId}>
-                                <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200">
-                                    <SelectValue placeholder="Todos" />
+                                <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200 w-full">
+                                    <SelectValue placeholder={reps.length > 0 ? "Todos" : "Cargando..."} />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="z-[5002] max-h-60">
                                     <SelectItem value="all">Todos los Vendedores</SelectItem>
-                                    {reps.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                                    {reps.length === 0 ? (
+                                        <SelectItem value="none" disabled>No se encontraron vendedores</SelectItem>
+                                    ) : (
+                                        reps.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)
+                                    )}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -210,7 +224,7 @@ export default function DirectorMapAnalytics() {
                             variant="ghost"
                             size="sm"
                             className="text-xs h-6 text-slate-500 hover:text-red-600 hover:bg-red-50 w-full mt-1"
-                            onClick={() => { setSelectedZone('all'); setSelectedRepId('all'); setSelectedStatus('all'); }}
+                            onClick={() => { setSelectedCity('all'); setSelectedRepId('all'); setSelectedStatus('all'); }}
                         >
                             Limpiar Filtros
                         </Button>
