@@ -40,9 +40,13 @@ export function ClerkHomeTab() {
     document.getElementById('invoice-upload')?.click();
   };
 
-  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+  const onInvoiceFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    console.log('File change event triggered');
     const file = event.target.files?.[0];
-    if (!file || !currentUser) return;
+    if (!file || !currentUser) {
+      console.log('No file or user missing', { file, currentUser });
+      return;
+    }
 
     setIsScanning(true);
     toast({ title: 'Subiendo factura...', description: 'Por favor espera mientras analizamos la imagen.' });
@@ -182,7 +186,7 @@ export function ClerkHomeTab() {
         accept="image/*"
         capture="environment"
         className="hidden"
-        onChange={handleFileChange}
+        onChange={onInvoiceFileChange}
       />
 
       <main className="px-4 py-6 space-y-6 max-w-md mx-auto animate-fade-in">
@@ -215,8 +219,8 @@ export function ClerkHomeTab() {
               { time: 'Hace 2 min', desc: 'Factura escaneada', points: '+250' },
               { time: 'Hace 1 hora', desc: 'Factura escaneada', points: '+180' },
               { time: 'Ayer', desc: 'Recarga canjeada', points: '-500' },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+            ].map((item, index) => (
+              <div key={index} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                 <div>
                   <p className="text-sm font-medium">{item.desc}</p>
                   <p className="text-xs text-muted-foreground">{item.time}</p>
