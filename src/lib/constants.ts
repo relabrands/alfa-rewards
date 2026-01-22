@@ -41,7 +41,8 @@ export const liveScanLocations = [
 ];
 
 // Dominican Republic Locations Structure
-export const DR_LOCATIONS: Record<string, string[]> = {
+// Dominican Republic Locations Structure
+const LOCATIONS_DATA: Record<string, string[]> = {
     "Distrito Nacional": [
         "Piantini", "Naco", "Evaristo Morales", "Bella Vista", "Cacicazgos",
         "Mirador Sur", "Mirador Norte", "Los Prados", "Julieta Morales",
@@ -86,5 +87,7 @@ export const DR_LOCATIONS: Record<string, string[]> = {
     ]
 };
 
-// Flattened list for backwards compatibility if needed, but preferred to use hierarchy
-export const SECTORS = Object.values(DR_LOCATIONS).flat().sort();
+export const DR_LOCATIONS = LOCATIONS_DATA;
+
+// Flattened list using reduce for maximum compatibility
+export const SECTORS = Object.values(LOCATIONS_DATA).reduce((acc, val) => acc.concat(val), [] as string[]).sort();
