@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import AdminLiveMap from '@/components/admin/AdminLiveMap';
+import DirectorMapAnalytics from '@/components/admin/DirectorMapAnalytics';
 import AdminUsers from '@/components/admin/AdminUsers';
 import AdminSettings from '@/components/admin/AdminSettings';
 import AdminPharmacies from '@/components/admin/AdminPharmacies';
@@ -69,7 +69,7 @@ export default function AdminDashboard() {
 
   const renderContent = () => {
     switch (currentView) {
-      case 'map': return <AdminLiveMap />;
+      case 'map': return <DirectorMapAnalytics />;
       case 'users': return <AdminUsers />;
       case 'pharmacies': return <AdminPharmacies />;
       case 'rewards': return <AdminRewards />;
