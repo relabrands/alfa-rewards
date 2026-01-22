@@ -4,11 +4,15 @@ import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
 import { CoinAnimation } from '@/components/CoinAnimation';
 import { RouletteWheel } from '@/components/RouletteWheel';
-import { Camera, TrendingUp, History, Loader2 } from 'lucide-react';
+import { Camera, TrendingUp, History, Loader2, Award } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db, storage } from '@/lib/firebase';
-import { collection, addDoc, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, onSnapshot, serverTimestamp, updateDoc, getDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes } from 'firebase/storage';
+import { getScanHistory } from '@/lib/db';
+import { ScanRecord } from '@/lib/types';
+import { format, isSameDay, isSameWeek } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 export function ClerkHomeTab() {
   const { points, addPoints, campaignMode, currentUser } = useApp();
@@ -18,6 +22,13 @@ export function ClerkHomeTab() {
   const [showCoins, setShowCoins] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
   const [recentEarnings, setRecentEarnings] = useState<number | null>(null);
+
+  // Real Data State
+  const [history, setHistory] = useState<ScanRecord[]>([]);
+  const [weeklyPoints, setWeeklyPoints] = useState(0);
+  const [scansToday, setScansToday] = useState(0);
+  const [rankingPercentile, setRankingPercentile] = useState(0);
+  const [pharmacyDetails, setPharmacyDetails] = useState<{ name: string, sector: string } | null>(null);
 
   useEffect(() => {
     if (displayPoints !== points) {
@@ -35,6 +46,62 @@ export function ClerkHomeTab() {
       return () => clearInterval(timer);
     }
   }, [points, displayPoints]);
+
+  // Load Real Data
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const loadDashboardData = async () => {
+      try {
+        // 1. Load History & Calculate Stats
+        const scans = await getScanHistory(currentUser.id);
+        setHistory(scans);
+
+        const now = new Date();
+        const todayScans = scans.filter(s => s.timestamp && isSameDay(s.timestamp, now));
+        const weekPoints = scans
+          .filter(s => s.timestamp && isSameWeek(s.timestamp, now))
+          .reduce((sum, s) => sum + (s.pointsEarned || 0), 0);
+
+        setScansToday(todayScans.length);
+        setWeeklyPoints(weekPoints);
+
+        // 2. Load Pharmacy Details
+        if (currentUser.pharmacyId) {
+          const pharDoc = await getDoc(doc(db, 'pharmacies', currentUser.pharmacyId));
+          if (pharDoc.exists()) {
+            const data = pharDoc.data();
+            setPharmacyDetails({ name: data.name, sector: data.sector || '' });
+          }
+        }
+
+        // 3. Calculate Ranking (Simplified Realtime)
+        // Ideally this should be a cloud function or cached stat
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where("role", "==", "clerk"), orderBy("points", "desc"));
+        const snapshot = await getDocs(q);
+
+        let myRank = -1;
+        snapshot.docs.forEach((doc, index) => {
+          if (doc.id === currentUser.id) myRank = index + 1;
+        });
+
+        if (myRank > 0 && snapshot.size > 0) {
+          // Percentile: (Total - Rank) / Total * 100. Top 1 is 100% better than others approx.
+          // Or simpler: Top X%
+          const percentile = Math.ceil((myRank / snapshot.size) * 100);
+          setRankingPercentile(percentile);
+        } else {
+          setRankingPercentile(100); // Default bottom
+        }
+
+      } catch (error) {
+        console.error("Error loading dashboard data", error);
+      }
+    };
+
+    loadDashboardData();
+  }, [currentUser, points]); // Reload when points change
 
   const handleScanInvoice = () => {
     document.getElementById('invoice-upload')?.click();
@@ -57,6 +124,7 @@ export function ClerkHomeTab() {
         userId: currentUser.id,
         status: 'uploading',
         createdAt: serverTimestamp(),
+        timestamp: serverTimestamp(), // Added for sorting consistency
         type: 'invoice'
       });
 
@@ -131,15 +199,22 @@ export function ClerkHomeTab() {
 
       {/* Top / Balance (reference-style) */}
       <header className="px-4 pt-6 max-w-md mx-auto">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Inicio</p>
-            <h1 className="text-3xl font-semibold leading-tight">Mis puntos</h1>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Hola,</p>
+            <h1 className="text-xl font-bold leading-tight text-foreground">
+              {currentUser?.name || 'Usuario'}
+            </h1>
+            {pharmacyDetails && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {pharmacyDetails.name} {pharmacyDetails.sector ? `• ${pharmacyDetails.sector}` : ''}
+              </p>
+            )}
           </div>
           <button className="px-4 py-2 text-sm soft-chip">Ayuda</button>
         </div>
 
-        <div className="mt-4 soft-card rounded-3xl p-5">
+        <div className="mt-2 soft-card rounded-3xl p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Balance</p>
@@ -152,7 +227,7 @@ export function ClerkHomeTab() {
               </div>
               <div className="mt-3 flex items-center gap-2 text-muted-foreground">
                 <TrendingUp className="h-4 w-4" />
-                <span className="text-sm">+340 pts esta semana</span>
+                <span className="text-sm">+{weeklyPoints.toLocaleString()} pts esta semana</span>
               </div>
             </div>
 
@@ -194,14 +269,16 @@ export function ClerkHomeTab() {
         <div className="grid grid-cols-2 gap-4">
           <Card className="soft-card rounded-3xl stats-card">
             <CardContent className="p-4 text-center">
-              <div className="text-3xl mb-1">12</div>
+              <div className="text-3xl mb-1 font-bold">{scansToday}</div>
               <p className="text-sm text-muted-foreground">Escaneos Hoy</p>
             </CardContent>
           </Card>
           <Card className="soft-card rounded-3xl stats-card">
             <CardContent className="p-4 text-center">
-              <div className="text-3xl mb-1">🏆</div>
-              <p className="text-sm text-muted-foreground">Top 5% Ranking</p>
+              <div className="text-3xl mb-1 flex justify-center text-gold">
+                <Award className="h-8 w-8 text-[#FFD700]" />
+              </div>
+              <p className="text-sm text-muted-foreground">Top {rankingPercentile}%</p>
             </CardContent>
           </Card>
         </div>
@@ -214,22 +291,27 @@ export function ClerkHomeTab() {
               Actividad Reciente
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {[
-              { time: 'Hace 2 min', desc: 'Factura escaneada', points: '+250' },
-              { time: 'Hace 1 hora', desc: 'Factura escaneada', points: '+180' },
-              { time: 'Ayer', desc: 'Recarga canjeada', points: '-500' },
-            ].map((item, index) => (
-              <div key={index} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                <div>
-                  <p className="text-sm font-medium">{item.desc}</p>
-                  <p className="text-xs text-muted-foreground">{item.time}</p>
+          <CardContent className="p-0">
+            <div className="divide-y divide-border">
+              {history.slice(0, 5).map((item, index) => (
+                <div key={index} className="px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Factura Registrada</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.timestamp ? format(item.timestamp, "d MMM, h:mm a", { locale: es }) : 'Procesando...'}
+                    </p>
+                  </div>
+                  <span className={`font-bold ${item.pointsEarned > 0 ? 'text-success' : 'text-muted-foreground'}`}>
+                    {item.pointsEarned > 0 ? `+${item.pointsEarned}` : item.status === 'processing' ? '...' : '0'}
+                  </span>
                 </div>
-                <span className={`font-bold ${item.points.startsWith('+') ? 'text-success' : 'text-destructive'}`}>
-                  {item.points}
-                </span>
-              </div>
-            ))}
+              ))}
+              {history.length === 0 && (
+                <div className="p-4 text-center text-sm text-muted-foreground">
+                  No hay actividad reciente.
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </main>
