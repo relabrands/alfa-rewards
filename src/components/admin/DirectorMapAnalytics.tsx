@@ -10,7 +10,7 @@ import { AlertCircle, Crown, Filter, Sparkles } from 'lucide-react';
 import { Icon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { DR_LOCATIONS } from '@/lib/locations';
 
 // --- Types ---
@@ -33,8 +33,14 @@ interface Clerk {
     name: string;
     pharmacyId: string;
     totalPoints: number;
-    lastActive: string;
+    lastActive: string; // Formatted date or "active"
     scans: number;
+    status: string;
+}
+
+interface Scan {
+    productsFound: any[];
+    invoiceAmount: number;
 }
 
 interface SalesRep {
@@ -87,6 +93,14 @@ export default function DirectorMapAnalytics() {
     // UI State
     const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+    // Insight State
+    const [stats, setStats] = useState({
+        summary: "Analizando datos...",
+        trend: "Calculando...",
+        topProducts: "Cargando...",
+        alert: ""
+    });
 
     // 1. Fetch Pharmacies Realtime
     useEffect(() => {
@@ -150,29 +164,92 @@ export default function DirectorMapAnalytics() {
     }, [filteredPharmacies]);
 
     // Handlers
-    const handlePharmacyClick = (pharmacy: Pharmacy) => {
+    const handlePharmacyClick = async (pharmacy: Pharmacy) => {
         setSelectedPharmacy(pharmacy);
         setIsSheetOpen(true);
-        // Mock clerks generator based on pharmacy ID seed
-        const seed = pharmacy.id.charCodeAt(0);
-        const pClerks = [
-            { id: `c${seed}1`, name: 'Maria Perez', pharmacyId: pharmacy.id, totalPoints: 1200 + seed * 10, lastActive: '5 min', scans: 40 + (seed % 10) },
-            { id: `c${seed}2`, name: 'Jose Santos', pharmacyId: pharmacy.id, totalPoints: 800 + seed * 5, lastActive: '1 hora', scans: 25 + (seed % 5) },
-        ].sort((a, b) => b.totalPoints - a.totalPoints);
-        setClerks(pClerks);
-    };
+        setStats({ summary: "Cargando...", trend: "...", topProducts: "...", alert: "" });
 
-    // AI Insight
-    const aiInsight = useMemo(() => {
-        if (!selectedPharmacy) return null;
-        const isHigh = selectedPharmacy.performanceStatus === 'high';
-        return {
-            summary: isHigh ? "Farmacia con excelente rotación." : "Rendimiento por debajo del promedio.",
-            trend: isHigh ? "📈 Ventas subiendo +12%" : "📉 Tráfico bajo en fin de semana",
-            topProducts: "Broncochen, Neurobión",
-            alert: isHigh ? "Todo en orden" : "⚠️ Stock bajo reportado"
-        };
-    }, [selectedPharmacy]);
+        // 1. Fetch Real Clerks
+        try {
+            const clerksQ = query(
+                collection(db, "users"),
+                where("pharmacyId", "==", pharmacy.id),
+                where("role", "==", "clerk")
+            );
+            const clerksSnap = await getDocs(clerksQ);
+            const realClerks: Clerk[] = clerksSnap.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    name: `${data.name} ${data.lastName || ''}`.trim(),
+                    pharmacyId: pharmacy.id,
+                    totalPoints: data.points || 0,
+                    lastActive: data.lastActive ? new Date(data.lastActive.toDate()).toLocaleDateString() : 'N/A',
+                    scans: 0, // Need to count scans if important, skipping for speed
+                    status: data.status || 'pending'
+                };
+            }).sort((a, b) => b.totalPoints - a.totalPoints);
+            setClerks(realClerks);
+
+            // 2. Fetch Recent Scans for "AI Insight"
+            const scansQ = query(
+                collection(db, "scans"),
+                where("pharmacyCode", "==", pharmacy.id), // Assuming pharmacyId is stored as pharmacyId or pharmacyCode?
+                // Note: scans usually store 'userId'. Getting scans by pharmacy requires 'pharmacyId' on scan or map user->pharmacy.
+                // Let's try filtering by users we just found.
+                // Or assuming scans have pharmacyId. If not, this might return empty.
+                orderBy("timestamp", "desc"),
+                limit(50)
+            );
+
+            // Correction: Scans might not have pharmacyId directly indexed or stored.
+            // But we have the list of clerk IDs. 
+            // Querying scans where userId IN [clerkIds] is better.
+            let recentScans: any[] = [];
+            if (realClerks.length > 0) {
+                const clerkIds = realClerks.map(c => c.id).slice(0, 10); // Firestore 'in' limit is 10
+                const scansByUsersQ = query(
+                    collection(db, "scans"),
+                    where("userId", "in", clerkIds),
+                    orderBy("timestamp", "desc"),
+                    limit(20)
+                );
+                const scansSnap = await getDocs(scansByUsersQ);
+                recentScans = scansSnap.docs.map(d => d.data());
+            }
+
+            // 3. Generate "Insight"
+            const totalSales = recentScans.reduce((sum, s) => sum + (s.invoiceAmount || 0), 0);
+            const scanCount = recentScans.length;
+
+            // Top Products
+            const productCounts: Record<string, number> = {};
+            recentScans.forEach(s => {
+                if (s.productsFound && Array.isArray(s.productsFound)) {
+                    s.productsFound.forEach((p: any) => {
+                        productCounts[p.product] = (productCounts[p.product] || 0) + (p.quantity || 1);
+                    });
+                }
+            });
+            const topProducts = Object.entries(productCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3)
+                .map(e => e[0])
+                .join(", ");
+
+            setStats({
+                summary: scanCount > 5 ? "Farmacia con actividad regular." : "Baja actividad reciente.",
+                trend: totalSales > 0 ? `💰 RD$ ${(totalSales / 1000).toFixed(1)}k en ventas recientes` : "Sin ventas recientes",
+                topProducts: topProducts || "Sin datos de productos",
+                alert: realClerks.length === 0 ? "⚠️ Sin dependientes registrados" : "Todo en orden"
+            });
+
+        } catch (error) {
+            console.error("Error fetching pharmacy details:", error);
+            setClerks([]);
+            setStats({ summary: "Error cargando datos", trend: "-", topProducts: "-", alert: "Error de conexión" });
+        }
+    };
 
     return (
         <div className="h-[calc(100vh-8rem)] relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-slate-200 shadow-sm isolate">
@@ -296,20 +373,20 @@ export default function DirectorMapAnalytics() {
                                 <div className="space-y-3 text-sm text-slate-700">
                                     <div className="flex gap-2">
                                         <div className="min-w-[4px] h-full rounded-full bg-indigo-200"></div>
-                                        <p><span className="font-bold text-indigo-700">Resumen:</span> {aiInsight?.summary}</p>
+                                        <p><span className="font-bold text-indigo-700">Resumen:</span> {stats.summary}</p>
                                     </div>
                                     <div className="flex gap-2">
                                         <div className="min-w-[4px] h-full rounded-full bg-indigo-200"></div>
-                                        <p><span className="font-bold text-indigo-700">Tendencia:</span> {aiInsight?.trend}</p>
+                                        <p><span className="font-bold text-indigo-700">Tendencia:</span> {stats.trend}</p>
                                     </div>
                                     <div className="p-3 bg-white/60 rounded-xl border border-indigo-50">
-                                        <p className="text-xs text-slate-500 uppercase tracking-wider font-bold mb-1">Productos Top</p>
-                                        <p className="font-medium text-slate-800">{aiInsight?.topProducts}</p>
+                                        <p className="text-xs text-slate-500 uppercase tracking-wider font-bold mb-1">Productos Top (Recientes)</p>
+                                        <p className="font-medium text-slate-800">{stats.topProducts}</p>
                                     </div>
                                     {selectedPharmacy.performanceStatus === 'low' && (
                                         <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-xl border border-red-100">
                                             <AlertCircle className="w-4 h-4 shrink-0" />
-                                            <span className="text-xs font-bold">{aiInsight?.alert}</span>
+                                            <span className="text-xs font-bold">{stats.alert}</span>
                                         </div>
                                     )}
                                 </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,13 +8,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from "@/hooks/use-toast";
 import { getProducts, createProduct, deleteProduct } from '@/lib/db';
 import { Product } from '@/lib/types';
-import { ScanBarcode, PlusCircle, Trash2, Loader2, Tag } from 'lucide-react';
+import { ScanBarcode, PlusCircle, Trash2, Loader2, Tag, Upload } from 'lucide-react';
+import Papa from 'papaparse';
 
 export default function AdminProducts() {
     const { toast } = useToast();
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // New Product State
     const [newProduct, setNewProduct] = useState({
@@ -85,6 +87,61 @@ export default function AdminProducts() {
         }
     };
 
+    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        Papa.parse(file, {
+            header: true,
+            complete: async (results) => {
+                const data = results.data as any[];
+                let count = 0;
+                setIsLoading(true);
+
+                try {
+                    for (const row of data) {
+                        if (row.Name && row.Points) {
+                            const keywords = row.Keywords
+                                ? row.Keywords.toString().split(',').map((k: string) => k.trim().toLowerCase())
+                                : [row.Name.toLowerCase()];
+
+                            await createProduct({
+                                name: row.Name,
+                                points: parseInt(row.Points) || 10,
+                                keywords: keywords,
+                                image: row.Image || '💊'
+                            });
+                            count++;
+                        }
+                    }
+                    toast({
+                        title: "Importación Exitosa",
+                        description: `Se han importado ${count} productos correctamente.`
+                    });
+                    loadProducts();
+                } catch (error) {
+                    console.error("Error importing products:", error);
+                    toast({
+                        title: "Error",
+                        description: "Hubo un problema al importar los productos.",
+                        variant: "destructive"
+                    });
+                } finally {
+                    setIsLoading(false);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                }
+            },
+            error: (error) => {
+                console.error("CSV Parse Error:", error);
+                toast({
+                    title: "Error de Archivo",
+                    description: "No se pudo leer el archivo CSV.",
+                    variant: "destructive"
+                });
+            }
+        });
+    };
+
     return (
         <Card className="h-full">
             <CardHeader>
@@ -96,66 +153,79 @@ export default function AdminProducts() {
                         </CardTitle>
                         <CardDescription>Configura los productos que la IA debe detectar en las facturas</CardDescription>
                     </div>
-                    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Agregar Producto
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Nuevo Producto Participante</DialogTitle>
-                                <DialogDescription>Define el producto y las palabras clave para detectarlo.</DialogDescription>
-                            </DialogHeader>
-                            <form onSubmit={handleCreate} className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label>Nombre del Producto</Label>
-                                    <Input
-                                        value={newProduct.name}
-                                        onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
-                                        placeholder="Ej. Aspirina 500mg"
-                                        required
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Palabras Clave (Separadas por comas)</Label>
-                                    <Input
-                                        value={newProduct.keywordsString}
-                                        onChange={e => setNewProduct({ ...newProduct, keywordsString: e.target.value })}
-                                        placeholder="ej. aspirina, bayer, 500mg"
-                                        required
-                                    />
-                                    <p className="text-xs text-muted-foreground">La IA buscará estas palabras en la factura.</p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
+                    <div className="flex gap-2">
+                        <input
+                            type="file"
+                            accept=".csv"
+                            className="hidden"
+                            ref={fileInputRef}
+                            onChange={handleFileUpload}
+                        />
+                        <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Importar CSV
+                        </Button>
+                        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button>
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    Agregar Producto
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Nuevo Producto Participante</DialogTitle>
+                                    <DialogDescription>Define el producto y las palabras clave para detectarlo.</DialogDescription>
+                                </DialogHeader>
+                                <form onSubmit={handleCreate} className="space-y-4">
                                     <div className="space-y-2">
-                                        <Label>Puntos a Otorgar</Label>
+                                        <Label>Nombre del Producto</Label>
                                         <Input
-                                            type="number"
-                                            value={newProduct.points}
-                                            onChange={e => setNewProduct({ ...newProduct, points: parseInt(e.target.value) || 0 })}
+                                            value={newProduct.name}
+                                            onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
+                                            placeholder="Ej. Aspirina 500mg"
                                             required
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>Emoji / Ícono</Label>
+                                        <Label>Palabras Clave (Separadas por comas)</Label>
                                         <Input
-                                            value={newProduct.image}
-                                            onChange={e => setNewProduct({ ...newProduct, image: e.target.value })}
-                                            placeholder="💊"
+                                            value={newProduct.keywordsString}
+                                            onChange={e => setNewProduct({ ...newProduct, keywordsString: e.target.value })}
+                                            placeholder="ej. aspirina, bayer, 500mg"
+                                            required
                                         />
+                                        <p className="text-xs text-muted-foreground">La IA buscará estas palabras en la factura.</p>
                                     </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button type="submit" disabled={isLoading}>
-                                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        Guardar Producto
-                                    </Button>
-                                </DialogFooter>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>Puntos a Otorgar</Label>
+                                            <Input
+                                                type="number"
+                                                value={newProduct.points}
+                                                onChange={e => setNewProduct({ ...newProduct, points: parseInt(e.target.value) || 0 })}
+                                                required
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Emoji / Ícono</Label>
+                                            <Input
+                                                value={newProduct.image}
+                                                onChange={e => setNewProduct({ ...newProduct, image: e.target.value })}
+                                                placeholder="💊"
+                                            />
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button type="submit" disabled={isLoading}>
+                                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            Guardar Producto
+                                        </Button>
+                                    </DialogFooter>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                 </div>
             </CardHeader>
             <CardContent>

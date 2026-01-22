@@ -33,7 +33,7 @@ export interface ScanRecord {
     invoiceAmount: number;
     pointsEarned: number;
     timestamp: Date;
-    status: 'approved' | 'pending' | 'flagged';
+    status: 'approved' | 'pending' | 'flagged' | 'processed' | 'error' | 'uploaded';
 }
 
 export interface Reward {

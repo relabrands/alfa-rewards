@@ -19,8 +19,9 @@ import AdminSettings from '@/components/admin/AdminSettings';
 import AdminPharmacies from '@/components/admin/AdminPharmacies';
 import AdminRewards from '@/components/admin/AdminRewards';
 import AdminProducts from '@/components/admin/AdminProducts';
+import AdminClerkPerformance from '@/components/admin/AdminClerkPerformance';
 
-type AdminView = 'dashboard' | 'map' | 'users' | 'pharmacies' | 'settings' | 'rewards' | 'products';
+type AdminView = 'dashboard' | 'map' | 'users' | 'pharmacies' | 'settings' | 'rewards' | 'products' | 'analytics';
 
 export default function AdminDashboard() {
   const { campaignMode, setCampaignMode, logout, currentUser } = useApp();
@@ -74,6 +75,7 @@ export default function AdminDashboard() {
       case 'pharmacies': return <AdminPharmacies />;
       case 'rewards': return <AdminRewards />;
       case 'products': return <AdminProducts />;
+      case 'analytics': return <AdminClerkPerformance />;
       case 'settings': return <AdminSettings />;
       default: return (
         <div className="space-y-6">
@@ -263,6 +265,9 @@ export default function AdminDashboard() {
           </button>
           <button onClick={() => setCurrentView('products')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'products' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
             <Pill className="h-5 w-5" /> <span className="font-medium">Productos (IA)</span>
+          </button>
+          <button onClick={() => setCurrentView('analytics')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'analytics' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
+            <TrendingUp className="h-5 w-5" /> <span className="font-medium">Analítica</span>
           </button>
           <button onClick={() => setCurrentView('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'settings' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
             <Settings className="h-5 w-5" /> <span className="font-medium">Configuración</span>

@@ -144,8 +144,8 @@ export const getAdminStats = async () => {
     const pharmaciesSnapshot = await getDocs(collection(db, "pharmacies"));
     const totalPharmacies = pharmaciesSnapshot.size;
 
-    // 2. Active Clerks (from registered_clerks)
-    const clerksSnapshot = await getDocs(query(collection(db, "registered_clerks"), where("status", "==", "active")));
+    // 2. Total Clerks (from users collection)
+    const clerksSnapshot = await getDocs(query(collection(db, "users"), where("role", "==", "clerk")));
     const activeClerks = clerksSnapshot.size;
 
     // 3. Total Sales Today
@@ -278,4 +278,27 @@ export const resetSystemDatabase = async () => {
     );
 
     await Promise.all([...userUpdates, ...scanDeletes, ...clerkDeletes]);
+};
+
+// Advanced Analytics
+export const getClerkPerformance = async () => {
+    // 1. Get all clerks
+    const clerksSnapshot = await getDocs(query(collection(db, "users"), where("role", "==", "clerk")));
+    const clerks = clerksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+
+    // 2. Get Pharmacy Map
+    const pharmacies = await getPharmacies();
+    const phMap = new Map(pharmacies.map(p => [p.id, p.name]));
+
+    // 3. Transform to performance metrics
+    // Note: In a real scaled app, we would use a dedicated 'stats' subcollection or aggregation.
+    // For now, we use the live 'points' field on the user document.
+    return clerks.map(clerk => ({
+        id: clerk.id,
+        name: `${clerk.name} ${clerk.lastName || ''}`.trim(),
+        pharmacyName: clerk.pharmacyId ? phMap.get(clerk.pharmacyId) || 'Sin Farmacia' : 'Sin Farmacia',
+        points: clerk.points || 0,
+        // Optional: We could fetch last scan date if we really needed it, but skipping for speed for now.
+        status: clerk.status || 'active'
+    })).sort((a, b) => b.points - a.points);
 };
