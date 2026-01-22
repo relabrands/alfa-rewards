@@ -10,7 +10,7 @@ import { AlertCircle, Crown, Filter, Sparkles } from 'lucide-react';
 import { Icon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 
 // --- Types ---
 interface Pharmacy {
