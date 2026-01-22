@@ -59,15 +59,35 @@ export function ClerkRewardsTab() {
     <div className="min-h-screen bg-background pb-24 pt-4">
       <div className="px-4 space-y-6 max-w-md mx-auto">
         {/* Header - Soft & Clean */}
-        <div className="relative py-8 text-center bg-white rounded-b-[2.5rem] shadow-sm -mx-4 -mt-4 px-4 border-b border-slate-50 mb-8">
-          <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-600 mb-2">Canjear Premios</h1>
-
-          <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-slate-50 border border-slate-100 shadow-inner">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FFD700] to-[#FF8C00] flex items-center justify-center text-white shadow-gold">
-              <Coins className="w-4 h-4" />
+        {/* Header - Premium Soft */}
+        <div className="relative pt-2 pb-6 px-2 mb-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Recompensas</p>
+              <h1 className="text-3xl font-semibold leading-tight text-foreground">Canjear</h1>
             </div>
-            <span className="font-bold text-lg text-foreground/80">{points.toLocaleString()}</span>
-            <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide ml-1">Puntos Disp.</span>
+            {/* Points Pill */}
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white shadow-sm border border-slate-100">
+              <div className="w-6 h-6 rounded-full bg-[#FFD700] flex items-center justify-center text-white shadow-sm">
+                <Coins className="w-3 h-3 text-amber-700" />
+              </div>
+              <span className="font-bold text-foreground">{points.toLocaleString()}</span>
+            </div>
+          </div>
+
+          {/* Hero Card for Rewards */}
+          <div className="soft-card rounded-3xl p-6 bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg overflow-hidden relative">
+            <div className="absolute top-0 right-0 p-8 opacity-10">
+              <Gift className="w-32 h-32" />
+            </div>
+            <div className="relative z-10">
+              <p className="text-indigo-100 text-xs font-medium uppercase tracking-wider mb-1">Tu progreso</p>
+              <h2 className="text-2xl font-bold mb-4">¡Estás cerca de tu premio!</h2>
+              <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden">
+                <div className="bg-white h-full rounded-full w-3/4 shadow-[0_0_10px_rgba(255,255,255,0.5)]"></div>
+              </div>
+              <p className="text-xs mt-2 text-indigo-100">Sigue escaneando para desbloquear más niveles.</p>
+            </div>
           </div>
         </div>
 

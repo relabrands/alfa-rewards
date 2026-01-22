@@ -6,9 +6,12 @@ import { CoinAnimation } from '@/components/CoinAnimation';
 import { RouletteWheel } from '@/components/RouletteWheel';
 import { Camera, TrendingUp, History, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { db, storage } from '@/lib/firebase';
+import { collection, addDoc, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes } from 'firebase/storage';
 
 export function ClerkHomeTab() {
-  const { points, addPoints, campaignMode } = useApp();
+  const { points, addPoints, campaignMode, currentUser } = useApp();
   const { toast } = useToast();
   const [displayPoints, setDisplayPoints] = useState(points);
   const [isScanning, setIsScanning] = useState(false);
@@ -98,8 +101,8 @@ export function ClerkHomeTab() {
             <div className="shrink-0">
               <div
                 className={`px-4 py-2 rounded-full text-sm font-medium border ${campaignMode === 'points'
-                    ? 'bg-gold/15 text-gold-dark border-border'
-                    : 'bg-secondary text-secondary-foreground border-border'
+                  ? 'bg-gold/15 text-gold-dark border-border'
+                  : 'bg-secondary text-secondary-foreground border-border'
                   }`}
               >
                 {campaignMode === 'points' ? '💰 Puntos' : '🎰 Ruleta'}
@@ -118,6 +121,15 @@ export function ClerkHomeTab() {
           </div>
         </div>
       )}
+
+      <input
+        type="file"
+        id="invoice-upload"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleFileChange}
+      />
 
       <main className="px-4 py-6 space-y-6 max-w-md mx-auto animate-fade-in">
         {/* Quick Stats */}
