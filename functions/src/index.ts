@@ -44,18 +44,25 @@ export const processInvoice = functions.firestore
 
             // 2. Prepare Prompt
             const productNames = products.map((p: any) => p.name).join(', ');
+            console.log(`Checking against ${products.length} products: ${productNames}`);
+
             const prompt = `
                 Analyze this invoice image. 
-                I need to find if any of the following products are present: [${productNames}].
+                I need to find if any of the following products from my list are present: [${productNames}].
                 
-                For each match, extract the exact product name found and the quantity.
+                IMPORTANT:
+                1. Look for exact matches or partial matches (e.g. "Panadol" matches "Panadol Extra").
+                2. Extract the quantity.
+                3. If the image is blurry but you can read text, try your best.
+                
                 Return ONLY a valid JSON object with this structure:
                 {
                     "matches": [
-                        { "product": "Procuct Name From List", "quantity": number, "confidence": "high/medium/low" }
+                        { "product": "Exact Product Name From My List", "quantity": number, "confidence": "high/medium/low" }
                     ],
                     "invoiceDate": "YYYY-MM-DD" (if found),
-                    "invoiceNumber": "string" (if found)
+                    "invoiceNumber": "string" (if found),
+                    "debugNote": "Reasoning for matches or lack thereof"
                 }
                 If no products are found, return matches as empty array. Do not include markdown formatting.
             `;

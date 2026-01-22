@@ -87,9 +87,14 @@ export function ClerkProfileTab() {
           </div>
 
           <h1 className="text-2xl font-bold text-foreground mt-2">{currentUser.name} {currentUser.lastName || ''}</h1>
-          <p className="text-sm text-muted-foreground font-medium bg-slate-100 px-3 py-1 rounded-full mt-2">
-            {pharmacyName}
-          </p>
+          <div className="flex flex-col items-center gap-1 mt-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground bg-slate-100 px-3 py-0.5 rounded-full">
+              Dependiente
+            </span>
+            <p className="text-sm font-medium text-primary">
+              {pharmacyName}
+            </p>
+          </div>
         </div>
 
         {/* Stats Row - Gamified */}

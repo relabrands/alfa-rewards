@@ -71,7 +71,7 @@ export const addScanRecord = async (scanData: Omit<ScanRecord, "id" | "timestamp
 export const getScanHistory = async (userId: string): Promise<ScanRecord[]> => {
     const q = query(
         collection(db, "scans"),
-        where("clerkId", "==", userId),
+        where("userId", "==", userId),
         orderBy("timestamp", "desc"),
         limit(50)
     );
