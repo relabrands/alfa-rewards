@@ -1,388 +1,190 @@
-import { useState, useRef, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
-import { Scan, Camera, CheckCircle2, XCircle, History, Zap, Loader2, AlertCircle, Coins, Trophy } from 'lucide-react';
-import { useToast } from "@/hooks/use-toast";
-import { db, storage } from '@/lib/firebase';
-import { collection, addDoc, doc, updateDoc, onSnapshot, serverTimestamp, query, where, orderBy, limit, getDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import confetti from 'canvas-confetti';
+import { CoinAnimation } from '@/components/CoinAnimation';
+import { RouletteWheel } from '@/components/RouletteWheel';
+import { Camera, TrendingUp, History, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export function ClerkHomeTab() {
-  const { currentUser, isActive, addPoints, points } = useApp();
+  const { points, addPoints, campaignMode } = useApp();
   const { toast } = useToast();
+  const [displayPoints, setDisplayPoints] = useState(points);
   const [isScanning, setIsScanning] = useState(false);
-  const [showRoulette, setShowRoulette] = useState(false);
-  const [pharmacyName, setPharmacyName] = useState<string>('');
-  const [recentScans, setRecentScans] = useState<any[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showCoins, setShowCoins] = useState(false);
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [recentEarnings, setRecentEarnings] = useState<number | null>(null);
 
-  // Fetch Pharmacy Name
   useEffect(() => {
-    const fetchPharmacy = async () => {
-      if (currentUser?.pharmacyId) {
-        try {
-          const pharRef = doc(db, 'pharmacies', currentUser.pharmacyId);
-          const pharSnap = await getDoc(pharRef);
-          if (pharSnap.exists()) {
-            setPharmacyName(pharSnap.data().name);
+    if (displayPoints !== points) {
+      const diff = points - displayPoints;
+      const step = Math.ceil(diff / 20);
+      const timer = setInterval(() => {
+        setDisplayPoints(prev => {
+          if (prev + step >= points) {
+            clearInterval(timer);
+            return points;
           }
-        } catch (error) {
-          console.error("Error fetching pharmacy:", error);
-        }
-      }
-    };
-    fetchPharmacy();
-  }, [currentUser?.pharmacyId]);
-
-  // Fetch Recent Activity (Scans)
-  useEffect(() => {
-    if (!currentUser?.id) return;
-
-    const q = query(
-      collection(db, 'scans'),
-      where('userId', '==', currentUser.id),
-      orderBy('createdAt', 'desc'),
-      limit(5)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const scans = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setRecentScans(scans);
-    });
-
-    return () => unsubscribe();
-  }, [currentUser?.id]);
-
-  const handleScanClick = () => {
-    if (!isActive) {
-      toast({
-        title: "Cuenta Inactiva",
-        description: "Tu cuenta debe ser activada por el representante.",
-        variant: "destructive"
-      });
-      return;
+          return prev + step;
+        });
+      }, 50);
+      return () => clearInterval(timer);
     }
-    fileInputRef.current?.click();
-  };
+  }, [points, displayPoints]);
 
-  const triggerConfetti = () => {
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ['#00C2E0', '#FFD700', '#ffffff'] // Brand Cyan & Gold
-    });
-  };
-
-  const processImage = async (file: File) => {
-    if (!currentUser) return;
+  const handleScanInvoice = () => {
     setIsScanning(true);
 
-    try {
-      // 1. Create initial Scan Document
-      const scanRef = await addDoc(collection(db, 'scans'), {
-        userId: currentUser.id,
-        status: 'uploading',
-        createdAt: serverTimestamp(),
-        userName: currentUser.name,
-        userEmail: currentUser.email, // Added for easier tracking
-        pharmacyId: currentUser.pharmacyId || null
-      });
-
-      // 2. Upload Image to Storage
-      const storagePath = `invoices/${currentUser.id}/${scanRef.id}.jpg`;
-      const storageRef = ref(storage, storagePath);
-      await uploadBytes(storageRef, file);
-      const downloadUrl = await getDownloadURL(storageRef);
-
-      // 3. Trigger Cloud Function by updating Status
-      await updateDoc(scanRef, {
-        status: 'uploaded',
-        imageUrl: downloadUrl,
-        storagePath: storagePath
-      });
-
-      toast({
-        title: "Analizando...",
-        description: "Subiendo imagen y procesando con IA. Esto puede tomar unos segundos.",
-      });
-
-      // 4. Listen for Result (handled by general listener, but here for immediate feedback)
-      const unsubscribe = onSnapshot(doc(db, 'scans', scanRef.id), (docSnapshot) => {
-        const data = docSnapshot.data();
-        if (!data) return;
-
-        if (data.status === 'processed') {
-          setIsScanning(false);
-          unsubscribe();
-
-          const earnedPoints = data.pointsEarned || 0;
-          const productsFound = data.productsFound || [];
-          const productNames = productsFound.map((p: any) => p.product).join(', ');
-
-          if (earnedPoints > 0) {
-            // Points update handled via user listener in AppContext usually, 
-            // but we can locally trigger if needed or just let the global state update.
-            // addPoints(earnedPoints); // Rely on backend or global listener to avoid double count
-
-            toast({
-              title: "¡Factura Aprobada! 🎉",
-              description: `Detectamos: ${productNames}. Ganaste ${earnedPoints} puntos.`,
-            });
-
-            if (Math.random() > 0.7) setShowRoulette(true);
-
-          } else {
-            toast({
-              title: "Sin productos válidos",
-              description: "La IA analizó la factura pero no encontró productos participantes.",
-              variant: "destructive"
-            });
-          }
-        } else if (data.status === 'error') {
-          setIsScanning(false);
-          unsubscribe();
-          toast({
-            title: "Error de Análisis",
-            description: data.error || "Ocurrió un error al procesar la factura.",
-            variant: "destructive"
-          });
-        }
-      });
-
-    } catch (error) {
-      console.error("Scan flow error:", error);
+    setTimeout(() => {
       setIsScanning(false);
-      toast({
-        title: "Error",
-        description: "No se pudo subir la imagen. Verifica tu conexión.",
-        variant: "destructive"
-      });
-    }
+      const earnedPoints = Math.floor(Math.random() * 200) + 100;
+      setRecentEarnings(earnedPoints);
+
+      if (campaignMode === 'points') {
+        setShowCoins(true);
+        addPoints(earnedPoints);
+        toast({
+          title: '💰 ¡Puntos Ganados!',
+          description: `Has ganado ${earnedPoints} puntos`,
+        });
+      } else {
+        setIsSpinning(true);
+      }
+    }, 1500);
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      processImage(file);
-    }
-  };
-
-  const handleSpinRoulette = () => {
-    const won = Math.random() > 0.5;
-    if (won) {
-      const prizePoints = 50;
-      addPoints(prizePoints);
-      toast({ title: "¡Ganaste en la Ruleta!", description: `+${prizePoints} puntos extra.` });
-    } else {
-      toast({ title: "Suerte para la próxima", description: "No ganaste premio esta vez." });
-    }
-    setShowRoulette(false);
-  };
-
-  const formatDate = (timestamp: any) => {
-    if (!timestamp) return 'Reciente';
-    // Handle Firestore Timestamp
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return new Intl.DateTimeFormat('es-DO', { hour: 'numeric', minute: 'numeric', hour12: true }).format(date);
+  const handleRouletteComplete = (prize: string) => {
+    setIsSpinning(false);
+    const earnedPoints = parseInt(prize.replace(/\D/g, '')) || 50;
+    addPoints(earnedPoints);
+    toast({
+      title: '🎰 ¡Ganaste en la Ruleta!',
+      description: prize,
+    });
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] pb-24 pt-6 relative overflow-hidden">
-      {/* Decorative blobs - More subtle */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-[#00C2E0]/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-      <div className="absolute top-40 left-0 w-48 h-48 bg-[#FFD700]/5 rounded-full blur-3xl -ml-20 pointer-events-none" />
+    <div className="min-h-screen bg-background pb-32">
+      <CoinAnimation isActive={showCoins} onComplete={() => setShowCoins(false)} />
 
-      <div className="px-4 space-y-8 max-w-md mx-auto relative z-10">
+      {/* Top / Balance (reference-style) */}
+      <header className="px-4 pt-6 max-w-md mx-auto">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Inicio</p>
+            <h1 className="text-3xl font-semibold leading-tight">Mis puntos</h1>
+          </div>
+          <button className="px-4 py-2 text-sm soft-chip">Ayuda</button>
+        </div>
 
-        {/* Header & Balance Card */}
-        <div className="relative z-20">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-lg border border-white/30 shadow-sm">
-                👋
+        <div className="mt-4 soft-card rounded-3xl p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Balance</p>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-5xl font-semibold animate-count-up">{displayPoints.toLocaleString()}</span>
+                <span className="text-sm text-muted-foreground">pts</span>
+                {recentEarnings && (
+                  <span className="ml-2 text-sm font-semibold text-success animate-fade-in">+{recentEarnings}</span>
+                )}
               </div>
-              <div>
-                <h1 className="text-lg font-bold text-foreground/90 leading-tight">
-                  Hola, {currentUser?.name?.split(' ')[0] || 'Usuario'}
-                </h1>
-                <p className="text-xs text-muted-foreground font-medium">
-                  {pharmacyName || 'Farmacia'}
-                </p>
+              <div className="mt-3 flex items-center gap-2 text-muted-foreground">
+                <TrendingUp className="h-4 w-4" />
+                <span className="text-sm">+340 pts esta semana</span>
               </div>
             </div>
-            {/* Notification Bell Placeholder */}
-            <button className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-muted-foreground hover:text-primary transition-colors border border-gray-100">
-              <Trophy className="w-5 h-5 text-[#FFD700]" />
-            </button>
-          </div>
 
-          {/* Balance Card - Gamified */}
-          <div className="relative w-full h-52 rounded-[2.5rem] overflow-hidden shadow-gold transform transition-transform hover:scale-[1.02] duration-300">
-            {/* Background Gradient */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#FFD700] via-[#FFA500] to-[#FF8C00]"></div>
-
-            {/* Decorative Coins/Circles */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-full blur-2xl -mr-10 -mt-10 animate-pulse"></div>
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full blur-xl -ml-5 -mb-5"></div>
-
-            <div className="relative z-10 flex flex-col items-center justify-center h-full text-white pt-2">
-              <span className="text-xs font-bold uppercase tracking-widest opacity-90 mb-1">Mis Coins</span>
-              <div className="flex items-center gap-2 mb-4">
-                <Coins className="w-8 h-8 text-white drop-shadow-md" />
-                <span className="text-6xl font-black tracking-tighter drop-shadow-sm">{points.toLocaleString()}</span>
+            <div className="shrink-0">
+              <div
+                className={`px-4 py-2 rounded-full text-sm font-medium border ${campaignMode === 'points'
+                    ? 'bg-gold/15 text-gold-dark border-border'
+                    : 'bg-secondary text-secondary-foreground border-border'
+                  }`}
+              >
+                {campaignMode === 'points' ? '💰 Puntos' : '🎰 Ruleta'}
               </div>
-
-              {/* Level Progress Bar */}
-              <div className="w-4/5 bg-black/10 h-3 rounded-full overflow-hidden backdrop-blur-sm border border-white/20 relative">
-                <div
-                  className="h-full bg-white shadow-sm rounded-full"
-                  style={{ width: `${(points % 1000) / 10}%` }}
-                />
-              </div>
-              <p className="text-[10px] font-bold mt-2 opacity-90">
-                Nivel {Math.floor(points / 1000) + 1} • {(1000 - (points % 1000)).toLocaleString()} para el siguiente nivel
-              </p>
             </div>
           </div>
         </div>
+      </header>
 
-        {/* hidden input for camera */}
-        <input
-          type="file"
-          ref={fileInputRef}
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={handleFileChange}
-        />
+      {/* Roulette Mode */}
+      {campaignMode === 'roulette' && isSpinning && (
+        <div className="fixed inset-0 bg-background/95 backdrop-blur-sm z-40 flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-8 animate-pulse">🎰 ¡Gira la Ruleta!</h2>
+            <RouletteWheel isSpinning={isSpinning} onSpinComplete={handleRouletteComplete} />
+          </div>
+        </div>
+      )}
 
-        {/* Scan Actions Grid */}
+      <main className="px-4 py-6 space-y-6 max-w-md mx-auto animate-fade-in">
+        {/* Quick Stats */}
         <div className="grid grid-cols-2 gap-4">
-          {/* Main Scan Action - Game Button Style */}
-          <button
-            onClick={handleScanClick}
-            disabled={!isActive || isScanning}
-            className="col-span-2 group relative h-36 rounded-[2.5rem] overflow-hidden shadow-float transition-all hover:scale-[1.02] active:scale-95"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-[#00C2E0] to-[#0077E6] animate-gradient-x"></div>
-            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
-
-            {/* Pulse Rings */}
-            <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
-
-            <div className="absolute top-5 right-5 bg-white/20 p-3 rounded-full backdrop-blur-md shadow-inner">
-              <Camera className="w-8 h-8 text-white drop-shadow-md" />
-            </div>
-
-            <div className="relative z-10 h-full flex flex-col justify-end p-8 text-left">
-              <h3 className="text-3xl font-black text-white leading-none mb-1 drop-shadow-md italic uppercase">
-                ¡Jugar!
-              </h3>
-              <p className="text-blue-100 text-sm font-bold flex items-center gap-1">
-                Escanear para ganar ✨
-              </p>
-            </div>
-
-            {isScanning && (
-              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex flex-col items-center justify-center z-20">
-                <Loader2 className="w-10 h-10 text-white animate-spin mb-2" />
-                <span className="text-white font-bold animate-pulse">Procesando...</span>
-              </div>
-            )}
-          </button>
+          <Card className="soft-card rounded-3xl stats-card">
+            <CardContent className="p-4 text-center">
+              <div className="text-3xl mb-1">12</div>
+              <p className="text-sm text-muted-foreground">Escaneos Hoy</p>
+            </CardContent>
+          </Card>
+          <Card className="soft-card rounded-3xl stats-card">
+            <CardContent className="p-4 text-center">
+              <div className="text-3xl mb-1">🏆</div>
+              <p className="text-sm text-muted-foreground">Top 5% Ranking</p>
+            </CardContent>
+          </Card>
         </div>
 
-        {!isActive && (
-          <div className="flex items-center gap-2 text-xs bg-red-50 text-red-600 px-4 py-3 rounded-xl border border-red-100">
-            <XCircle className="h-4 w-4" />
-            <span>Cuenta pendiente de verificación por el admin.</span>
-          </div>
-        )}
-
-        {/* Recent Activity / Status - Soft List */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between px-2">
-            <h3 className="font-bold text-lg text-foreground/80">
+        {/* Recent Activity */}
+        <Card className="soft-card rounded-3xl">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <History className="h-5 w-5 text-muted-foreground" />
               Actividad Reciente
-            </h3>
-            <Button variant="ghost" size="sm" className="text-primary text-xs font-bold hover:bg-transparent hover:text-primary/80">Ver Todo</Button>
-          </div>
-
-          <div className="space-y-3">
-            {recentScans.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground bg-white rounded-[2rem] shadow-sm border border-slate-50 flex flex-col items-center gap-2">
-                <History className="w-10 h-10 text-muted-foreground/20" />
-                <p className="text-sm font-medium">Sin actividad aún</p>
-              </div>
-            ) : (
-              recentScans.map((scan) => (
-                <div key={scan.id} className="group bg-white p-4 rounded-3xl shadow-sm border border-slate-50 flex items-center justify-between transition-all hover:shadow-md hover:scale-[1.01]">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${scan.status === 'processed' ? 'bg-[#E0F7FA] text-[#00C2E0]' :
-                      scan.status === 'error' ? 'bg-red-50 text-red-500' : 'bg-gray-50 text-gray-400'
-                      }`}>
-                      {scan.status === 'processed' ? (
-                        <Zap className="h-6 w-6 fill-current" />
-                      ) : scan.status === 'error' ? (
-                        <AlertCircle className="h-6 w-6" />
-                      ) : (
-                        <Loader2 className="h-6 w-6 animate-spin" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm text-foreground/90">
-                        {scan.status === 'processed' ? 'Puntos Ganados' :
-                          scan.status === 'error' ? 'Error al procesar' : 'Analizando...'}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">
-                        {formatDate(scan.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                  {scan.pointsEarned > 0 && (
-                    <div className="text-right">
-                      <span className="block font-black text-[#00C2E0] text-lg">+{scan.pointsEarned}</span>
-                      <span className="block text-[9px] font-bold text-gray-400 uppercase">Coins</span>
-                    </div>
-                  )}
-                  {scan.status === 'error' && (
-                    <button className="text-xs font-bold text-red-500 bg-red-100 px-3 py-1 rounded-full">Revisar</button>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Roulette Modal */}
-        {showRoulette && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in">
-            <Card className="w-full max-w-sm bg-gradient-to-b from-background to-muted border-primary/20 shadow-2xl">
-              <CardContent className="p-8 text-center space-y-6">
-                <div className="w-24 h-24 mx-auto bg-primary/10 rounded-full flex items-center justify-center animate-bounce">
-                  <span className="text-6xl">🎰</span>
-                </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {[
+              { time: 'Hace 2 min', desc: 'Factura escaneada', points: '+250' },
+              { time: 'Hace 1 hora', desc: 'Factura escaneada', points: '+180' },
+              { time: 'Ayer', desc: 'Recarga canjeada', points: '-500' },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                 <div>
-                  <h2 className="text-2xl font-bold text-primary">¡Giro de Suerte!</h2>
-                  <p className="text-muted-foreground">Has desbloqueado un giro gratis</p>
+                  <p className="text-sm font-medium">{item.desc}</p>
+                  <p className="text-xs text-muted-foreground">{item.time}</p>
                 </div>
-                <Button
-                  size="lg"
-                  className="w-full text-lg font-bold animate-pulse"
-                  onClick={handleSpinRoulette}
-                >
-                  Girar Ahora
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+                <span className={`font-bold ${item.points.startsWith('+') ? 'text-success' : 'text-destructive'}`}>
+                  {item.points}
+                </span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </main>
+
+      {/* Primary CTA (reference-style pill button) */}
+      <div className="fixed left-0 right-0 bottom-24 px-4">
+        <div className="max-w-md mx-auto">
+          <Button
+            onClick={handleScanInvoice}
+            disabled={isScanning || isSpinning}
+            className="w-full h-14 rounded-2xl btn-gold font-semibold tracking-tight shadow-2xl"
+          >
+            {isScanning ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Registrando…
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-3">
+                <Camera className="h-5 w-5" />
+                Registrar factura
+              </span>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );
