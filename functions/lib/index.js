@@ -124,10 +124,17 @@ exports.processInvoice = functions.firestore
         const aiData = JSON.parse(jsonStr);
         let totalPoints = 0;
         const matchedDetails = [];
+        let isFlagged = false;
+        let flagReason = '';
         if (aiData.matches && Array.isArray(aiData.matches)) {
             aiData.matches.forEach((match) => {
                 // Normalize strings for comparison: lowercase and trim
                 const matchName = (match.product || '').toLowerCase().trim();
+                // Check confidence
+                if (match.confidence === 'low') {
+                    isFlagged = true;
+                    flagReason = `Low confidence match for ${match.product}`;
+                }
                 const productConfig = products.find((p) => {
                     const dbName = (p.name || '').toLowerCase().trim();
                     return dbName === matchName || dbName.includes(matchName) || matchName.includes(dbName);
@@ -142,7 +149,8 @@ exports.processInvoice = functions.firestore
                         product: productConfig.name,
                         quantity: quantity,
                         points: points,
-                        unitPoints: pointsPerUnit
+                        unitPoints: pointsPerUnit,
+                        confidence: match.confidence || 'unknown'
                     });
                 }
                 else {
@@ -150,19 +158,29 @@ exports.processInvoice = functions.firestore
                 }
             });
         }
+        // Threshold for auto-flagging high value scans
+        if (totalPoints > 500) {
+            isFlagged = true;
+            flagReason = `High point value: ${totalPoints}`;
+        }
         // 5. Update Scan Document
+        const status = isFlagged ? 'flagged' : 'processed';
         await db.collection('scans').doc(scanId).update({
-            status: 'processed',
+            status: status,
             pointsEarned: totalPoints,
             productsFound: matchedDetails,
             aiResponse: aiData,
+            flagReason: isFlagged ? flagReason : admin.firestore.FieldValue.delete(),
             processedAt: admin.firestore.FieldValue.serverTimestamp()
         });
-        // 6. Update User Wallet
-        if (totalPoints > 0) {
+        // 6. Update User Wallet ONLY if not flagged and > 0
+        if (!isFlagged && totalPoints > 0) {
             await db.collection('users').doc(newData.userId).update({
                 points: admin.firestore.FieldValue.increment(totalPoints)
             });
+        }
+        else if (isFlagged) {
+            console.log(`Scan ${scanId} flagged. Reason: ${flagReason}`);
         }
         return { success: true, points: totalPoints };
     }
