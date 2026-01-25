@@ -30,17 +30,15 @@ const vertexai_1 = require("@google-cloud/vertexai");
 admin.initializeApp();
 const db = admin.firestore();
 // Initialize Vertex AI
-// NOTE: You need to enable the Vertex AI API in your Google Cloud Project.
-// And ensure the Cloud Functions Service Account has "Vertex AI User" role.
 const project = process.env.GCLOUD_PROJECT || 'lab-alfa-rewards';
-const location = 'us-central1'; // Or your preferred region
+const location = 'us-central1';
 const vertexAI = new vertexai_1.VertexAI({ project: project, location: location });
 // Instantiate Gemini model
 const model = vertexAI.preview.getGenerativeModel({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-1.5-flash',
     generationConfig: {
         'maxOutputTokens': 2048,
-        'temperature': 0.4,
+        'temperature': 0.2,
         'topP': 1,
         'topK': 32,
     },
@@ -48,7 +46,7 @@ const model = vertexAI.preview.getGenerativeModel({
 exports.processInvoice = functions.firestore
     .document('scans/{scanId}')
     .onUpdate(async (change, context) => {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f;
     const newData = change.after.data();
     const previousData = change.before.data();
     // Only trigger when status changes to 'uploaded'
@@ -58,129 +56,173 @@ exports.processInvoice = functions.firestore
     const scanId = context.params.scanId;
     console.log(`Processing scan ${scanId} for user ${newData.userId}`);
     try {
-        // 1. Fetch Active Products
+        // 1. Fetch Active Products & Pharmacies
         const productsSnapshot = await db.collection('products').get();
         const products = productsSnapshot.docs.map(doc => doc.data());
-        // 2. Prepare Prompt
         const productNames = products.map((p) => p.name).join(', ');
-        console.log(`Checking against ${products.length} products: ${productNames}`);
+        const pharmaciesSnapshot = await db.collection('pharmacies').get();
+        const pharmacies = pharmaciesSnapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
+        const pharmacyNames = pharmacies.map((p) => p.name).join(', ');
+        console.log(`Context: ${products.length} products, ${pharmacies.length} pharmacies.`);
+        // 2. Strict Prompt Construction
         const prompt = `
-                Analyze this invoice image. 
-                I need to find if any of the following products from my list are present: [${productNames}].
+                Analyze this invoice image STRICTLY.
                 
-                IMPORTANT:
-                1. Look for exact matches or partial matches (e.g. "Panadol" matches "Panadol Extra").
-                2. Extract the quantity.
-                3. If the image is blurry but you can read text, try your best.
-                
-                Return ONLY a valid JSON object with this structure:
+                You must extract and validate the following information against my provided lists:
+
+                1. PHARMACY MATCHING:
+                   - Extract the pharmacy name from the header.
+                   - Check if it matches ANY of these registered pharmacies: [${pharmacyNames}].
+                   - If it matches (even with slight variation), return the EXACT registered name.
+                   - If it does NOT match any, return null for pharmacyName.
+
+                2. NCF (Comprobante Fiscal):
+                   - Extract the NCF code (e.g. B0100000001, E4500000001). 
+                   - It MUST start with 'B01', 'B02', or 'E'.
+                   - If not found or invalid format, return null.
+
+                3. DATE:
+                   - Extract invoice date (YYYY-MM-DD).
+                   - If invalid or not found, return null.
+
+                4. PRODUCTS:
+                   - Look for these specific active products: [${productNames}].
+                   - Return ONLY products that appear in this list.
+                   - for each match, extract quantity.
+
+                5. TOTAL AMOUNT:
+                   - Extract the total invoice amount.
+
+                Return a JSON object ONLY (no markdown):
                 {
-                    "matches": [
-                        { "product": "Exact Product Name From My List", "quantity": number, "confidence": "high/medium/low" }
-                    ],
-                    "invoiceDate": "YYYY-MM-DD" (if found),
-                    "invoiceNumber": "string" (if found),
-                    "debugNote": "Reasoning for matches or lack thereof"
+                    "pharmacyName": "Registered Name" | null,
+                    "ncf": "String" | null,
+                    "invoiceDate": "YYYY-MM-DD" | null,
+                    "products": [ { "name": "Registered Product Name", "quantity": number } ],
+                    "totalAmount": number,
+                    "rawPharmacyName": "What you actually saw",
+                    "confidence": "high" | "medium" | "low"
                 }
-                If no products are found, return matches as empty array. Do not include markdown formatting.
             `;
         // 3. Call Vertex AI
-        // We need the file content. 
-        // If imageUrl is a public URL or Signed URL, Gemini might accept it directly if Multimodal is enabled for URLs?
-        // Actually, for Vertex AI Node SDK, it's best to pass the base64 or GCS URI.
-        // Since we use Firebase Storage, we can construct the GCS URI: gs://<bucket>/<path>
-        // Assume imageUrl is the downloadURL. We need the GCS URI or path.
-        // Client should ideally store the 'storagePath' in the doc too.
-        // If not, we can try to pass GCS URI if we know the bucket.
         const bucketName = admin.storage().bucket().name;
-        // We need the file path inside the bucket. 
-        // Let's assume the client saves 'storagePath' in the doc.
         const storagePath = newData.storagePath;
-        if (!storagePath) {
-            throw new Error('Storage path not found in document.');
-        }
+        if (!storagePath)
+            throw new Error('Storage path not found.');
         const filePart = {
             fileData: {
                 fileUri: `gs://${bucketName}/${storagePath}`,
-                mimeType: 'image/jpeg', // Identify or dynamic
-            },
-        };
-        const textPart = {
-            text: prompt
+                mimeType: 'image/jpeg',
+            }
         };
         const result = await model.generateContent({
-            contents: [{ role: 'user', parts: [filePart, textPart] }],
+            contents: [{ role: 'user', parts: [filePart, { text: prompt }] }],
         });
-        const response = result.response;
-        const textResponse = (_e = (_d = (_c = (_b = (_a = response.candidates) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.content) === null || _c === void 0 ? void 0 : _c.parts) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.text;
-        if (!textResponse) {
-            console.error("No text response from Vertex AI");
+        const textResponse = (_e = (_d = (_c = (_b = (_a = result.response.candidates) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.content) === null || _c === void 0 ? void 0 : _c.parts) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.text;
+        if (!textResponse)
             throw new Error("Empty response from AI");
-        }
-        console.log("AI Response:", textResponse);
-        // 4. Parse Response & Calculate Rewards
-        // Clean markdown jsons
+        // 4. Parse & Validate
         const jsonStr = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
         const aiData = JSON.parse(jsonStr);
-        let totalPoints = 0;
-        const matchedDetails = [];
-        let isFlagged = false;
-        let flagReason = '';
-        if (aiData.matches && Array.isArray(aiData.matches)) {
-            aiData.matches.forEach((match) => {
-                // Normalize strings for comparison: lowercase and trim
-                const matchName = (match.product || '').toLowerCase().trim();
-                // Check confidence
-                if (match.confidence === 'low') {
-                    isFlagged = true;
-                    flagReason = `Low confidence match for ${match.product}`;
-                }
-                const productConfig = products.find((p) => {
-                    const dbName = (p.name || '').toLowerCase().trim();
-                    return dbName === matchName || dbName.includes(matchName) || matchName.includes(dbName);
-                });
-                if (productConfig) {
-                    const pointsPerUnit = Number(productConfig.points) || 0;
-                    const quantity = Number(match.quantity) || 1;
-                    const points = quantity * pointsPerUnit;
-                    console.log(`Match Found: "${match.product}" -> "${productConfig.name}" | Qty: ${quantity} | Pts/Unit: ${pointsPerUnit} | Total: ${points}`);
-                    totalPoints += points;
-                    matchedDetails.push({
-                        product: productConfig.name,
-                        quantity: quantity,
-                        points: points,
-                        unitPoints: pointsPerUnit,
-                        confidence: match.confidence || 'unknown'
-                    });
-                }
-                else {
-                    console.warn(`No DB match for AI product: "${match.product}"`);
-                }
-            });
-        }
-        // Threshold for auto-flagging high value scans
-        if (totalPoints > 500) {
-            isFlagged = true;
-            flagReason = `High point value: ${totalPoints}`;
-        }
-        // 5. Update Scan Document
-        const status = isFlagged ? 'flagged' : 'processed';
-        await db.collection('scans').doc(scanId).update({
-            status: status,
-            pointsEarned: totalPoints,
-            productsFound: matchedDetails,
+        console.log("AI Analysis Result:", JSON.stringify(aiData));
+        const updates = {
             aiResponse: aiData,
-            flagReason: isFlagged ? flagReason : admin.firestore.FieldValue.delete(),
             processedAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+        // --- STRICT VALIDATION CHAIN ---
+        // Check 1: Pharmacy
+        if (!aiData.pharmacyName) {
+            updates.status = 'rejected';
+            updates.rejectionReason = `Farmacia no registrada o no identificada: "${aiData.rawPharmacyName || 'Desconocida'}"`;
+            console.log(`Scan ${scanId} rejected: Invalid Pharmacy`);
+            await db.collection('scans').doc(scanId).update(updates);
+            return null;
+        }
+        // Check 2: Products
+        if (!aiData.products || aiData.products.length === 0) {
+            updates.status = 'rejected';
+            updates.rejectionReason = 'No se encontraron productos participantes';
+            console.log(`Scan ${scanId} rejected: No products`);
+            await db.collection('scans').doc(scanId).update(updates);
+            return null;
+        }
+        // Check 3: NCF Validity & Duplication
+        if (!aiData.ncf || !/^(B01|B02|E)/i.test(aiData.ncf)) {
+            updates.status = 'pending_review'; // Or rejected? User said "PENDIENTE DE REVISIÓN" for Date/Coherence, but NCF usually strict. Let's start strictly.
+            // Actually user said: "Si el NCF ya existe... DUPLICADA". "Si fecha no valida... PENDIENTE".
+            // Doesn't explicitly say what to do if NCF invalid format, but implies strictness.
+            updates.status = 'rejected';
+            updates.rejectionReason = `NCF Inválido o no legible: ${aiData.ncf}`;
+            await db.collection('scans').doc(scanId).update(updates);
+            return null;
+        }
+        // Check Duplication
+        const duplicateCheck = await db.collection('scans')
+            .where('ncf', '==', aiData.ncf)
+            .get();
+        // Filter out current doc (in case of re-run, unlikely but safe)
+        const isDuplicate = duplicateCheck.docs.some(d => d.id !== scanId);
+        if (isDuplicate) {
+            updates.status = 'rejected';
+            updates.rejectionReason = `Factura Duplicada (NCF: ${aiData.ncf})`;
+            console.log(`Scan ${scanId} rejected: Duplicate NCF`);
+            await db.collection('scans').doc(scanId).update(updates);
+            return null;
+        }
+        // Check 4: Date
+        const today = new Date();
+        const invDate = aiData.invoiceDate ? new Date(aiData.invoiceDate) : null;
+        if (!invDate || isNaN(invDate.getTime())) {
+            updates.status = 'pending_review';
+            updates.rejectionReason = 'Fecha ilegible';
+        }
+        else if (invDate > today) {
+            updates.status = 'pending_review';
+            updates.rejectionReason = `Fecha futura detectada: ${aiData.invoiceDate}`;
+        }
+        else {
+            // Date is OK
+        }
+        // Check 5: Coherence (Simple check)
+        if (!aiData.totalAmount || aiData.totalAmount < 10) { // arbitrary sanity check
+            updates.status = updates.status === 'pending_review' ? updates.status : 'pending_review';
+            updates.rejectionReason = updates.rejectionReason || 'Monto total sospechosamente bajo';
+        }
+        // Stop if pending review
+        if (updates.status === 'pending_review') {
+            console.log(`Scan ${scanId} flagged for review: ${updates.rejectionReason}`);
+            await db.collection('scans').doc(scanId).update(updates);
+            return null;
+        }
+        // If we are here, everything is VALID
+        let totalPoints = 0;
+        const validProducts = [];
+        aiData.products.forEach((match) => {
+            const productConfig = products.find((p) => p.name === match.name);
+            if (productConfig) {
+                const pointsPerUnit = Number(productConfig.points) || 0;
+                const quantity = Number(match.quantity) || 1;
+                const points = quantity * pointsPerUnit;
+                totalPoints += points;
+                validProducts.push({
+                    product: match.name,
+                    quantity,
+                    points
+                });
+            }
         });
-        // 6. Update User Wallet ONLY if not flagged and > 0
-        if (!isFlagged && totalPoints > 0) {
+        updates.status = 'processed';
+        updates.pointsEarned = totalPoints;
+        updates.productsFound = validProducts;
+        updates.ncf = aiData.ncf;
+        updates.invoiceDate = aiData.invoiceDate;
+        updates.pharmacyId = (_f = pharmacies.find((p) => p.name === aiData.pharmacyName)) === null || _f === void 0 ? void 0 : _f.id; // Link pharmacy ID
+        await db.collection('scans').doc(scanId).update(updates);
+        // Update User Wallet
+        if (totalPoints > 0) {
             await db.collection('users').doc(newData.userId).update({
                 points: admin.firestore.FieldValue.increment(totalPoints)
             });
-        }
-        else if (isFlagged) {
-            console.log(`Scan ${scanId} flagged. Reason: ${flagReason}`);
         }
         return { success: true, points: totalPoints };
     }
