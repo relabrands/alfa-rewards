@@ -73,19 +73,23 @@ export function SalesRepPharmacies() {
                 // Let's do client filter on all zone clerks if getTeamMembers returns raw data, but it returns structured data.
 
                 // Let's do a direct fetch for accuracy
+                // Let's do a direct fetch for accuracy
                 const q = query(
                     collection(db, "users"),
                     where("role", "==", "clerk"),
                     where("assignedPharmacies", "array-contains", selectedPharmacy.id)
                 );
                 const snapshot = await getDocs(q);
-                const assignedClerks = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data(),
-                    // Map to RegisteredClerk shape for UI consistency
-                    pharmacyName: selectedPharmacy.name,
-                    pointsGenerated: doc.data().points || 0
-                } as unknown as RegisteredClerk));
+                const assignedClerks = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        ...data,
+                        name: `${data.name} ${data.lastName || ''}`.trim(),
+                        pharmacyName: selectedPharmacy.name,
+                        pointsGenerated: data.points || 0
+                    } as unknown as RegisteredClerk;
+                });
 
                 // Also fetch legacy pharmacyId matches (if not already in assigned)
                 const qLegacy = query(
@@ -94,12 +98,16 @@ export function SalesRepPharmacies() {
                     where("pharmacyId", "==", selectedPharmacy.id)
                 );
                 const snapshotLegacy = await getDocs(qLegacy);
-                const legacyClerks = snapshotLegacy.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data(),
-                    pharmacyName: selectedPharmacy.name,
-                    pointsGenerated: doc.data().points || 0
-                } as unknown as RegisteredClerk));
+                const legacyClerks = snapshotLegacy.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        ...data,
+                        name: `${data.name} ${data.lastName || ''}`.trim(),
+                        pharmacyName: selectedPharmacy.name,
+                        pointsGenerated: data.points || 0
+                    } as unknown as RegisteredClerk;
+                });
 
                 // Merge and dedup
                 const combined = [...assignedClerks, ...legacyClerks];
