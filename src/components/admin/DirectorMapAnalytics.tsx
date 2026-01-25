@@ -23,6 +23,7 @@ interface Pharmacy {
     monthlySales: number;
     scanCount?: number;
     image?: string;
+    monthlyPoints?: number;
 }
 
 interface Clerk {
@@ -242,8 +243,8 @@ export default function DirectorMapAnalytics() {
 
                                         <div className="grid grid-cols-2 gap-2 pt-4 border-t">
                                             <div>
-                                                <p className="text-xs text-muted-foreground uppercase">Ventas Mes</p>
-                                                <p className="font-bold text-lg">RD$ {(pharmacy.monthlySales / 1000).toFixed(1)}k</p>
+                                                <p className="text-xs text-muted-foreground uppercase">Puntos Mes</p>
+                                                <p className="font-bold text-lg text-primary">{pharmacy.monthlyPoints?.toLocaleString() || 0}</p>
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-xs text-muted-foreground uppercase">Escaneos</p>
@@ -268,8 +269,8 @@ export default function DirectorMapAnalytics() {
                                         <p className="font-bold">{selectedPharmacy.city} - {selectedPharmacy.zone}</p>
                                     </div>
                                     <div>
-                                        <p className="text-blue-100 text-sm">Ventas Mensuales</p>
-                                        <p className="font-bold text-xl">RD$ {selectedPharmacy.monthlySales.toLocaleString()}</p>
+                                        <p className="text-blue-100 text-sm">Puntos Mensuales</p>
+                                        <p className="font-bold text-xl">{selectedPharmacy.monthlyPoints?.toLocaleString() || 0} pts</p>
                                     </div>
                                 </div>
                             </CardContent>

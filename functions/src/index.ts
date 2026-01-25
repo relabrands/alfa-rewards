@@ -258,10 +258,10 @@ export const processInvoice = functions.firestore
                     scanCount: admin.firestore.FieldValue.increment(1)
                 });
 
-            // Update Pharmacy Stats (Scan Count & Sales)
+            // Update Pharmacy Stats (Scan Count & Monthly Points)
             const pharmacyUpdatePromise = db.collection('pharmacies').doc(matchedPharmacy.id).update({
                 scanCount: admin.firestore.FieldValue.increment(1),
-                monthlySales: admin.firestore.FieldValue.increment(aiData.totalAmount || 0)
+                monthlyPoints: admin.firestore.FieldValue.increment(totalPoints)
             });
 
             await Promise.all([userUpdatePromise, pharmacyUpdatePromise]);
@@ -343,4 +343,40 @@ export const processIdentity = functions.firestore
             });
             return null;
         }
+    });
+
+export const resetMonthlyStats = functions.pubsub.schedule('0 0 1 * *')
+    .timeZone('America/Santo_Domingo')
+    .onRun(async (context) => {
+        console.log('Running Monthly Stats Reset');
+        const db = admin.firestore();
+
+        // 1. Reset Pharmacy Monthly Points and Sales
+        const pharmaciesSnapshot = await db.collection('pharmacies').get();
+        const batchSize = 500;
+        let batch = db.batch();
+        let count = 0;
+
+        for (const doc of pharmaciesSnapshot.docs) {
+            const pharmacyRef = db.collection('pharmacies').doc(doc.id);
+            // We reset usage-based stats but keep lifetime stats if any
+            batch.update(pharmacyRef, {
+                monthlyPoints: 0,
+                monthlySales: 0 // Also reset sales to keep it clean
+            });
+            count++;
+
+            if (count >= batchSize) {
+                await batch.commit();
+                batch = db.batch();
+                count = 0;
+            }
+        }
+
+        if (count > 0) {
+            await batch.commit();
+        }
+
+        console.log(`Reset monthly stats for ${pharmaciesSnapshot.size} pharmacies.`);
+        return null;
     });

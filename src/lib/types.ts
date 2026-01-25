@@ -25,6 +25,8 @@ export interface Pharmacy {
     sector?: string;
     clientCode?: string;
     isActive?: boolean;
+    monthlyPoints?: number;
+    scanCount?: number;
 }
 
 export interface ScanRecord {
