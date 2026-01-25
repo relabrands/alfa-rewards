@@ -188,7 +188,7 @@ export function ClerkHomeTab() {
           setIsScanning(false);
           toast({
             title: 'Error del Sistema',
-            description: 'Hubo un error técnico procesando la imagen. Intenta nuevamente.',
+            description: data.error || 'Hubo un error técnico procesando la imagen.',
             variant: 'destructive'
           });
           unsubscribe();
