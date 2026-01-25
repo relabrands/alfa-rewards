@@ -104,7 +104,9 @@ export default function AdminDashboard() {
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Puntos Hoy</p>
                     <p className="text-2xl font-black mt-2">{stats.totalPointsToday?.toLocaleString()}</p>
-                    <span className="text-xs text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded-full mt-1 inline-block">+12% vs ayer</span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full mt-1 inline-block ${stats.roi.startsWith('-') ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                      {stats.roi}
+                    </span>
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                     <Trophy className="h-5 w-5 text-primary" />

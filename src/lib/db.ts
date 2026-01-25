@@ -147,51 +147,77 @@ export const getAdminStats = async () => {
     const clerksSnapshot = await getDocs(query(collection(db, "users"), where("role", "==", "clerk")));
     const activeClerks = clerksSnapshot.size;
 
-    // 2. Sales Analytics (Last 7 Days)
+    // 2. Sales Analytics (Points)
     const today = new Date();
-    today.setHours(23, 59, 59, 999);
+    today.setHours(0, 0, 0, 0);
 
-    const sevenDaysAgo = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const sevenDaysAgo = new Date(today);
     sevenDaysAgo.setDate(today.getDate() - 7);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
 
+    // Fetch scans from last 7 days
     const scansQ = query(
         collection(db, "scans"),
         where("timestamp", ">=", Timestamp.fromDate(sevenDaysAgo)),
-        orderBy("timestamp", "asc") // Ordered for chart
+        orderBy("timestamp", "asc")
     );
 
     const scansSnapshot = await getDocs(scansQ);
-    const scans = scansSnapshot.docs.map(d => d.data());
+    const scans = scansSnapshot.docs.map(d => ({ ...d.data(), id: d.id }));
 
-    // Calc Daily Points for Chart
-    const pointsChart = [];
+    // Points Today vs Yesterday
     let totalPointsToday = 0;
-    const now = new Date();
+    let totalPointsYesterday = 0;
 
+    scans.forEach((s: any) => {
+        const sDate = s.timestamp?.toDate();
+        if (!sDate) return;
+
+        // Check for Today
+        if (sDate >= today) {
+            totalPointsToday += (Number(s.pointsEarned) || 0);
+        }
+        // Check for Yesterday (strictly between yesterday start and today start)
+        else if (sDate >= yesterday && sDate < today) {
+            totalPointsYesterday += (Number(s.pointsEarned) || 0);
+        }
+    });
+
+    // Calculate Growth
+    let growth = 0;
+    if (totalPointsYesterday > 0) {
+        growth = ((totalPointsToday - totalPointsYesterday) / totalPointsYesterday) * 100;
+    } else if (totalPointsToday > 0) {
+        growth = 100;
+    }
+
+    // Chart Data
+    const pointsChart = [];
     for (let d = 0; d < 7; d++) {
         const date = new Date(sevenDaysAgo);
         date.setDate(date.getDate() + d);
+
+        // Normalize comparison date
+        const compDateStart = new Date(date);
+        compDateStart.setHours(0, 0, 0, 0);
+        const compDateEnd = new Date(date);
+        compDateEnd.setHours(23, 59, 59, 999);
+
         const dayStr = date.toLocaleDateString('es-DO', { weekday: 'short', day: 'numeric' });
 
-        // Filter scans for this day
         const dayTotal = scans
             .filter((s: any) => {
                 const sDate = s.timestamp?.toDate();
-                return sDate && sDate.getDate() === date.getDate() && sDate.getMonth() === date.getMonth();
+                return sDate && sDate >= compDateStart && sDate <= compDateEnd;
             })
             .reduce((sum: number, s: any) => sum + (Number(s.pointsEarned) || 0), 0);
 
         pointsChart.push({ name: dayStr, points: dayTotal });
-
-        // If it's today (roughly)
-        if (date.getDate() === now.getDate()) {
-            totalPointsToday = dayTotal;
-        }
     }
 
-    // 3. Top Performers (Client-side sort of all clerks for now)
-    // In production, maintain a counter in a separate stats doc
+    // 3. Top Performers
     const clerksData = clerksSnapshot.docs.map(doc => ({
         id: doc.id,
         name: doc.data().name || 'Unknown',
@@ -200,9 +226,9 @@ export const getAdminStats = async () => {
     }));
     const topClerks = clerksData.sort((a, b) => b.points - a.points).slice(0, 5);
 
-    // 4. Recent Activity (Already fetched scans, but let's take last 5 reverse)
+    // 4. Recent Activity
     const recentActivity = scans.reverse().slice(0, 5).map((s: any) => ({
-        id: s.id || Math.random().toString(),
+        id: s.id,
         description: s.status === 'processed' ? 'Factura Aprobada' : 'Scan Recibido',
         points: s.pointsEarned || 0,
         timestamp: s.timestamp?.toDate().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' }),
@@ -212,9 +238,9 @@ export const getAdminStats = async () => {
     return {
         totalPharmacies,
         activeClerks,
-        totalPointsToday, // Raw number
+        totalPointsToday,
         totalPointsTodayFormatted: `${totalPointsToday.toLocaleString()} pts`,
-        roi: `+15%`, // Hardcoded growth for now
+        roi: `${growth > 0 ? '+' : ''}${growth.toFixed(1)}% vs ayer`,
         pointsChart,
         topClerks,
         recentActivity
