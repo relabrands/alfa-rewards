@@ -1,11 +1,12 @@
 
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { getAllUsers, createUserProfile, updateUserProfile, getPharmacies } from '@/lib/db';
 import { User, Pharmacy } from '@/lib/types';
-import { User as UserIcon, Users, Shield, Briefcase, Search, PlusCircle, Loader2, Check, ChevronsUpDown, X } from 'lucide-react';
+import { User as UserIcon, Users, Shield, Briefcase, Search, PlusCircle, Loader2, Check, ChevronsUpDown, X, Store } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -22,6 +23,7 @@ export default function AdminUsers() {
     const { toast } = useToast();
     const [users, setUsers] = useState<User[]>([]);
     const [pharmacies, setPharmacies] = useState<Record<string, Pharmacy>>({});
+    const [pharmacyList, setPharmacyList] = useState<Pharmacy[]>([]);
     const [search, setSearch] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -40,6 +42,7 @@ export default function AdminUsers() {
         ]);
 
         setUsers(usersData);
+        setPharmacyList(pharmaciesData);
 
         const phMap: Record<string, Pharmacy> = {};
         pharmaciesData.forEach(p => phMap[p.id] = p);
@@ -180,13 +183,16 @@ export default function AdminUsers() {
                             <TableRow>
                                 <TableHead>Usuario</TableHead>
                                 <TableHead>Rol</TableHead>
-                                <TableHead>Ubicación / Detalles</TableHead>
+                                <TableHead>Ubicación / Asignaciones</TableHead>
                                 <TableHead className="text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredUsers.map((user) => {
                                 const pharmacy = user.pharmacyId ? pharmacies[user.pharmacyId] : null;
+                                // Handle legacy pharmacyId vs new assignedPharmacies
+                                const assignedIds = user.assignedPharmacies || (user.pharmacyId ? [user.pharmacyId] : []);
+
                                 return (
                                     <TableRow key={user.id}>
                                         <TableCell className="font-medium">
@@ -196,7 +202,8 @@ export default function AdminUsers() {
                                                 </div>
                                                 <div>
                                                     <p>{user.name} {user.lastName}</p>
-                                                    <p className="text-xs text-muted-foreground">{user.email || user.phone || 'N/A'}</p>
+                                                    <p className="text-xs text-muted-foreground">{user.cedula}</p>
+                                                    <p className="text-[10px] text-muted-foreground">{user.email || user.phone || 'N/A'}</p>
                                                 </div>
                                             </div>
                                         </TableCell>
@@ -205,6 +212,7 @@ export default function AdminUsers() {
                                             {user.status === 'pending' && <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800 border-yellow-200">Pendiente</Badge>}
                                         </TableCell>
                                         <TableCell>
+                                            {/* Sales Rep Zones */}
                                             {user.role === 'salesRep' && user.zone && (
                                                 <div className="flex flex-col gap-1">
                                                     <span className="text-xs text-muted-foreground font-semibold">Zonas:</span>
@@ -215,22 +223,30 @@ export default function AdminUsers() {
                                                     </div>
                                                 </div>
                                             )}
-                                            {user.pharmacyId && (
-                                                <div className="flex flex-col gap-0.5">
+
+                                            {/* Clerk Pharmacies */}
+                                            {user.role === 'clerk' && (
+                                                <div className="flex flex-col gap-1">
                                                     <span className="flex items-center gap-1 text-sm font-medium">
                                                         <Briefcase className="h-3 w-3 text-muted-foreground" />
-                                                        {pharmacy ? pharmacy.name : user.pharmacyId}
+                                                        Farmacias Asignadas ({assignedIds.length})
                                                     </span>
-                                                    {pharmacy?.sector && (
-                                                        <span className="text-xs text-muted-foreground ml-4">
-                                                            {pharmacy.sector}
-                                                        </span>
-                                                    )}
+                                                    <div className="flex flex-wrap gap-1 mt-1">
+                                                        {assignedIds.map(phId => {
+                                                            const ph = pharmacies[phId];
+                                                            return ph ? (
+                                                                <Badge key={phId} variant="outline" className="text-[10px] px-1 py-0 bg-white">
+                                                                    {ph.name}
+                                                                </Badge>
+                                                            ) : null;
+                                                        })}
+                                                        {assignedIds.length === 0 && <span className="text-xs text-muted-foreground italic">Ninguna asignada</span>}
+                                                    </div>
                                                 </div>
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <EditUserDialog user={user} onUpdate={loadUsers} />
+                                            <EditUserDialog user={user} pharmacies={pharmacyList} onUpdate={loadUsers} />
                                         </TableCell>
                                     </TableRow>
                                 )
@@ -243,7 +259,7 @@ export default function AdminUsers() {
     );
 }
 
-function EditUserDialog({ user, onUpdate }: { user: User, onUpdate: () => void }) {
+function EditUserDialog({ user, pharmacies, onUpdate }: { user: User, pharmacies: Pharmacy[], onUpdate: () => void }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
@@ -251,7 +267,8 @@ function EditUserDialog({ user, onUpdate }: { user: User, onUpdate: () => void }
         name: user.name || '',
         phone: user.phone || '',
         role: user.role,
-        zone: user.zone || [] as string[]
+        zone: user.zone || [] as string[],
+        assignedPharmacies: user.assignedPharmacies || (user.pharmacyId ? [user.pharmacyId] : []) as string[]
     });
 
     const handleUpdate = async () => {
@@ -265,6 +282,13 @@ function EditUserDialog({ user, onUpdate }: { user: User, onUpdate: () => void }
 
             if (data.role === 'salesRep') {
                 updates.zone = data.zone;
+            }
+            if (data.role === 'clerk') {
+                updates.assignedPharmacies = data.assignedPharmacies;
+                // Keep pharmacyId in sync with the first assigned pharmacy for strict backwards compatibility
+                if (data.assignedPharmacies.length > 0) {
+                    updates.pharmacyId = data.assignedPharmacies[0];
+                }
             }
 
             await updateUserProfile(user.id, updates);
@@ -299,6 +323,7 @@ function EditUserDialog({ user, onUpdate }: { user: User, onUpdate: () => void }
                         <Label>Teléfono</Label>
                         <Input value={data.phone} onChange={e => setData({ ...data, phone: e.target.value })} />
                     </div>
+
                     {data.role === 'salesRep' && (
                         <div className="space-y-2">
                             <Label>Zonas</Label>
@@ -308,6 +333,19 @@ function EditUserDialog({ user, onUpdate }: { user: User, onUpdate: () => void }
                             />
                         </div>
                     )}
+
+                    {data.role === 'clerk' && (
+                        <div className="space-y-2">
+                            <Label>Farmacias Asignadas (Multi-selección)</Label>
+                            <PharmacyMultiSelect
+                                pharmacies={pharmacies}
+                                selectedIds={data.assignedPharmacies}
+                                onChange={(ids) => setData({ ...data, assignedPharmacies: ids })}
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">El admin puede asignar múltiples farmacias.</p>
+                        </div>
+                    )}
+
                     <div className="space-y-2">
                         <Label>Rol</Label>
                         <select
@@ -399,6 +437,91 @@ function ZoneMultiSelect({ selectedZones, onChange }: { selectedZones: string[],
                                             <Check className={cn("h-4 w-4", selectedZones.includes(sector) ? "opacity-100" : "opacity-0")} />
                                         </div>
                                         {sector}
+                                    </CommandItem>
+                                ))}
+                            </CommandGroup>
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
+        </div>
+    );
+}
+
+function PharmacyMultiSelect({ pharmacies, selectedIds, onChange }: { pharmacies: Pharmacy[], selectedIds: string[], onChange: (ids: string[]) => void }) {
+    const [open, setOpen] = useState(false);
+
+    const handleSelect = (currentValue: string) => {
+        // Value corresponds to Pharmacy ID
+        if (selectedIds.includes(currentValue)) {
+            onChange(selectedIds.filter(id => id !== currentValue));
+        } else {
+            onChange([...selectedIds, currentValue]);
+        }
+        setOpen(false);
+    };
+
+    const removeId = (idToRemove: string) => {
+        onChange(selectedIds.filter(id => id !== idToRemove));
+    };
+
+    return (
+        <div className="space-y-2">
+            <div className="flex flex-wrap gap-2 mb-2">
+                {selectedIds.map(id => {
+                    const ph = pharmacies.find(p => p.id === id);
+                    return ph ? (
+                        <Badge key={id} variant="secondary" className="flex items-center gap-1 pl-2 pr-1 py-1 bg-blue-50 text-blue-700 border-blue-200">
+                            <Store className="w-3 h-3 mr-1" />
+                            {ph.name}
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-4 w-4 rounded-full ml-1 hover:bg-destructive/10 hover:text-destructive p-0"
+                                onClick={() => removeId(id)}
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                        </Badge>
+                    ) : null;
+                })}
+            </div>
+
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        className="w-full justify-between"
+                    >
+                        <span className="text-muted-foreground font-normal">
+                            {selectedIds.length > 0 ? "Asignar otra farmacia..." : "Asignar farmacias..."}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                        <CommandInput placeholder="Buscar farmacia..." />
+                        <CommandList>
+                            <CommandEmpty>No encontrada.</CommandEmpty>
+                            <CommandGroup className="max-h-64 overflow-auto">
+                                {pharmacies.map((ph) => (
+                                    <CommandItem
+                                        key={ph.id}
+                                        value={ph.name} // Search by name
+                                        onSelect={() => handleSelect(ph.id)}
+                                    >
+                                        <div className={cn(
+                                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                            selectedIds.includes(ph.id)
+                                                ? "bg-primary text-primary-foreground"
+                                                : "opacity-50 [&_svg]:invisible"
+                                        )}>
+                                            <Check className={cn("h-4 w-4", selectedIds.includes(ph.id) ? "opacity-100" : "opacity-0")} />
+                                        </div>
+                                        {ph.name}
                                     </CommandItem>
                                 ))}
                             </CommandGroup>

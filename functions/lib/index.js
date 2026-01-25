@@ -46,7 +46,7 @@ const model = vertexAI.preview.getGenerativeModel({
 exports.processInvoice = functions.firestore
     .document('scans/{scanId}')
     .onUpdate(async (change, context) => {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e;
     const newData = change.after.data();
     const previousData = change.before.data();
     // Only trigger when status changes to 'uploaded'
@@ -194,6 +194,32 @@ exports.processInvoice = functions.firestore
             await db.collection('scans').doc(scanId).update(updates);
             return null;
         }
+        // 5. Strict Pharmacy Assignment Validation
+        const userRef = db.collection('users').doc(newData.userId);
+        const userSnap = await userRef.get();
+        if (!userSnap.exists) {
+            // Should not happen, but safe fail
+            throw new Error("User not found");
+        }
+        const userData = userSnap.data();
+        // Get detected pharmacy configuration
+        const matchedPharmacy = pharmacies.find((p) => p.name === aiData.pharmacyName);
+        if (!matchedPharmacy) {
+            // Already checked in Check 1, but double safety
+            return null;
+        }
+        // Allowed Pharmacy IDs
+        const allowedPharmacies = (userData === null || userData === void 0 ? void 0 : userData.assignedPharmacies) || [];
+        if (userData === null || userData === void 0 ? void 0 : userData.pharmacyId)
+            allowedPharmacies.push(userData.pharmacyId);
+        // Strict Check
+        if (!allowedPharmacies.includes(matchedPharmacy.id)) {
+            updates.status = 'rejected';
+            updates.rejectionReason = `Farmacia no autorizada para este usuario. (Detectada: ${aiData.pharmacyName})`;
+            console.log(`Scan ${scanId} rejected: Pharmacy ${matchedPharmacy.id} not in user's assigned list [${allowedPharmacies.join(', ')}]`);
+            await db.collection('scans').doc(scanId).update(updates);
+            return null;
+        }
         // If we are here, everything is VALID
         let totalPoints = 0;
         const validProducts = [];
@@ -216,7 +242,7 @@ exports.processInvoice = functions.firestore
         updates.productsFound = validProducts;
         updates.ncf = aiData.ncf;
         updates.invoiceDate = aiData.invoiceDate;
-        updates.pharmacyId = (_f = pharmacies.find((p) => p.name === aiData.pharmacyName)) === null || _f === void 0 ? void 0 : _f.id; // Link pharmacy ID
+        updates.pharmacyId = matchedPharmacy.id; // Link pharmacy ID
         await db.collection('scans').doc(scanId).update(updates);
         // Update User Wallet
         if (totalPoints > 0) {

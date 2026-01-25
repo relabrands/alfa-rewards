@@ -12,6 +12,7 @@ export interface User {
     email?: string;
     cedula?: string;
     zone?: string[];
+    assignedPharmacies?: string[]; // List of pharmacy IDs this user works at
     status?: 'active' | 'pending' | 'disabled';
 }
 

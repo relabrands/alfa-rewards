@@ -191,6 +191,35 @@ export const processInvoice = functions.firestore
                 return null;
             }
 
+            // 5. Strict Pharmacy Assignment Validation
+            const userRef = db.collection('users').doc(newData.userId);
+            const userSnap = await userRef.get();
+            if (!userSnap.exists) {
+                // Should not happen, but safe fail
+                throw new Error("User not found");
+            }
+            const userData = userSnap.data();
+
+            // Get detected pharmacy configuration
+            const matchedPharmacy = pharmacies.find((p: any) => p.name === aiData.pharmacyName);
+            if (!matchedPharmacy) {
+                // Already checked in Check 1, but double safety
+                return null;
+            }
+
+            // Allowed Pharmacy IDs
+            const allowedPharmacies = userData?.assignedPharmacies || [];
+            if (userData?.pharmacyId) allowedPharmacies.push(userData.pharmacyId);
+
+            // Strict Check
+            if (!allowedPharmacies.includes(matchedPharmacy.id)) {
+                updates.status = 'rejected';
+                updates.rejectionReason = `Farmacia no autorizada para este usuario. (Detectada: ${aiData.pharmacyName})`;
+                console.log(`Scan ${scanId} rejected: Pharmacy ${matchedPharmacy.id} not in user's assigned list [${allowedPharmacies.join(', ')}]`);
+                await db.collection('scans').doc(scanId).update(updates);
+                return null;
+            }
+
             // If we are here, everything is VALID
             let totalPoints = 0;
             const validProducts: any[] = [];
@@ -215,7 +244,7 @@ export const processInvoice = functions.firestore
             updates.productsFound = validProducts;
             updates.ncf = aiData.ncf;
             updates.invoiceDate = aiData.invoiceDate;
-            updates.pharmacyId = pharmacies.find((p: any) => p.name === aiData.pharmacyName)?.id; // Link pharmacy ID
+            updates.pharmacyId = matchedPharmacy.id; // Link pharmacy ID
 
             await db.collection('scans').doc(scanId).update(updates);
 

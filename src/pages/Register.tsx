@@ -82,6 +82,7 @@ export default function Register() {
                 points: 0,
                 // Save sector for zone-based routing
                 zone: selectedPharmacy?.sector ? [selectedPharmacy.sector] : [],
+                assignedPharmacies: [formData.pharmacyId], // Initialize with the selected pharmacy
                 avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`
             });
 
