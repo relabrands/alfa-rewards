@@ -88,6 +88,42 @@ export default function DirectorMapAnalytics() {
         return () => unsubscribe();
     }, []);
 
+    // 3. Fetch Clerk Scans (When viewing a clerk)
+    useEffect(() => {
+        if (view === 'clerk' && selectedClerk) {
+            console.log("Fetching scans for clerk:", selectedClerk.id);
+            const q = query(
+                collection(db, "scans"),
+                where("userId", "==", selectedClerk.id),
+                where("status", "==", "processed"),
+                orderBy("timestamp", "desc"),
+                limit(100)
+            );
+
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                console.log("Scans Snapshot Size:", snapshot.size);
+                const products: ProductScan[] = [];
+                snapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    if (data.productsFound) {
+                        data.productsFound.forEach((p: any) => {
+                            products.push({
+                                product: p.product,
+                                quantity: p.quantity || 1,
+                                timestamp: data.timestamp?.toDate()
+                            });
+                        });
+                    }
+                });
+                console.log("Aggregated Products Count:", products.length);
+                setClerkScans(products);
+            });
+            return () => unsubscribe();
+        } else {
+            setClerkScans([]);
+        }
+    }, [view, selectedClerk]);
+
     // Navigation Handlers
     const handleSelectPharmacy = (p: Pharmacy) => {
         setSelectedPharmacy(p);
@@ -386,3 +422,5 @@ export default function DirectorMapAnalytics() {
         </div>
     );
 }
+
+

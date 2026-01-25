@@ -245,18 +245,20 @@ exports.processInvoice = functions.firestore
         updates.pharmacyId = matchedPharmacy.id; // Link pharmacy ID
         await db.collection('scans').doc(scanId).update(updates);
         // Update User Wallet & Stats
-        if (totalPoints > 0) {
-            await db.collection('users').doc(newData.userId).update({
+        const userUpdatePromise = totalPoints > 0 ?
+            db.collection('users').doc(newData.userId).update({
                 points: admin.firestore.FieldValue.increment(totalPoints),
-                scanCount: admin.firestore.FieldValue.increment(1) // Increment total valid scans
-            });
-        }
-        else {
-            // Even if 0 points (rare but possible), it's a processed scan
-            await db.collection('users').doc(newData.userId).update({
+                scanCount: admin.firestore.FieldValue.increment(1)
+            }) :
+            db.collection('users').doc(newData.userId).update({
                 scanCount: admin.firestore.FieldValue.increment(1)
             });
-        }
+        // Update Pharmacy Stats (Scan Count & Sales)
+        const pharmacyUpdatePromise = db.collection('pharmacies').doc(matchedPharmacy.id).update({
+            scanCount: admin.firestore.FieldValue.increment(1),
+            monthlySales: admin.firestore.FieldValue.increment(aiData.totalAmount || 0)
+        });
+        await Promise.all([userUpdatePromise, pharmacyUpdatePromise]);
         return { success: true, points: totalPoints };
     }
     catch (error) {
