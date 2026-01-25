@@ -144,37 +144,54 @@ export function ClerkHomeTab() {
         const data = docSnapshot.data();
         if (!data) return;
 
-        if (data.status === 'processed') {
-          setIsScanning(false);
-          const earned = data.pointsEarned || 0;
-          setRecentEarnings(earned);
+        setIsScanning(false);
+        const earned = data.pointsEarned || 0;
+        setRecentEarnings(earned);
 
-          if (earned > 0) {
-            setShowCoins(true);
-            addPoints(earned); // Ensure UI updates immediately
-            toast({
-              title: '💰 ¡Puntos Acreditados!',
-              description: `La IA detectó productos válidos. Ganaste ${earned} puntos.`,
-              className: 'bg-green-50 border-green-200 text-green-800'
-            });
-          } else {
-            toast({
-              title: 'Sin puntos',
-              description: 'No se detectaron productos participantes en la factura.',
-              variant: 'default'
-            });
-          }
-          unsubscribe();
-        } else if (data.status === 'error') {
-          setIsScanning(false);
+        if (earned > 0) {
+          setShowCoins(true);
+          addPoints(earned);
           toast({
-            title: 'Error de Análisis',
-            description: 'No se pudo leer la factura. Intenta con una foto más clara.',
-            variant: 'destructive'
+            title: '💰 ¡Puntos Acreditados!',
+            description: `La IA detectó productos válidos. Ganaste ${earned} puntos.`,
+            className: 'bg-green-50 border-green-200 text-green-800'
           });
-          unsubscribe();
+        } else {
+          // Processed but 0 points (valid scan, no products)
+          toast({
+            title: 'Factura Procesada',
+            description: 'Se leyó la factura, pero no contiene productos participantes.',
+            variant: 'default'
+          });
         }
-      });
+        unsubscribe();
+      } else if (data.status === 'rejected') {
+        setIsScanning(false);
+        toast({
+          title: '❌ Factura Rechazada',
+          description: data.rejectionReason || 'La factura no cumple con los requisitos.',
+          variant: 'destructive',
+          duration: 5000
+        });
+        unsubscribe();
+      } else if (data.status === 'pending_review') {
+        setIsScanning(false);
+        toast({
+          title: '⚠️ Pendiente de Revisión',
+          description: data.rejectionReason || 'Un administrador revisará esta factura manualmente.',
+          className: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+          duration: 5000
+        });
+        unsubscribe();
+      } else if (data.status === 'error') {
+        setIsScanning(false);
+        toast({
+          title: 'Error del Sistema',
+          description: 'Hubo un error técnico procesando la imagen. Intenta nuevamente.',
+          variant: 'destructive'
+        });
+        unsubscribe();
+      }
 
     } catch (error: any) {
       console.error(error);

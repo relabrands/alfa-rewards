@@ -205,7 +205,7 @@ export function ClerkProfileTab() {
                       <div>
                         <p className="text-sm font-medium">Factura #{scan.invoiceAmount}</p> {/* Using amount as fake ID if ID missing */}
                         <p className="text-xs text-muted-foreground">
-                          {format(scan.timestamp, "d 'de' MMMM", { locale: es })} • RD${scan.invoiceAmount.toLocaleString()}
+                          {format(scan.timestamp, "d 'de' MMMM", { locale: es })} • RD${(scan.invoiceAmount || 0).toLocaleString()}
                         </p>
                       </div>
                     </div>
