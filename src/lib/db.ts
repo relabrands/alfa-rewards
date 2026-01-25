@@ -140,33 +140,84 @@ export const getTeamMembers = async (zones: string[]): Promise<any[]> => {
 
 // Admin Stats
 export const getAdminStats = async () => {
-    // 1. Total Pharmacies
+    // 1. Total Pharmacies & Active Clerks
     const pharmaciesSnapshot = await getDocs(collection(db, "pharmacies"));
     const totalPharmacies = pharmaciesSnapshot.size;
 
-    // 2. Total Clerks (from users collection)
     const clerksSnapshot = await getDocs(query(collection(db, "users"), where("role", "==", "clerk")));
     const activeClerks = clerksSnapshot.size;
 
-    // 3. Total Sales Today
+    // 2. Sales Analytics (Last 7 Days)
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setHours(23, 59, 59, 999);
 
-    // Note: Creating indexes might be required for this compound query
-    // Fallback: fetch recent scans and filter client side if index missing
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
     const scansQ = query(
         collection(db, "scans"),
-        where("timestamp", ">=", Timestamp.fromDate(today))
+        where("timestamp", ">=", Timestamp.fromDate(sevenDaysAgo)),
+        orderBy("timestamp", "asc") // Ordered for chart
     );
 
     const scansSnapshot = await getDocs(scansQ);
-    const totalSalesToday = scansSnapshot.docs.reduce((sum, doc) => sum + (doc.data().invoiceAmount || 0), 0);
+    const scans = scansSnapshot.docs.map(d => d.data());
+
+    // Calc Daily Sales for Chart
+    const salesChart = [];
+    let totalSalesToday = 0;
+    const now = new Date();
+
+    for (let d = 0; d < 7; d++) {
+        const date = new Date(sevenDaysAgo);
+        date.setDate(date.getDate() + d);
+        const dayStr = date.toLocaleDateString('es-DO', { weekday: 'short', day: 'numeric' });
+
+        // Filter scans for this day
+        const dayTotal = scans
+            .filter((s: any) => {
+                const sDate = s.timestamp?.toDate();
+                return sDate && sDate.getDate() === date.getDate() && sDate.getMonth() === date.getMonth();
+            })
+            .reduce((sum: number, s: any) => sum + (Number(s.invoiceAmount) || 0), 0);
+
+        salesChart.push({ name: dayStr, sales: dayTotal });
+
+        // If it's today (roughly)
+        if (date.getDate() === now.getDate()) {
+            totalSalesToday = dayTotal;
+        }
+    }
+
+    // 3. Top Performers (Client-side sort of all clerks for now)
+    // In production, maintain a counter in a separate stats doc
+    const clerksData = clerksSnapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name || 'Unknown',
+        points: doc.data().points || 0,
+        pharmacyId: doc.data().pharmacyId
+    }));
+    const topClerks = clerksData.sort((a, b) => b.points - a.points).slice(0, 5);
+
+    // 4. Recent Activity (Already fetched scans, but let's take last 5 reverse)
+    const recentActivity = scans.reverse().slice(0, 5).map((s: any) => ({
+        id: s.id || Math.random().toString(),
+        description: s.status === 'processed' ? 'Factura Aprobada' : 'Scan Recibido',
+        amount: s.invoiceAmount || 0,
+        timestamp: s.timestamp?.toDate().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' }),
+        status: s.status
+    }));
 
     return {
         totalPharmacies,
         activeClerks,
-        totalSalesToday: `RD$ ${(totalSalesToday / 1000).toFixed(1)}k`, // Formatting
-        roi: `${((totalSalesToday * 0.15) / 100).toFixed(1)}%` // Mock ROI calculation
+        totalSalesToday, // Raw number
+        totalSalesTodayFormatted: `RD$ ${(totalSalesToday / 1000).toFixed(1)}k`,
+        roi: `${((totalSalesToday * 0.15) / 100).toFixed(1)}%`,
+        salesChart,
+        topClerks,
+        recentActivity
     };
 };
 

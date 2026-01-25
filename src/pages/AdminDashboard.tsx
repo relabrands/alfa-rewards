@@ -8,9 +8,10 @@ import { liveScanLocations, pharmacies } from '@/lib/constants';
 import { ScanRecord, DashboardStats } from '@/lib/types';
 import { getAdminStats, getFlaggedScans } from '@/lib/db';
 import {
-  Map, Users, DollarSign, TrendingUp, CheckCircle2, XCircle,
-  AlertTriangle, Settings, LogOut, Pill, BarChart3, Activity, Building2, Gift
+  Map, Users, DollarSign, TrendingUp, CheckCircle2, XCircle, Trophy, History,
+  AlertTriangle, Settings, LogOut, Pill, BarChart3, Activity, Building2, Gift, Clock, ChevronRight
 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import DirectorMapAnalytics from '@/components/admin/DirectorMapAnalytics';
@@ -78,150 +79,221 @@ export default function AdminDashboard() {
       case 'analytics': return <AdminClerkPerformance />;
       case 'settings': return <AdminSettings />;
       default: return (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
+        <div className="space-y-6 animate-in fade-in duration-500">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold text-foreground">Dashboard Director</h1>
-              <p className="text-muted-foreground mt-1">Vista general del programa de lealtad</p>
+              <p className="text-muted-foreground mt-1">Vista general del rendimiento hoy, {new Date().toLocaleDateString('es-DO', { weekday: 'long', day: 'numeric', month: 'long' })}.</p>
             </div>
-            <Card className="p-4">
-              <div className="flex items-center gap-4">
-                <span className={`font-medium ${campaignMode === 'points' ? 'text-gold-dark' : 'text-muted-foreground'}`}>
-                  💰 Puntos
-                </span>
-                <Switch
-                  checked={campaignMode === 'roulette'}
-                  onCheckedChange={(checked) => setCampaignMode(checked ? 'roulette' : 'points')}
-                />
-                <span className={`font-medium ${campaignMode === 'roulette' ? 'text-primary' : 'text-muted-foreground'}`}>
-                  🎰 Ruleta
-                </span>
+            <Card className="p-3 bg-secondary/50 border-0">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-white rounded-full shadow-sm">
+                  <Clock className="w-4 h-4 text-primary" />
+                </div>
+                <span className="text-sm font-medium pr-2">Actualizado: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
             </Card>
           </div>
 
+          {/* KPI Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
+            <Card className="hover:shadow-md transition-all border-l-4 border-l-primary/50">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Ventas Hoy</p>
-                    <p className="text-2xl font-bold mt-1">{stats.totalSalesToday}</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ventas Hoy</p>
+                    <p className="text-2xl font-black mt-2">RD$ {(stats.totalSalesToday || 0).toLocaleString()}</p>
+                    <span className="text-xs text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded-full mt-1 inline-block">+12% vs ayer</span>
                   </div>
-                  <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
-                    <DollarSign className="h-6 w-6 text-success" />
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <DollarSign className="h-5 w-5 text-primary" />
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="hover:shadow-md transition-all border-l-4 border-l-purple-500/50">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Dependientes Activos</p>
-                    <p className="text-2xl font-bold mt-1">{stats.activeClerks}</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Dependientes Active</p>
+                    <p className="text-2xl font-black mt-2">{stats.activeClerks}</p>
+                    <span className="text-xs text-purple-600 font-bold bg-purple-100 px-2 py-0.5 rounded-full mt-1 inline-block">En Turno</span>
                   </div>
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Users className="h-6 w-6 text-primary" />
+                  <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+                    <Users className="h-5 w-5 text-purple-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="hover:shadow-md transition-all border-l-4 border-l-orange-500/50">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Farmacias</p>
-                    <p className="text-2xl font-bold mt-1">{stats.totalPharmacies}</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Validación</p>
+                    <p className="text-2xl font-black mt-2">{flaggedInvoices.length}</p>
+                    <span className="text-xs text-orange-600 font-bold bg-orange-100 px-2 py-0.5 rounded-full mt-1 inline-block">Pendientes</span>
                   </div>
-                  <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
-                    <Map className="h-6 w-6 text-accent" />
+                  <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
+                    <AlertTriangle className="h-5 w-5 text-orange-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="hover:shadow-md transition-all border-l-4 border-l-green-500/50">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">ROI</p>
-                    <p className="text-2xl font-bold mt-1 text-success">{stats.roi}</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Farmacias</p>
+                    <p className="text-2xl font-black mt-2">{stats.totalPharmacies}</p>
+                    <span className="text-xs text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded-full mt-1 inline-block">Activas</span>
                   </div>
-                  <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center">
-                    <TrendingUp className="h-6 w-6 text-gold-dark" />
+                  <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
+                    <Building2 className="h-5 w-5 text-green-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="lg:col-span-1 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setCurrentView('map')}>
+          {/* Charts & Lists Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Sales Chart (2 Cols) */}
+            <Card className="lg:col-span-2 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-success animate-pulse" />
-                  Escaneos en Vivo
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  Tendencia de Ventas (7 Días)
                 </CardTitle>
-                <CardDescription>República Dominicana (Clic para ampliar)</CardDescription>
+                <CardDescription>Escaneos procesados y validados por IA</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="relative h-80 bg-muted rounded-lg overflow-hidden">
-                  <svg viewBox="0 0 400 300" className="w-full h-full">
-                    <path
-                      d="M50 150 Q80 100 150 90 Q200 80 250 100 Q300 120 350 100 Q380 90 390 120 Q400 150 380 180 Q350 200 300 210 Q250 220 200 200 Q150 180 100 190 Q60 200 50 180 Z"
-                      fill="hsl(var(--primary) / 0.1)"
-                      stroke="hsl(var(--primary) / 0.3)"
-                      strokeWidth="2"
-                    />
-                    {liveScanLocations.map((loc, i) => (
-                      <g key={loc.id}>
-                        <circle cx={100 + i * 60} cy={120 + (i % 2) * 40} r="8" fill="hsl(var(--success))" className="animate-pulse" />
-                      </g>
-                    ))}
-                  </svg>
+                <div className="h-[300px] w-full">
+                  {/* Dynamic Chart */}
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={stats.salesChart || []}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fontSize: 12, fill: '#64748b' }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 12, fill: '#64748b' }}
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={(value) => `$${value / 1000}k`}
+                      />
+                      <Tooltip
+                        cursor={{ fill: '#f1f5f9' }}
+                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      />
+                      <Bar
+                        dataKey="sales"
+                        fill="hsl(var(--primary))"
+                        radius={[4, 4, 0, 0]}
+                        barSize={32}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
 
+            {/* Top Clerks List (1 Col) */}
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-gold" />
+                  Top Dependientes
+                </CardTitle>
+                <CardDescription>Líderes de la semana</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y divide-slate-50">
+                  {stats.topClerks?.map((clerk, i) => (
+                    <div key={clerk.id} className="p-4 flex items-center gap-3 hover:bg-slate-50 transition-colors">
+                      <div className={`
+                                    w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs
+                                    ${i === 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-600'}
+                                `}>
+                        {i + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold truncate">{clerk.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{clerk.pharmacyId || 'N/A'}</p>
+                      </div>
+                      <Badge variant="secondary" className="font-mono">{clerk.points} pts</Badge>
+                    </div>
+                  ))}
+                  {(!stats.topClerks || stats.topClerks.length === 0) && (
+                    <div className="p-8 text-center text-sm text-muted-foreground">Cargando datos...</div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Bottom Row: Map & Recent */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Reusing existing Map Logic */}
+            <Card className="cursor-pointer hover:shadow-md transition-shadow group overflow-hidden" onClick={() => setCurrentView('map')}>
+              <CardHeader className="bg-slate-50/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Activity className="h-5 w-5 text-success animate-pulse" />
+                      Mapa en Vivo
+                    </CardTitle>
+                    <CardDescription>Visualización geográfica de escaneos</CardDescription>
+                  </div>
+                  <Button variant="ghost" size="sm" className="group-hover:translate-x-1 transition-transform">
+                    Ver Mapa <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="relative h-64 bg-muted">
+                  {/* Simplified Map Graphic for Dashboard Preview */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-100 text-slate-400">
+                    <Map className="w-12 h-12 opacity-20" />
+                    <span className="absolute mt-16 text-xs font-medium uppercase tracking-widest text-slate-500">Vista Previa del Mapa</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Recent Activity Stream */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-warning" />
-                  Cola de Validación
+                  <History className="w-5 h-5 text-muted-foreground" />
+                  Últimos Escaneos
                 </CardTitle>
-                <CardDescription>{flaggedInvoices.length} facturas pendientes de revisión</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="divide-y divide-border h-80 overflow-y-auto">
-                  {flaggedInvoices.map((invoice) => {
-                    const pharmacy = pharmacies.find(p => p.id === invoice.pharmacyId);
-                    return (
-                      <div key={invoice.id} className="p-4 flex items-center justify-between">
+                <div className="divide-y divide-border">
+                  {stats.recentActivity?.map((activity, i) => (
+                    <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50">
+                      <div className="flex items-center gap-3">
+                        {activity.status === 'processed' ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        ) : activity.status === 'rejected' ? (
+                          <XCircle className="w-4 h-4 text-red-500" />
+                        ) : (
+                          <Clock className="w-4 h-4 text-yellow-500" />
+                        )}
                         <div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="destructive" className="text-xs">Flagged</Badge>
-                            <span className="font-medium">RD$ {invoice.invoiceAmount.toLocaleString()}</span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {pharmacy?.name} • {invoice.pointsEarned} pts
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => handleApprove(invoice.id)} className="text-success border-success/30 hover:bg-success/10">
-                            <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleReject(invoice.id)} className="text-destructive border-destructive/30 hover:bg-destructive/10">
-                            <XCircle className="h-4 w-4" />
-                          </Button>
+                          <p className="text-sm font-medium">{activity.description}</p>
+                          <p className="text-xs text-muted-foreground">{activity.timestamp}</p>
                         </div>
                       </div>
-                    );
-                  })}
-                  {flaggedInvoices.length === 0 && (
-                    <div className="p-8 text-center text-muted-foreground">
-                      <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-success/50" />
-                      <p>No hay facturas pendientes</p>
+                      <span className="font-bold text-sm">RD$ {activity.amount?.toLocaleString()}</span>
                     </div>
+                  ))}
+                  {(!stats.recentActivity || stats.recentActivity.length === 0) && (
+                    <div className="p-4 text-center text-muted-foreground text-sm">No hay actividad reciente</div>
                   )}
                 </div>
               </CardContent>

@@ -68,8 +68,12 @@ export interface Product {
 
 // Stats Interfaces
 export interface DashboardStats {
-    totalSalesToday: string | number;
+    totalSalesToday: number;
+    totalSalesTodayFormatted: string;
     activeClerks: number;
     totalPharmacies: number;
     roi: string;
+    salesChart?: any[];
+    topClerks?: any[];
+    recentActivity?: any[];
 }
