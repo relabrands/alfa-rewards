@@ -248,10 +248,16 @@ export const processInvoice = functions.firestore
 
             await db.collection('scans').doc(scanId).update(updates);
 
-            // Update User Wallet
+            // Update User Wallet & Stats
             if (totalPoints > 0) {
                 await db.collection('users').doc(newData.userId).update({
-                    points: admin.firestore.FieldValue.increment(totalPoints)
+                    points: admin.firestore.FieldValue.increment(totalPoints),
+                    scanCount: admin.firestore.FieldValue.increment(1) // Increment total valid scans
+                });
+            } else {
+                // Even if 0 points (rare but possible), it's a processed scan
+                await db.collection('users').doc(newData.userId).update({
+                    scanCount: admin.firestore.FieldValue.increment(1)
                 });
             }
 
