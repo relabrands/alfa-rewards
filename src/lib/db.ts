@@ -164,9 +164,9 @@ export const getAdminStats = async () => {
     const scansSnapshot = await getDocs(scansQ);
     const scans = scansSnapshot.docs.map(d => d.data());
 
-    // Calc Daily Sales for Chart
-    const salesChart = [];
-    let totalSalesToday = 0;
+    // Calc Daily Points for Chart
+    const pointsChart = [];
+    let totalPointsToday = 0;
     const now = new Date();
 
     for (let d = 0; d < 7; d++) {
@@ -180,13 +180,13 @@ export const getAdminStats = async () => {
                 const sDate = s.timestamp?.toDate();
                 return sDate && sDate.getDate() === date.getDate() && sDate.getMonth() === date.getMonth();
             })
-            .reduce((sum: number, s: any) => sum + (Number(s.invoiceAmount) || 0), 0);
+            .reduce((sum: number, s: any) => sum + (Number(s.pointsEarned) || 0), 0);
 
-        salesChart.push({ name: dayStr, sales: dayTotal });
+        pointsChart.push({ name: dayStr, points: dayTotal });
 
         // If it's today (roughly)
         if (date.getDate() === now.getDate()) {
-            totalSalesToday = dayTotal;
+            totalPointsToday = dayTotal;
         }
     }
 
@@ -204,7 +204,7 @@ export const getAdminStats = async () => {
     const recentActivity = scans.reverse().slice(0, 5).map((s: any) => ({
         id: s.id || Math.random().toString(),
         description: s.status === 'processed' ? 'Factura Aprobada' : 'Scan Recibido',
-        amount: s.invoiceAmount || 0,
+        points: s.pointsEarned || 0,
         timestamp: s.timestamp?.toDate().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' }),
         status: s.status
     }));
@@ -212,10 +212,10 @@ export const getAdminStats = async () => {
     return {
         totalPharmacies,
         activeClerks,
-        totalSalesToday, // Raw number
-        totalSalesTodayFormatted: `RD$ ${(totalSalesToday / 1000).toFixed(1)}k`,
-        roi: `${((totalSalesToday * 0.15) / 100).toFixed(1)}%`,
-        salesChart,
+        totalPointsToday, // Raw number
+        totalPointsTodayFormatted: `${totalPointsToday.toLocaleString()} pts`,
+        roi: `+15%`, // Hardcoded growth for now
+        pointsChart,
         topClerks,
         recentActivity
     };

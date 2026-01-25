@@ -71,12 +71,12 @@ export interface Product {
 
 // Stats Interfaces
 export interface DashboardStats {
-    totalSalesToday: number;
-    totalSalesTodayFormatted: string;
+    totalPointsToday: number;
+    totalPointsTodayFormatted: string;
     activeClerks: number;
     totalPharmacies: number;
     roi: string;
-    salesChart?: any[];
+    pointsChart?: any[];
     topClerks?: any[];
     recentActivity?: any[];
 }

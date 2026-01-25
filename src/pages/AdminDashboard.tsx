@@ -31,7 +31,7 @@ export default function AdminDashboard() {
   const [currentView, setCurrentView] = useState<AdminView>('dashboard');
 
   const [stats, setStats] = useState<DashboardStats>({
-    totalSalesToday: 0,
+    totalPointsToday: 0,
     activeClerks: 0,
     totalPharmacies: 0,
     roi: '0%'
@@ -102,12 +102,12 @@ export default function AdminDashboard() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ventas Hoy</p>
-                    <p className="text-2xl font-black mt-2">RD$ {(stats.totalSalesToday || 0).toLocaleString()}</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Puntos Hoy</p>
+                    <p className="text-2xl font-black mt-2">{stats.totalPointsToday?.toLocaleString()}</p>
                     <span className="text-xs text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded-full mt-1 inline-block">+12% vs ayer</span>
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <DollarSign className="h-5 w-5 text-primary" />
+                    <Trophy className="h-5 w-5 text-primary" />
                   </div>
                 </div>
               </CardContent>
@@ -163,15 +163,15 @@ export default function AdminDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-primary" />
-                  Tendencia de Ventas (7 Días)
+                  Tendencia de Puntos (7 Días)
                 </CardTitle>
-                <CardDescription>Escaneos procesados y validados por IA</CardDescription>
+                <CardDescription>Puntos generados por escaneos validados</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="h-[300px] w-full">
                   {/* Dynamic Chart */}
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stats.salesChart || []}>
+                    <BarChart data={stats.pointsChart || []}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis
                         dataKey="name"
@@ -183,14 +183,14 @@ export default function AdminDashboard() {
                         tick={{ fontSize: 12, fill: '#64748b' }}
                         axisLine={false}
                         tickLine={false}
-                        tickFormatter={(value) => `$${value / 1000}k`}
+                        tickFormatter={(value) => `${value}`}
                       />
                       <Tooltip
                         cursor={{ fill: '#f1f5f9' }}
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                       />
                       <Bar
-                        dataKey="sales"
+                        dataKey="points"
                         fill="hsl(var(--primary))"
                         radius={[4, 4, 0, 0]}
                         barSize={32}
@@ -289,7 +289,7 @@ export default function AdminDashboard() {
                           <p className="text-xs text-muted-foreground">{activity.timestamp}</p>
                         </div>
                       </div>
-                      <span className="font-bold text-sm">RD$ {activity.amount?.toLocaleString()}</span>
+                      <span className="font-bold text-sm text-primary">{activity.points?.toLocaleString()} pts</span>
                     </div>
                   ))}
                   {(!stats.recentActivity || stats.recentActivity.length === 0) && (
