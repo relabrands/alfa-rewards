@@ -2,13 +2,16 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
-import { getRewards, getLevels } from '@/lib/db';
+import { getRewards, getLevels, createRedemptionRequest, updateUserPoints } from '@/lib/db'; // Added helpers
 import { Reward, LevelConfig } from '@/lib/types';
-import { Gift, Sparkles, AlertCircle, Loader2, Coins } from 'lucide-react';
+import { Gift, Sparkles, AlertCircle, Loader2, Coins, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export function ClerkRewardsTab() {
-  const { points } = useApp();
+  const { currentUser, points, refreshUser } = useApp(); // Need refreshUser to update points locally
   const { toast } = useToast();
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -17,6 +20,16 @@ export function ClerkRewardsTab() {
   // Level State
   const [currentLevelConfig, setCurrentLevelConfig] = useState<LevelConfig | null>(null);
   const [nextLevelConfig, setNextLevelConfig] = useState<LevelConfig | null>(null);
+
+  // Redemption State
+  const [isRedeemDialogOpen, setIsRedeemDialogOpen] = useState(false);
+  const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
+  const [bankDetails, setBankDetails] = useState({
+    bankName: '',
+    accountNumber: '',
+    accountType: 'ahorros'
+  });
+  const [isRedeeming, setIsRedeeming] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -63,19 +76,59 @@ export function ClerkRewardsTab() {
     ? rewards
     : rewards.filter(r => r.category === selectedCategory);
 
-  const handleRedeem = (reward: Reward) => {
-    if (points >= reward.pointsCost) {
-      toast({
-        title: '🎉 ¡Premio Canjeado!',
-        description: `Has canjeado ${reward.name}. Te contactaremos pronto.`,
-      });
-      // Here we would ideally create a "Redemption" record in DB
+  const handleClickRedeem = (reward: Reward) => {
+    setSelectedReward(reward);
+    if (reward.requiresBankDetails) {
+      setIsRedeemDialogOpen(true);
     } else {
-      toast({
-        title: 'Puntos insuficientes',
-        description: `Necesitas ${reward.pointsCost - points} puntos más`,
-        variant: 'destructive',
+      // Confirm direct redemption? Or just do it. Let's ask for confirmation via standard alert/dialog or just proceed. 
+      // For UX consistency, let's just proceed for non-bank items or maybe show a simple confirm dialog later.
+      // For now, simpler: process immediately if no details needed.
+      processRedemption(reward);
+    }
+  };
+
+  const processRedemption = async (reward: Reward, details?: typeof bankDetails) => {
+    if (points < reward.pointsCost) return;
+    setIsRedeeming(true);
+
+    try {
+      // 1. Create Request
+      await createRedemptionRequest({
+        clerkId: currentUser?.id || '',
+        clerkName: `${currentUser?.name} ${currentUser?.lastName || ''}`,
+        rewardId: reward.id,
+        rewardName: reward.name,
+        pointsCost: reward.pointsCost,
+        status: 'pending',
+        timestamp: new Date(),
+        bankDetails: details
       });
+
+      // 2. Deduct Points (Optimistic)
+      if (currentUser?.id) {
+        await updateUserPoints(currentUser.id, points - reward.pointsCost);
+      }
+
+      // 3. Refresh App State
+      refreshUser();
+
+      toast({
+        title: '🎉 ¡Solicitud Enviada!',
+        description: `Se ha solicitado el canje de ${reward.name}. Te notificaremos cuando sea aprobado.`,
+      });
+      setIsRedeemDialogOpen(false);
+      setBankDetails({ bankName: '', accountNumber: '', accountType: 'ahorros' });
+
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "No se pudo procesar el canje. Intenta de nuevo.",
+        variant: 'destructive'
+      });
+    } finally {
+      setIsRedeeming(false);
     }
   };
 
@@ -216,7 +269,7 @@ export function ClerkRewardsTab() {
                         ? 'bg-gradient-to-r from-primary to-blue-500 text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95'
                         : 'bg-slate-100 text-slate-400 font-medium'
                         }`}
-                      onClick={() => handleRedeem(reward)}
+                      onClick={() => handleClickRedeem(reward)}
                       disabled={!canRedeem}
                     >
                       {canRedeem ? 'Canjear' : 'Faltan Pts'}
@@ -227,6 +280,56 @@ export function ClerkRewardsTab() {
             )}
           </div>
         )}
+
+        {/* Bank Details Dialog */}
+        <Dialog open={isRedeemDialogOpen} onOpenChange={setIsRedeemDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Datos para Depósito</DialogTitle>
+              <DialogDescription>
+                Para recibir tu {selectedReward?.name}, necesitamos los datos de tu cuenta bancaria.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Banco</Label>
+                <Input
+                  value={bankDetails.bankName}
+                  onChange={e => setBankDetails({ ...bankDetails, bankName: e.target.value })}
+                  placeholder="Ej. Banco Popular"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Cuentra Ahorros / Corriente</Label>
+                <select
+                  className="w-full p-2 border rounded-md"
+                  value={bankDetails.accountType}
+                  onChange={e => setBankDetails({ ...bankDetails, accountType: e.target.value })}
+                >
+                  <option value="ahorros">Ahorros</option>
+                  <option value="corriente">Corriente</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Número de Cuenta</Label>
+                <Input
+                  value={bankDetails.accountNumber}
+                  onChange={e => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
+                  placeholder="Ej. 123456789"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsRedeemDialogOpen(false)}>Cancelar</Button>
+              <Button
+                onClick={() => selectedReward && processRedemption(selectedReward, bankDetails)}
+                disabled={isRedeeming || !bankDetails.bankName || !bankDetails.accountNumber}
+              >
+                {isRedeeming ? 'Procesando...' : 'Confirmar Canje'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

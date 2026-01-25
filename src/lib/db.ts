@@ -15,7 +15,7 @@ import {
     serverTimestamp,
     deleteDoc
 } from "firebase/firestore";
-import { User, Pharmacy, ScanRecord, Reward, Product, LevelConfig } from "./types";
+import { User, Pharmacy, ScanRecord, Reward, Product, LevelConfig, RedemptionRequest } from "./types";
 
 // Users
 export const getUserProfile = async (uid: string): Promise<User | null> => {
@@ -338,6 +338,29 @@ export const createReward = async (data: Omit<Reward, 'id'>) => {
 
 export const deleteReward = async (id: string) => {
     await deleteDoc(doc(db, "rewards", id));
+};
+
+// --- Redemption Requests ---
+export const createRedemptionRequest = async (request: Omit<RedemptionRequest, 'id'>) => {
+    await addDoc(collection(db, "redemption_requests"), request);
+};
+
+export const getRedemptionRequests = async () => {
+    const q = query(collection(db, "redemption_requests"), orderBy("timestamp", "desc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            timestamp: data.timestamp?.toDate() || new Date()
+        } as RedemptionRequest;
+    });
+};
+
+export const updateRedemptionStatus = async (id: string, status: 'approved' | 'rejected') => {
+    const docRef = doc(db, "redemption_requests", id);
+    await updateDoc(docRef, { status });
 };
 
 // --- Levels (Gamification) ---

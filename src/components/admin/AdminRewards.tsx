@@ -5,14 +5,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Added Tabs
+import { Checkbox } from "@/components/ui/checkbox"; // Added Checkbox
 import { useToast } from "@/hooks/use-toast";
-import { getRewards, createReward, deleteReward } from '@/lib/db';
-import { Reward } from '@/lib/types';
-import { Gift, PlusCircle, Trash2, Loader2, Image as ImageIcon } from 'lucide-react';
+import { getRewards, createReward, deleteReward, getRedemptionRequests, updateRedemptionStatus } from '@/lib/db';
+import { Reward, RedemptionRequest } from '@/lib/types';
+import { Gift, PlusCircle, Trash2, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 export default function AdminRewards() {
     const { toast } = useToast();
     const [rewards, setRewards] = useState<Reward[]>([]);
+    const [requests, setRequests] = useState<RedemptionRequest[]>([]); // New State
     const [isLoading, setIsLoading] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -22,23 +27,28 @@ export default function AdminRewards() {
         description: '',
         pointsCost: 0,
         category: 'prize',
-        image: '🎁'
+        image: '🎁',
+        requiresBankDetails: false // Default false
     });
 
     useEffect(() => {
-        loadRewards();
+        loadData();
     }, []);
 
-    const loadRewards = async () => {
+    const loadData = async () => {
         setIsLoading(true);
         try {
-            const data = await getRewards();
-            setRewards(data);
+            const [rewardsData, requestsData] = await Promise.all([
+                getRewards(),
+                getRedemptionRequests()
+            ]);
+            setRewards(rewardsData);
+            setRequests(requestsData);
         } catch (error) {
             console.error(error);
             toast({
                 title: "Error",
-                description: "No se pudieron cargar los premios.",
+                description: "No se pudieron cargar los datos.",
                 variant: 'destructive'
             });
         } finally {
@@ -55,8 +65,8 @@ export default function AdminRewards() {
             await createReward(newReward as Omit<Reward, 'id'>);
             toast({ title: "Premio Creado", description: "El premio ha sido agregado al catálogo." });
             setIsDialogOpen(false);
-            setNewReward({ name: '', description: '', pointsCost: 0, category: 'prize', image: '🎁' });
-            loadRewards();
+            setNewReward({ name: '', description: '', pointsCost: 0, category: 'prize', image: '🎁', requiresBankDetails: false });
+            loadData();
         } catch (error) {
             console.error(error);
             toast({ title: "Error", description: "No se pudo crear el premio.", variant: 'destructive' });
@@ -71,12 +81,26 @@ export default function AdminRewards() {
         try {
             await deleteReward(id);
             toast({ title: "Premio Eliminado", description: "El premio ha sido removido." });
-            loadRewards();
+            loadData();
         } catch (error) {
             console.error(error);
             toast({ title: "Error", description: "No se pudo eliminar el premio.", variant: 'destructive' });
         }
     };
+
+    const handleApproveRequest = async (request: RedemptionRequest) => {
+        if (!confirm(`¿Confirmas que has entregado/pagado el premio a ${request.clerkName}?`)) return;
+        try {
+            await updateRedemptionStatus(request.id, 'approved');
+            toast({ title: "Canje Aplicado", description: "La solicitud ha sido marcada como aprobada." });
+            loadData();
+        } catch (error) {
+            console.error(error);
+            toast({ title: "Error", description: "No se pudo actualizar la solicitud.", variant: 'destructive' });
+        }
+    };
+
+    // Optional: Reject logic could also be added here (refunding points if implementing robust transaction)
 
     return (
         <Card className="h-full">
@@ -87,134 +111,160 @@ export default function AdminRewards() {
                             <Gift className="h-5 w-5 text-primary" />
                             Gestión de Premios
                         </CardTitle>
-                        <CardDescription>Administra los premios disponibles para canje</CardDescription>
+                        <CardDescription>Administra los premios y solicitudes de canje.</CardDescription>
                     </div>
-                    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Agregar Premio
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Nuevo Premio</DialogTitle>
-                                <DialogDescription>Agrega un nuevo artículo al catálogo de premios.</DialogDescription>
-                            </DialogHeader>
-                            <form onSubmit={handleCreate} className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label>Nombre del Premio</Label>
-                                    <Input
-                                        value={newReward.name}
-                                        onChange={e => setNewReward({ ...newReward, name: e.target.value })}
-                                        placeholder="Ej. Tarjeta de Regalo"
-                                        required
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Descripción</Label>
-                                    <Input
-                                        value={newReward.description}
-                                        onChange={e => setNewReward({ ...newReward, description: e.target.value })}
-                                        placeholder="Breve descripción..."
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label>Costo en Puntos</Label>
-                                        <Input
-                                            type="number"
-                                            value={newReward.pointsCost}
-                                            onChange={e => setNewReward({ ...newReward, pointsCost: parseInt(e.target.value) || 0 })}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Categoría</Label>
-                                        <select
-                                            className="w-full p-2 border rounded-md"
-                                            value={newReward.category}
-                                            onChange={e => setNewReward({ ...newReward, category: e.target.value as any })}
-                                        >
-                                            <option value="prize">Premio Físico</option>
-                                            <option value="voucher">Vale / Bono</option>
-                                            <option value="topup">Recarga</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Emoji / Ícono</Label>
-                                    <div className="flex gap-2">
-                                        <Input
-                                            value={newReward.image}
-                                            onChange={e => setNewReward({ ...newReward, image: e.target.value })}
-                                            placeholder="Emoji (🎁)"
-                                        />
-                                        <div className="w-10 h-10 flex items-center justify-center bg-muted rounded text-xl">
-                                            {newReward.image}
-                                        </div>
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button type="submit" disabled={isLoading}>
-                                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        Crear Premio
-                                    </Button>
-                                </DialogFooter>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
+                    {/* Add Button logic moved inside TabsContent for Catalog, or keep global if it only applies to catalog */}
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="rounded-md border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[50px]">Img</TableHead>
-                                <TableHead>Nombre</TableHead>
-                                <TableHead>Categoría</TableHead>
-                                <TableHead>Costo (Pts)</TableHead>
-                                <TableHead className="text-right">Acciones</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {rewards.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                                        No hay premios registrados.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                rewards.map((reward) => (
-                                    <TableRow key={reward.id}>
-                                        <TableCell className="text-2xl">{reward.image}</TableCell>
-                                        <TableCell>
-                                            <p className="font-medium">{reward.name}</p>
-                                            <p className="text-xs text-muted-foreground">{reward.description}</p>
-                                        </TableCell>
-                                        <TableCell>
-                                            <span className="capitalize">{reward.category === 'topup' ? 'Recarga' : reward.category === 'voucher' ? 'Vale' : 'Físico'}</span>
-                                        </TableCell>
-                                        <TableCell className="font-bold text-gold-dark">
-                                            {reward.pointsCost.toLocaleString()}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-destructive hover:bg-destructive/10"
-                                                onClick={() => handleDelete(reward.id)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </TableCell>
+                <Tabs defaultValue="catalog">
+                    <TabsList className="mb-4">
+                        <TabsTrigger value="catalog">Catálogo</TabsTrigger>
+                        <TabsTrigger value="requests">Solicitudes de Canje</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="catalog">
+                        <div className="flex justify-end mb-4">
+                            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button>
+                                        <PlusCircle className="mr-2 h-4 w-4" />
+                                        Agregar Premio
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Nuevo Premio</DialogTitle>
+                                        <DialogDescription>Agrega un nuevo artículo al catálogo.</DialogDescription>
+                                    </DialogHeader>
+                                    <form onSubmit={handleCreate} className="space-y-4">
+                                        {/* Inputs... */}
+                                        <div className="space-y-2">
+                                            <Label>Nombre</Label>
+                                            <Input value={newReward.name} onChange={e => setNewReward({ ...newReward, name: e.target.value })} required />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Descripción</Label>
+                                            <Input value={newReward.description} onChange={e => setNewReward({ ...newReward, description: e.target.value })} />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label>Costo (Pts)</Label>
+                                                <Input type="number" value={newReward.pointsCost} onChange={e => setNewReward({ ...newReward, pointsCost: parseInt(e.target.value) || 0 })} required />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Categoría</Label>
+                                                <select className="w-full p-2 border rounded-md" value={newReward.category} onChange={e => setNewReward({ ...newReward, category: e.target.value as any })}>
+                                                    <option value="prize">Premio Físico</option>
+                                                    <option value="voucher">Vale / Bono</option>
+                                                    <option value="topup">Recarga</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Emoji</Label>
+                                            <Input value={newReward.image} onChange={e => setNewReward({ ...newReward, image: e.target.value })} />
+                                        </div>
+                                        {/* Checkbox for Bank Details */}
+                                        <div className="flex items-center space-x-2">
+                                            <Checkbox
+                                                id="bankDetails"
+                                                checked={newReward.requiresBankDetails}
+                                                onCheckedChange={(checked) => setNewReward({ ...newReward, requiresBankDetails: checked as boolean })}
+                                            />
+                                            <Label htmlFor="bankDetails">Requiere Datos Bancarios (Efectivo)</Label>
+                                        </div>
+
+                                        <DialogFooter>
+                                            <Button type="submit" disabled={isLoading}>Crear</Button>
+                                        </DialogFooter>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
+
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Img</TableHead>
+                                        <TableHead>Nombre</TableHead>
+                                        <TableHead>Costo</TableHead>
+                                        <TableHead>Efectivo?</TableHead>
+                                        <TableHead className="text-right">Acciones</TableHead>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
+                                </TableHeader>
+                                <TableBody>
+                                    {rewards.map((reward) => (
+                                        <TableRow key={reward.id}>
+                                            <TableCell className="text-2xl">{reward.image}</TableCell>
+                                            <TableCell>{reward.name} <p className="text-xs text-muted-foreground">{reward.description}</p></TableCell>
+                                            <TableCell className="font-bold">{reward.pointsCost.toLocaleString()}</TableCell>
+                                            <TableCell>{reward.requiresBankDetails ? <CheckCircle className="w-4 h-4 text-green-500" /> : '-'}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="ghost" size="icon" onClick={() => handleDelete(reward.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="requests">
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Fecha</TableHead>
+                                        <TableHead>Dependiente</TableHead>
+                                        <TableHead>Premio</TableHead>
+                                        <TableHead>Datos Bancarios</TableHead>
+                                        <TableHead>Estado</TableHead>
+                                        <TableHead className="text-right">Acciones</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {requests.length === 0 ? (
+                                        <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No hay solicitudes pendientes.</TableCell></TableRow>
+                                    ) : (
+                                        requests.map(req => (
+                                            <TableRow key={req.id}>
+                                                <TableCell>{format(req.timestamp, "dd MMM HH:mm", { locale: es })}</TableCell>
+                                                <TableCell>{req.clerkName}</TableCell>
+                                                <TableCell>{req.rewardName} ({req.pointsCost} pts)</TableCell>
+                                                <TableCell>
+                                                    {req.bankDetails ? (
+                                                        <div className="text-xs">
+                                                            <p className="font-bold">{req.bankDetails.bankName}</p>
+                                                            <p>{req.bankDetails.accountNumber}</p>
+                                                            <p className="text-muted-foreground capitalize">{req.bankDetails.accountType}</p>
+                                                        </div>
+                                                    ) : <span className="text-muted-foreground text-xs">N/A</span>}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${req.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                                            req.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                                                'bg-yellow-100 text-yellow-700'
+                                                        }`}>
+                                                        {req.status === 'approved' ? 'Aplicado' : req.status === 'pending' ? 'Pendiente' : 'Rechazado'}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {req.status === 'pending' && (
+                                                        <Button size="sm" onClick={() => handleApproveRequest(req)} className="bg-green-600 hover:bg-green-700 text-white">
+                                                            Aplicar Canje
+                                                        </Button>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </TabsContent>
+                </Tabs>
             </CardContent>
         </Card>
     );

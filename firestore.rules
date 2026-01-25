@@ -61,6 +61,13 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
+    
+    // Rules for 'redemption_requests'
+    match /redemption_requests/{requestId} {
+      allow read: if isAuthenticated(); // Users need to read their own (optimize later if needed), Admin reads all
+      allow create: if isAuthenticated();
+      allow update: if isAdmin();
+    }
 
     // Rules for 'levels' (Gamification)
     match /levels/{levelId} {

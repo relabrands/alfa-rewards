@@ -47,6 +47,23 @@ export interface Reward {
     pointsCost: number;
     category: 'topup' | 'voucher' | 'prize';
     image: string;
+    requiresBankDetails?: boolean;
+}
+
+export interface RedemptionRequest {
+    id: string;
+    clerkId: string;
+    clerkName: string;
+    rewardId: string;
+    rewardName: string;
+    pointsCost: number;
+    status: 'pending' | 'approved' | 'rejected';
+    timestamp: Date;
+    bankDetails?: {
+        bankName: string;
+        accountNumber: string;
+        accountType: string;
+    };
 }
 
 export interface RegisteredClerk {
