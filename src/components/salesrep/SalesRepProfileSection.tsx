@@ -29,6 +29,16 @@ export function SalesRepProfileSection() {
     ? new Date(currentUser.createdAt.toDate ? currentUser.createdAt.toDate() : currentUser.createdAt).toLocaleDateString('es-DO', { month: 'long', year: 'numeric' })
     : 'Enero 2024'; // Fallback if data missing
 
+  const totalClerks = team.length;
+  const activeClerks = team.filter(c => c.status === 'active').length;
+  const totalPoints = team.reduce((sum, c) => sum + (c.pointsGenerated || 0), 0);
+
+  const stats = [
+    { label: 'Dependientes Activados', value: totalClerks, icon: Users, color: 'text-primary' },
+    { label: 'Activos este Mes', value: activeClerks, icon: TrendingUp, color: 'text-success' },
+    { label: 'Puntos Generados', value: totalPoints.toLocaleString(), icon: Award, color: 'text-gold-dark' },
+  ];
+
   // Dynamic Achievements
   const milestones = [
     { target: 10, label: '10 Activaciones', icon: '🥉' },
