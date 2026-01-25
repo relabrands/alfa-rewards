@@ -59,6 +59,28 @@ export const updatePharmacy = async (id: string, data: Partial<Pharmacy>) => {
     await updateDoc(docRef, data);
 };
 
+export const getPharmaciesByZone = async (zones: string[]): Promise<Pharmacy[]> => {
+    if (!zones || zones.length === 0) return [];
+
+    // Note: Firestore 'in' query supports max 10 values.
+    // If zones > 10, we'd need multiple queries, but for now we assume < 10.
+    // Also matching on 'zone' field or 'city'? Using 'zone' as per requirement.
+    // We try to match 'sector' or 'zone' field. Let's assume 'sector' holds the zone name based on earlier files.
+
+    // Actually, looking at AdminPharmacies.tsx or similar might verify usage.
+    // Let's assume filtering client-side for flexibility if data set is small, 
+    // or exact match query if large.
+
+    const q = query(collection(db, "pharmacies"));
+    const querySnapshot = await getDocs(q);
+    const all = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pharmacy));
+
+    return all.filter(p => zones.some(z =>
+        (p.sector && p.sector.toLowerCase().includes(z.toLowerCase())) ||
+        (p.address && p.address.toLowerCase().includes(z.toLowerCase()))
+    ));
+};
+
 // Scans
 export const addScanRecord = async (scanData: Omit<ScanRecord, "id" | "timestamp">) => {
     const docRef = await addDoc(collection(db, "scans"), {

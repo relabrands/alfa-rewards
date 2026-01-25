@@ -24,15 +24,20 @@ export function SalesRepProfileSection() {
     loadTeam();
   }, [currentUser?.zone]);
 
-  const totalClerks = team.length;
-  const activeClerks = team.filter(c => c.status === 'active').length;
-  const totalPoints = team.reduce((sum, c) => sum + (c.pointsGenerated || 0), 0);
+  // Calculate "Since" date
+  const sinceDate = currentUser.createdAt
+    ? new Date(currentUser.createdAt.toDate ? currentUser.createdAt.toDate() : currentUser.createdAt).toLocaleDateString('es-DO', { month: 'long', year: 'numeric' })
+    : 'Enero 2024'; // Fallback if data missing
 
-  const stats = [
-    { label: 'Dependientes Activados', value: totalClerks, icon: Users, color: 'text-primary' },
-    { label: 'Activos este Mes', value: activeClerks, icon: TrendingUp, color: 'text-success' },
-    { label: 'Puntos Generados', value: totalPoints.toLocaleString(), icon: Award, color: 'text-gold-dark' },
+  // Dynamic Achievements
+  const milestones = [
+    { target: 10, label: '10 Activaciones', icon: '🥉' },
+    { target: 50, label: '50 Activaciones', icon: '🥈' },
+    { target: 100, label: '100 Activaciones', icon: '🥇' },
   ];
+
+  const currentMilestone = milestones.slice().reverse().find(m => totalClerks >= m.target) || milestones[0];
+  const nextMilestone = milestones.find(m => totalClerks < m.target);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
@@ -55,7 +60,7 @@ export function SalesRepProfileSection() {
               <p className="text-muted-foreground">Visitador Médico</p>
               <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                 <Calendar className="h-4 w-4" />
-                <span>Desde Enero 2024</span>
+                <span className="capitalize">Desde {sinceDate}</span>
               </div>
             </div>
           </div>
@@ -159,21 +164,42 @@ export function SalesRepProfileSection() {
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center gap-2">
             <Award className="h-5 w-5 text-gold" />
-            Logros
+            Logros & Metas
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl bg-gold/10 text-center">
-              <div className="text-3xl mb-2">🏆</div>
-              <p className="font-medium text-gold-dark">Top Visitador</p>
-              <p className="text-xs text-muted-foreground">Enero 2024</p>
+            {/* Dynamic Milestone */}
+            <div className="p-4 rounded-xl bg-gold/10 text-center relative overflow-hidden">
+              <div className="text-3xl mb-2">{currentMilestone.icon}</div>
+              <p className="font-medium text-gold-dark">{currentMilestone.label}</p>
+              <p className="text-xs text-muted-foreground">
+                {totalClerks >= currentMilestone.target ? 'Alcanzado' : 'En Progreso'}
+              </p>
             </div>
-            <div className="p-4 rounded-xl bg-primary/10 text-center">
-              <div className="text-3xl mb-2">⭐</div>
-              <p className="font-medium text-primary">50 Activaciones</p>
-              <p className="text-xs text-muted-foreground">Milestone</p>
-            </div>
+
+            {/* Next Milestone Goal */}
+            {nextMilestone ? (
+              <div className="p-4 rounded-xl bg-primary/10 text-center border-2 border-dashed border-primary/20">
+                <div className="text-3xl mb-2 opacity-50">{nextMilestone.icon}</div>
+                <p className="font-medium text-primary">Próximo: {nextMilestone.label}</p>
+                <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2 overflow-hidden">
+                  <div
+                    className="bg-primary h-1.5 rounded-full"
+                    style={{ width: `${(totalClerks / nextMilestone.target) * 100}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Faltan {nextMilestone.target - totalClerks} activaciones
+                </p>
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-green-100 text-center">
+                <div className="text-3xl mb-2">🚀</div>
+                <p className="font-medium text-green-700">¡Imparable!</p>
+                <p className="text-xs text-green-600">Has alcanzado todos los hitos</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -14,6 +14,7 @@ export interface User {
     zone?: string[];
     assignedPharmacies?: string[]; // List of pharmacy IDs this user works at
     status?: 'active' | 'pending' | 'disabled';
+    createdAt?: any;
 }
 
 export interface Pharmacy {
