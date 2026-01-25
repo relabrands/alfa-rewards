@@ -29,6 +29,7 @@ interface Clerk {
     id: string;
     name: string;
     pharmacyId: string;
+    assignedPharmacies: string[]; // Added support for multi-pharmacy
     points: number;
     scans: number;
     lastActive?: any;
@@ -70,8 +71,6 @@ export default function DirectorMapAnalytics() {
         });
         return () => unsubscribe();
     }, []);
-
-    // 2. Fetch All Clerks (for Lookup)
     useEffect(() => {
         const q = query(collection(db, "users"), where("role", "==", "clerk"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -79,8 +78,9 @@ export default function DirectorMapAnalytics() {
                 id: doc.id,
                 name: `${doc.data().name} ${doc.data().lastName || ''}`.trim(),
                 pharmacyId: doc.data().pharmacyId,
+                assignedPharmacies: doc.data().assignedPharmacies || (doc.data().pharmacyId ? [doc.data().pharmacyId] : []),
                 points: doc.data().points || 0,
-                scans: doc.data().scanCount || 0, // Assuming scanCount is kept on user, or defaulting
+                scans: doc.data().scanCount || 0, // scanCount should be updated by backend
                 lastActive: doc.data().lastActive
             } as Clerk));
             setAllClerks(loaded);
@@ -88,62 +88,15 @@ export default function DirectorMapAnalytics() {
         return () => unsubscribe();
     }, []);
 
-    // 3. Fetch Selected Clerk Scans (When in Clerk View)
-    useEffect(() => {
-        if (view === 'clerk' && selectedClerk) {
-            const q = query(
-                collection(db, "scans"),
-                where("userId", "==", selectedClerk.id),
-                where("status", "==", "processed"),
-                orderBy("timestamp", "desc"),
-                limit(100)
-            );
-            const unsubscribe = onSnapshot(q, (snapshot) => {
-                const products: ProductScan[] = [];
-                snapshot.docs.forEach(doc => {
-                    const data = doc.data();
-                    if (data.productsFound) {
-                        data.productsFound.forEach((p: any) => {
-                            products.push({
-                                product: p.product,
-                                quantity: p.quantity || 1,
-                                timestamp: data.timestamp?.toDate()
-                            });
-                        });
-                    }
-                });
-                setClerkScans(products);
-            });
-            return () => unsubscribe();
-        }
-    }, [view, selectedClerk]);
-
-    // Navigation Handlers
-    const handleSelectPharmacy = (p: Pharmacy) => {
-        setSelectedPharmacy(p);
-        setView('pharmacy');
-    };
-
-    const handleSelectClerk = (c: Clerk) => {
-        setSelectedClerk(c);
-        setView('clerk');
-    };
-
-    const goBack = () => {
-        if (view === 'clerk') setView('pharmacy');
-        else if (view === 'pharmacy') setView('list');
-    };
-
-    // Computations
-    const filteredPharmacies = pharmacies.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.city?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
+    // ... (pharmacyClerks computation)
     const pharmacyClerks = useMemo(() => {
         if (!selectedPharmacy) return [];
         return allClerks
-            .filter(c => c.pharmacyId === selectedPharmacy.id)
+            .filter(c => {
+                // Check if pharmacy is in the assigned list OR matches the legacy ID
+                return (c.assignedPharmacies && c.assignedPharmacies.includes(selectedPharmacy.id)) ||
+                    c.pharmacyId === selectedPharmacy.id;
+            })
             .sort((a, b) => b.points - a.points);
     }, [allClerks, selectedPharmacy]);
 
