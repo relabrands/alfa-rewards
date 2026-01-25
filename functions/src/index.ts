@@ -12,7 +12,7 @@ const vertexAI = new VertexAI({ project: project, location: location });
 
 // Instantiate Gemini model
 const model = vertexAI.preview.getGenerativeModel({
-    model: 'gemini-1.5-flash', // Updated to stable flash model if available or stick to preview
+    model: 'gemini-2.5-flash', // User specified model
     generationConfig: {
         'maxOutputTokens': 2048,
         'temperature': 0.2, // Lower temperature for more deterministic/strict output
