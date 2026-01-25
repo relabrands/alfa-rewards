@@ -40,12 +40,12 @@ export function ClerkProfileTab() {
         const sorted = levelsData.sort((a, b) => a.minPoints - b.minPoints);
 
         // Find current level (highest level where user points >= minPoints)
-        let current = sorted[0]; // Default to first level
+        let current = null;
         for (const l of sorted) {
           if (points >= l.minPoints) {
             current = l;
           } else {
-            break; // We found the first level we CANNOT afford, so prev was the one
+            break;
           }
         }
         setCurrentLevelConfig(current);

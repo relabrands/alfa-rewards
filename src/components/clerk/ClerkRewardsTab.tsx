@@ -30,7 +30,7 @@ export function ClerkRewardsTab() {
         // Calculate Level
         const sorted = levelsData.sort((a, b) => a.minPoints - b.minPoints);
 
-        let current = sorted[0];
+        let current = null;
         for (const l of sorted) {
           if (points >= l.minPoints) {
             current = l;
