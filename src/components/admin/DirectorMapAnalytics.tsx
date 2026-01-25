@@ -88,7 +88,28 @@ export default function DirectorMapAnalytics() {
         return () => unsubscribe();
     }, []);
 
-    // ... (pharmacyClerks computation)
+    // Navigation Handlers
+    const handleSelectPharmacy = (p: Pharmacy) => {
+        setSelectedPharmacy(p);
+        setView('pharmacy');
+    };
+
+    const handleSelectClerk = (c: Clerk) => {
+        setSelectedClerk(c);
+        setView('clerk');
+    };
+
+    const goBack = () => {
+        if (view === 'clerk') setView('pharmacy');
+        else if (view === 'pharmacy') setView('list');
+    };
+
+    // Computations
+    const filteredPharmacies = pharmacies.filter(p =>
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.city?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     const pharmacyClerks = useMemo(() => {
         if (!selectedPharmacy) return [];
         return allClerks
@@ -110,10 +131,7 @@ export default function DirectorMapAnalytics() {
             .sort((a, b) => b.count - a.count);
     }, [clerkScans]);
 
-    const filteredPharmacies = pharmacies.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.city?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+
 
     return (
         <div className="h-[calc(100vh-6rem)] w-full flex flex-col gap-4 animate-in fade-in duration-300">
