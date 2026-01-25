@@ -183,8 +183,11 @@ export function ClerkProfileTab() {
                 </p>
               </div>
               <div className="text-right">
-                <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-full block mb-1">
                   {nextLevelConfig.rewardDescription || 'Recompensa Sorpresa'}
+                </span>
+                <span className="text-xs font-bold text-primary">
+                  {Math.floor(Math.min(100, Math.max(0, ((points - (currentLevelConfig?.minPoints || 0)) / (nextLevelConfig.minPoints - (currentLevelConfig?.minPoints || 0))) * 100)))}%
                 </span>
               </div>
             </div>

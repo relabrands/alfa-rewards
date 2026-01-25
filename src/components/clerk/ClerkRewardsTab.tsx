@@ -120,15 +120,21 @@ export function ClerkRewardsTab() {
 
               {nextLevelConfig && (
                 <>
-                  <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden">
+                  <div className="flex justify-between text-xs text-indigo-100 mb-1">
+                    <span>Progreso</span>
+                    <span className="font-bold">{Math.floor(progressPercent)}%</span>
+                  </div>
+                  <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden mb-2">
                     <div
                       className="bg-white h-full rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all duration-1000 ease-out"
                       style={{ width: `${progressPercent}%` }}
                     ></div>
                   </div>
-                  <p className="text-xs mt-2 text-indigo-100 flex justify-between">
+                  <p className="text-xs text-indigo-100 flex justify-between items-center">
                     <span>Faltan {(nextLevelConfig.minPoints - points).toLocaleString()} pts</span>
-                    <span className="font-bold text-white">{nextLevelConfig.rewardDescription}</span>
+                    <span className="bg-white/20 px-2 py-1 rounded text-white font-bold text-[10px] uppercase tracking-wide">
+                      Premio: {nextLevelConfig.rewardDescription}
+                    </span>
                   </p>
                 </>
               )}
