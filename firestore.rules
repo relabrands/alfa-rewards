@@ -62,6 +62,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Rules for 'levels' (Gamification)
+    match /levels/{levelId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     // Rules for 'identity_scans' (for Cedula OCR)
     match /identity_scans/{scanId} {
       allow read, write: if isAuthenticated();

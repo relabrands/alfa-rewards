@@ -60,8 +60,12 @@ export function ClerkProfileTab() {
 
       if (currentUser?.id) {
         // Load History
-        const scans = await getScanHistory(currentUser.id);
-        setHistory(scans);
+        try {
+          const scans = await getScanHistory(currentUser.id);
+          setHistory(scans);
+        } catch (error) {
+          console.error("Error loading history", error);
+        }
       }
 
       // Load Pharmacy
