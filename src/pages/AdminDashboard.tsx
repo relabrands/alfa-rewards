@@ -21,8 +21,9 @@ import AdminPharmacies from '@/components/admin/AdminPharmacies';
 import AdminRewards from '@/components/admin/AdminRewards';
 import AdminProducts from '@/components/admin/AdminProducts';
 import AdminClerkPerformance from '@/components/admin/AdminClerkPerformance';
+import AdminLevels from '@/components/admin/AdminLevels';
 
-type AdminView = 'dashboard' | 'map' | 'users' | 'pharmacies' | 'settings' | 'rewards' | 'products' | 'analytics';
+type AdminView = 'dashboard' | 'map' | 'users' | 'pharmacies' | 'settings' | 'rewards' | 'products' | 'analytics' | 'levels';
 
 export default function AdminDashboard() {
   const { campaignMode, setCampaignMode, logout, currentUser } = useApp();
@@ -32,6 +33,7 @@ export default function AdminDashboard() {
 
   const [stats, setStats] = useState<DashboardStats>({
     totalPointsToday: 0,
+    totalPointsTodayFormatted: '0',
     activeClerks: 0,
     totalPharmacies: 0,
     roi: '0%'
@@ -77,6 +79,7 @@ export default function AdminDashboard() {
       case 'rewards': return <AdminRewards />;
       case 'products': return <AdminProducts />;
       case 'analytics': return <AdminClerkPerformance />;
+      case 'levels': return <AdminLevels />;
       case 'settings': return <AdminSettings />;
       default: return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -339,6 +342,9 @@ export default function AdminDashboard() {
           </button>
           <button onClick={() => setCurrentView('products')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'products' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
             <Pill className="h-5 w-5" /> <span className="font-medium">Productos (IA)</span>
+          </button>
+          <button onClick={() => setCurrentView('levels')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'levels' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
+            <Trophy className="h-5 w-5" /> <span className="font-medium">Niveles</span>
           </button>
           <button onClick={() => setCurrentView('analytics')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'analytics' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
             <TrendingUp className="h-5 w-5" /> <span className="font-medium">Analítica</span>

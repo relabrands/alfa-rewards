@@ -37,7 +37,7 @@ export interface ScanRecord {
     invoiceAmount: number;
     pointsEarned: number;
     timestamp: Date;
-    status: 'approved' | 'pending' | 'flagged' | 'processed' | 'error' | 'uploaded';
+    status: 'approved' | 'pending' | 'flagged' | 'processed' | 'error' | 'uploaded' | 'rejected' | 'pending_review';
 }
 
 export interface Reward {
@@ -80,4 +80,14 @@ export interface DashboardStats {
     pointsChart?: any[];
     topClerks?: any[];
     recentActivity?: any[];
+}
+
+export interface LevelConfig {
+    id: string;
+    level: number;
+    name: string;
+    minPoints: number;
+    rewardDescription: string;
+    rewardImage?: string;
+    color?: string; // Hex code or tailwind class
 }

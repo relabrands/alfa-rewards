@@ -5,14 +5,15 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useApp } from '@/context/AppContext';
 // import { pharmacies } from '@/lib/constants'; // Removed static
 import { ScanRecord } from '@/lib/types';
-import { getScanHistory } from '@/lib/db';
-import { db } from '@/lib/firebase'; // Added
-import { doc, getDoc } from 'firebase/firestore'; // Added
+import { getScanHistory, getLevels } from '@/lib/db'; // Updated import
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { User, Phone, MapPin, History, LogOut, ChevronRight, CheckCircle2, Clock, AlertCircle, Coins, ChevronDown, ChevronUp, XCircle, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { updateDoc } from 'firebase/firestore'; // Re-added for reset
+import { updateDoc } from 'firebase/firestore';
+import { LevelConfig } from '@/lib/types'; // Added import
 
 export function ClerkProfileTab() {
   const { currentUser, points, logout } = useApp();
@@ -22,8 +23,41 @@ export function ClerkProfileTab() {
   const [showInfo, setShowInfo] = useState(false);
   const [showPharmacyInfo, setShowPharmacyInfo] = useState(false);
 
+  // Level State
+  const [levels, setLevels] = useState<LevelConfig[]>([]);
+  const [currentLevelConfig, setCurrentLevelConfig] = useState<LevelConfig | null>(null);
+  const [nextLevelConfig, setNextLevelConfig] = useState<LevelConfig | null>(null);
+
   useEffect(() => {
     const loadData = async () => {
+      // Load Levels
+      try {
+        const levelsData = await getLevels();
+        setLevels(levelsData);
+
+        // Calculate Level
+        // Sort levels by minPoints ascending just in case
+        const sorted = levelsData.sort((a, b) => a.minPoints - b.minPoints);
+
+        // Find current level (highest level where user points >= minPoints)
+        let current = sorted[0]; // Default to first level
+        for (const l of sorted) {
+          if (points >= l.minPoints) {
+            current = l;
+          } else {
+            break; // We found the first level we CANNOT afford, so prev was the one
+          }
+        }
+        setCurrentLevelConfig(current);
+
+        // Find next level
+        const next = sorted.find(l => l.minPoints > points);
+        setNextLevelConfig(next || null);
+
+      } catch (error) {
+        console.error("Error loading levels", error);
+      }
+
       if (currentUser?.id) {
         // Load History
         const scans = await getScanHistory(currentUser.id);
@@ -104,27 +138,64 @@ export function ClerkProfileTab() {
         </div>
 
         {/* Stats Row - Gamified */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all group">
-            <div className="flex items-center gap-1">
-              <span className="text-2xl font-black text-[#FFD700] drop-shadow-sm">{points.toLocaleString()}</span>
-              <Coins className="w-4 h-4 text-[#FFD700]" />
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="bg-white p-4 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-yellow-50 to-orange-50 opacity-50"></div>
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="flex items-center gap-1">
+                <span className="text-3xl font-black text-[#FFD700] drop-shadow-sm">{points.toLocaleString()}</span>
+              </div>
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Puntos Totales</span>
             </div>
-            <span className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wide group-hover:text-[#FFD700] transition-colors">Coins</span>
           </div>
 
-          <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all">
-            <span className="text-2xl font-black text-primary">{history.length}</span>
-            <span className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wide">Escaneos</span>
-          </div>
-
-          <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all">
-            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center mb-1">
-              <span className="text-slate-400 text-xs font-bold">Nvl {Math.floor(points / 1000) + 1}</span>
-            </div>
-            <span className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wide">Nivel</span>
+          <div className="bg-white p-4 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] relative overflow-hidden">
+            {currentLevelConfig ? (
+              <>
+                <div className="text-2xl mb-1">{currentLevelConfig.rewardImage || '⭐'}</div>
+                <span className="font-black text-lg text-primary">{currentLevelConfig.name}</span>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Nivel Actual</span>
+              </>
+            ) : (
+              <>
+                <span className="text-2xl font-black text-slate-400">1</span>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Nivel Inicial</span>
+              </>
+            )}
           </div>
         </div>
+
+        {/* Level Progress Bar */}
+        {nextLevelConfig && (
+          <div className="mb-6 bg-white p-5 rounded-[1.5rem] shadow-sm border border-slate-50 relative overflow-hidden">
+            <div className="flex justify-between items-end mb-2">
+              <div>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Próximo Nivel</p>
+                <p className="font-bold text-lg text-primary flex items-center gap-2">
+                  {nextLevelConfig.name}
+                  <span className="text-sm font-normal text-muted-foreground">({nextLevelConfig.minPoints.toLocaleString()} pts)</span>
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                  {nextLevelConfig.rewardDescription || 'Recompensa Sorpresa'}
+                </span>
+              </div>
+            </div>
+
+            <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-primary to-blue-400 transition-all duration-1000 ease-out relative"
+                style={{ width: `${Math.min(100, Math.max(0, ((points - (currentLevelConfig?.minPoints || 0)) / (nextLevelConfig.minPoints - (currentLevelConfig?.minPoints || 0))) * 100))}%` }}
+              >
+                <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+              </div>
+            </div>
+            <p className="text-xs text-center mt-2 text-muted-foreground">
+              Faltan <span className="font-bold text-foreground">{(nextLevelConfig.minPoints - points).toLocaleString()}</span> puntos para subir de nivel
+            </p>
+          </div>
+        )}
 
         {/* Menu Options - Interactive */}
         <div className="bg-white rounded-[2rem] shadow-sm border border-slate-50 overflow-hidden divide-y divide-slate-50">

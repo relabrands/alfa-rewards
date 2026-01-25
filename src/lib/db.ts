@@ -15,7 +15,7 @@ import {
     serverTimestamp,
     deleteDoc
 } from "firebase/firestore";
-import { User, Pharmacy, ScanRecord, Reward, Product } from "./types";
+import { User, Pharmacy, ScanRecord, Reward, Product, LevelConfig } from "./types";
 
 // Users
 export const getUserProfile = async (uid: string): Promise<User | null> => {
@@ -338,6 +338,26 @@ export const createReward = async (data: Omit<Reward, 'id'>) => {
 
 export const deleteReward = async (id: string) => {
     await deleteDoc(doc(db, "rewards", id));
+};
+
+// --- Levels (Gamification) ---
+export const getLevels = async () => {
+    const q = query(collection(db, "levels"), orderBy("minPoints", "asc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LevelConfig));
+};
+
+export const createLevel = async (level: Omit<LevelConfig, "id">) => {
+    await addDoc(collection(db, "levels"), level);
+};
+
+export const updateLevel = async (id: string, data: Partial<LevelConfig>) => {
+    const docRef = doc(db, "levels", id);
+    await updateDoc(docRef, data);
+};
+
+export const deleteLevel = async (id: string) => {
+    await deleteDoc(doc(db, "levels", id));
 };
 
 // Product Management (For AI Scan)
