@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
-import { getRewards } from '@/lib/db';
-import { Reward } from '@/lib/types';
+import { getRewards, getLevels } from '@/lib/db';
+import { Reward, LevelConfig } from '@/lib/types';
 import { Gift, Sparkles, AlertCircle, Loader2, Coins } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -14,11 +14,35 @@ export function ClerkRewardsTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
+  // Level State
+  const [currentLevelConfig, setCurrentLevelConfig] = useState<LevelConfig | null>(null);
+  const [nextLevelConfig, setNextLevelConfig] = useState<LevelConfig | null>(null);
+
   useEffect(() => {
     const loadData = async () => {
       try {
-        const data = await getRewards();
-        setRewards(data);
+        const [rewardsData, levelsData] = await Promise.all([
+          getRewards(),
+          getLevels()
+        ]);
+        setRewards(rewardsData);
+
+        // Calculate Level
+        const sorted = levelsData.sort((a, b) => a.minPoints - b.minPoints);
+
+        let current = sorted[0];
+        for (const l of sorted) {
+          if (points >= l.minPoints) {
+            current = l;
+          } else {
+            break;
+          }
+        }
+        setCurrentLevelConfig(current);
+
+        const next = sorted.find(l => l.minPoints > points);
+        setNextLevelConfig(next || null);
+
       } catch (error) {
         console.error(error);
       } finally {
@@ -26,7 +50,7 @@ export function ClerkRewardsTab() {
       }
     };
     loadData();
-  }, []);
+  }, [points]);
 
   const categories = [
     { id: 'all', label: 'Todos', icon: Gift },
@@ -55,10 +79,14 @@ export function ClerkRewardsTab() {
     }
   };
 
+  // Calculate Progress Percentage for Hero Card
+  const progressPercent = nextLevelConfig
+    ? Math.min(100, Math.max(0, ((points - (currentLevelConfig?.minPoints || 0)) / (nextLevelConfig.minPoints - (currentLevelConfig?.minPoints || 0))) * 100))
+    : 100;
+
   return (
     <div className="min-h-screen bg-background pb-24 pt-4">
       <div className="px-4 space-y-6 max-w-md mx-auto">
-        {/* Header - Soft & Clean */}
         {/* Header - Premium Soft */}
         <div className="relative pt-2 pb-6 px-2 mb-6">
           <div className="flex items-center justify-between mb-6">
@@ -81,12 +109,32 @@ export function ClerkRewardsTab() {
               <Gift className="w-32 h-32" />
             </div>
             <div className="relative z-10">
-              <p className="text-indigo-100 text-xs font-medium uppercase tracking-wider mb-1">Tu progreso</p>
-              <h2 className="text-2xl font-bold mb-4">¡Estás cerca de tu premio!</h2>
-              <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden">
-                <div className="bg-white h-full rounded-full w-3/4 shadow-[0_0_10px_rgba(255,255,255,0.5)]"></div>
-              </div>
-              <p className="text-xs mt-2 text-indigo-100">Sigue escaneando para desbloquear más niveles.</p>
+              <p className="text-indigo-100 text-xs font-medium uppercase tracking-wider mb-1">
+                {currentLevelConfig ? `Nivel Actual: ${currentLevelConfig.name}` : 'Tu Progreso'}
+              </p>
+              <h2 className="text-2xl font-bold mb-4">
+                {nextLevelConfig
+                  ? `¡A por ${nextLevelConfig.name}!`
+                  : '¡Eres invencible! 🚀'}
+              </h2>
+
+              {nextLevelConfig && (
+                <>
+                  <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-white h-full rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all duration-1000 ease-out"
+                      style={{ width: `${progressPercent}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-xs mt-2 text-indigo-100 flex justify-between">
+                    <span>Faltan {(nextLevelConfig.minPoints - points).toLocaleString()} pts</span>
+                    <span className="font-bold text-white">{nextLevelConfig.rewardDescription}</span>
+                  </p>
+                </>
+              )}
+              {!nextLevelConfig && currentLevelConfig && (
+                <p className="text-sm text-indigo-100">Has alcanzado el nivel máximo. ¡Felicidades!</p>
+              )}
             </div>
           </div>
         </div>

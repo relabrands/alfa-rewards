@@ -142,30 +142,32 @@ export function ClerkProfileTab() {
         </div>
 
         {/* Stats Row - Gamified */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <div className="bg-white p-4 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-yellow-50 to-orange-50 opacity-50"></div>
-            <div className="relative z-10 flex flex-col items-center">
-              <div className="flex items-center gap-1">
-                <span className="text-3xl font-black text-[#FFD700] drop-shadow-sm">{points.toLocaleString()}</span>
-              </div>
-              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Puntos Totales</span>
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all group">
+            <div className="flex items-center gap-1">
+              <span className="text-2xl font-black text-[#FFD700] drop-shadow-sm">{points.toLocaleString()}</span>
+              <Coins className="w-4 h-4 text-[#FFD700]" />
             </div>
+            <span className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wide group-hover:text-[#FFD700] transition-colors">Coins</span>
           </div>
 
-          <div className="bg-white p-4 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] relative overflow-hidden">
+          <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all">
+            <span className="text-2xl font-black text-primary">{history.length}</span>
+            <span className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wide">Escaneos</span>
+          </div>
+
+          <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all">
             {currentLevelConfig ? (
               <>
-                <div className="text-2xl mb-1">{currentLevelConfig.rewardImage || '⭐'}</div>
-                <span className="font-black text-lg text-primary">{currentLevelConfig.name}</span>
-                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Nivel Actual</span>
+                <div className="text-xl mb-1">{currentLevelConfig.rewardImage || '⭐'}</div>
+                <span className="font-bold text-xs text-primary truncate w-full text-center">{currentLevelConfig.name}</span>
               </>
             ) : (
               <>
                 <span className="text-2xl font-black text-slate-400">1</span>
-                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Nivel Inicial</span>
               </>
             )}
+            <span className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wide">Nivel</span>
           </div>
         </div>
 
