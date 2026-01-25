@@ -110,6 +110,11 @@ export default function DirectorMapAnalytics() {
             .sort((a, b) => b.count - a.count);
     }, [clerkScans]);
 
+    const filteredPharmacies = pharmacies.filter(p =>
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.city?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
         <div className="h-[calc(100vh-6rem)] w-full flex flex-col gap-4 animate-in fade-in duration-300">
             {/* Header / Breadcrumbs */}
