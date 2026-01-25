@@ -183,6 +183,7 @@ export function ClerkProfileTab() {
                 </p>
               </div>
               <div className="text-right">
+                <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Bono por Nivel</p>
                 <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-full block mb-1">
                   {nextLevelConfig.rewardDescription || 'Recompensa Sorpresa'}
                 </span>

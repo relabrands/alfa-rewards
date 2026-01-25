@@ -130,11 +130,14 @@ export function ClerkRewardsTab() {
                       style={{ width: `${progressPercent}%` }}
                     ></div>
                   </div>
-                  <p className="text-xs text-indigo-100 flex justify-between items-center">
+                  <p className="text-xs text-indigo-100 flex justify-between items-center mb-1">
                     <span>Faltan {(nextLevelConfig.minPoints - points).toLocaleString()} pts</span>
                     <span className="bg-white/20 px-2 py-1 rounded text-white font-bold text-[10px] uppercase tracking-wide">
-                      Premio: {nextLevelConfig.rewardDescription}
+                      Bono Extra: {nextLevelConfig.rewardDescription}
                     </span>
+                  </p>
+                  <p className="text-[10px] text-indigo-200 text-center italic">
+                    * Este bono es un regalo adicional. No consume tus puntos canjeables.
                   </p>
                 </>
               )}
