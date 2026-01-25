@@ -8,7 +8,7 @@ import { ScanRecord } from '@/lib/types';
 import { getScanHistory } from '@/lib/db';
 import { db } from '@/lib/firebase'; // Added
 import { doc, getDoc } from 'firebase/firestore'; // Added
-import { User, Phone, MapPin, History, LogOut, ChevronRight, CheckCircle2, Clock, AlertCircle, Coins, ChevronDown, ChevronUp } from 'lucide-react';
+import { User, Phone, MapPin, History, LogOut, ChevronRight, CheckCircle2, Clock, AlertCircle, Coins, ChevronDown, ChevronUp, XCircle, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -60,12 +60,18 @@ export function ClerkProfileTab() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
+      case 'processed':
       case 'approved':
-        return <CheckCircle2 className="h-4 w-4 text-success" />;
+        return <CheckCircle2 className="h-5 w-5 text-green-500" />;
       case 'pending':
-        return <Clock className="h-4 w-4 text-warning" />;
+      case 'pending_review':
+        return <Clock className="h-5 w-5 text-yellow-500" />;
+      case 'rejected':
+        return <XCircle className="h-5 w-5 text-red-500" />;
+      case 'error':
+        return <AlertTriangle className="h-5 w-5 text-red-500" />;
       default:
-        return <AlertCircle className="h-4 w-4 text-destructive" />;
+        return <AlertCircle className="h-5 w-5 text-slate-300" />;
     }
   };
 
@@ -203,13 +209,22 @@ export function ClerkProfileTab() {
                     <div className="flex items-center gap-3">
                       {getStatusIcon(scan.status)}
                       <div>
-                        <p className="text-sm font-medium">Factura #{scan.invoiceAmount}</p> {/* Using amount as fake ID if ID missing */}
+                        <p className="text-sm font-medium">
+                          {scan.status === 'rejected' ? '❌ Rechazada' :
+                            scan.status === 'error' ? '⚠️ Error' :
+                              scan.status === 'pending_review' ? '⏳ En Revisión' :
+                                `Factura Procesada`}
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          {format(scan.timestamp, "d 'de' MMMM", { locale: es })} • RD${(scan.invoiceAmount || 0).toLocaleString()}
+                          {format(scan.timestamp, "d 'de' MMMM", { locale: es })}
                         </p>
                       </div>
                     </div>
-                    <span className="text-sm font-bold text-success">+{scan.pointsEarned}</span>
+                    {scan.pointsEarned > 0 ? (
+                      <span className="text-sm font-bold text-green-600">+{scan.pointsEarned} pts</span>
+                    ) : (
+                      <span className="text-xs font-bold text-slate-400">0 pts</span>
+                    )}
                   </div>
                 ))
               ) : (

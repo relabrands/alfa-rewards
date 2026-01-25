@@ -315,14 +315,27 @@ export function ClerkHomeTab() {
             <div className="divide-y divide-border">
               {history.slice(0, 5).map((item, index) => (
                 <div key={index} className="px-4 py-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Factura Registrada</p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.timestamp ? format(item.timestamp, "d MMM, h:mm a", { locale: es }) : 'Procesando...'}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    {/* Dynamic Icon directly here or helper */}
+                    {item.status === 'rejected' ? <span className="text-red-500 text-lg">❌</span> :
+                      item.status === 'error' ? <span className="text-red-500 text-lg">⚠️</span> :
+                        item.status === 'pending_review' ? <span className="text-yellow-500 text-lg">⏳</span> :
+                          <span className="text-green-500 text-lg">✅</span>}
+
+                    <div>
+                      <p className="text-sm font-medium">
+                        {item.status === 'rejected' ? 'Factura Rechazada' :
+                          item.status === 'error' ? 'Error Procesando' :
+                            item.status === 'pending_review' ? 'En Revisión' :
+                              'Factura Aprobada'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.timestamp ? format(item.timestamp, "d MMM, h:mm a", { locale: es }) : '...'}
+                      </p>
+                    </div>
                   </div>
-                  <span className={`font-bold ${item.pointsEarned > 0 ? 'text-success' : 'text-muted-foreground'}`}>
-                    {item.pointsEarned > 0 ? `+${item.pointsEarned}` : item.status === 'processing' ? '...' : '0'}
+                  <span className={`font-bold ${item.pointsEarned > 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                    {item.pointsEarned > 0 ? `+${item.pointsEarned}` : '0'}
                   </span>
                 </div>
               ))}
