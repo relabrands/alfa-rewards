@@ -102,7 +102,7 @@ export function ClerkRewardsTab() {
         pointsCost: reward.pointsCost,
         status: 'pending',
         timestamp: new Date(),
-        bankDetails: details
+        ...(details ? { bankDetails: details } : {})
       });
 
       // 2. Deduct Points (Optimistic)
