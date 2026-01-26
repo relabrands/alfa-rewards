@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useApp } from '@/context/AppContext';
-import { getLevels, getUserRedemptionRequests } from '@/lib/db';
+import { getLevels, getUserRedemptionRequests, getAllUserScans } from '@/lib/db';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { User, MapPin, LogOut, Coins, ChevronDown, ChevronUp } from 'lucide-react';
@@ -16,6 +16,7 @@ export function ClerkProfileTab() {
   const [showInfo, setShowInfo] = useState(false);
   const [showPharmacyInfo, setShowPharmacyInfo] = useState(false);
   const [lifetimePoints, setLifetimePoints] = useState(0);
+  const [scanCount, setScanCount] = useState(0);
 
   // Level State
   const [levels, setLevels] = useState<LevelConfig[]>([]);
@@ -36,9 +37,15 @@ export function ClerkProfileTab() {
         // Calculate Lifetime Points
         // We need to fetch redemptions first to know total points for level
         let redemptionsData: any[] = [];
+        let scansData: any[] = [];
         try {
-          redemptionsData = await getUserRedemptionRequests(currentUser.id);
+          [redemptionsData, scansData] = await Promise.all([
+            getUserRedemptionRequests(currentUser.id),
+            getAllUserScans(currentUser.id)
+          ]);
         } catch (e) { console.error(e); }
+
+        setScanCount(scansData.length);
 
         const totalRedeemed = redemptionsData.reduce((acc, r) => acc + (r.pointsCost || 0), 0);
         const calculatedLifetimePoints = points + totalRedeemed;
@@ -120,14 +127,19 @@ export function ClerkProfileTab() {
           </div>
         </div>
 
-        {/* Stats Row - Gamified (Updated to 2 columns) */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
+        {/* Stats Row - Gamified (Restored to 3 columns) */}
+        <div className="grid grid-cols-3 gap-3 mb-6">
           <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all group">
             <div className="flex items-center gap-1">
               <span className="text-2xl font-black text-[#FFD700] drop-shadow-sm">{points.toLocaleString()}</span>
               <Coins className="w-4 h-4 text-[#FFD700]" />
             </div>
             <span className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wide group-hover:text-[#FFD700] transition-colors">Coins</span>
+          </div>
+
+          <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all">
+            <span className="text-2xl font-black text-primary">{scanCount}</span>
+            <span className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wide">Escaneos</span>
           </div>
 
           <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all">

@@ -178,9 +178,13 @@ export function ClerkRewardsTab() {
                 {currentLevelConfig ? `Nivel Actual: ${currentLevelConfig.name}` : 'Tu Progreso'}
               </p>
               <h2 className="text-2xl font-bold mb-4">
-                {nextLevelConfig
-                  ? `¡A por ${nextLevelConfig.name}!`
-                  : '¡Eres invencible! 🚀'}
+                {isLoading ? (
+                  <span className="opacity-50">Cargando...</span>
+                ) : nextLevelConfig ? (
+                  `¡A por ${nextLevelConfig.name}!`
+                ) : (
+                  '¡Eres invencible! 🚀'
+                )}
               </h2>
 
               {nextLevelConfig && (
