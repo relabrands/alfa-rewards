@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
-import { getRewards, getLevels, createRedemptionRequest, updateUserPoints } from '@/lib/db'; // Added helpers
+import { getRewards, getLevels, createRedemptionRequest, updateUserPoints, getUserRedemptionRequests } from '@/lib/db'; // Added helpers
 import { Reward, LevelConfig } from '@/lib/types';
 import { Gift, Sparkles, AlertCircle, Loader2, Coins, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +16,7 @@ export function ClerkRewardsTab() {
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [lifetimePoints, setLifetimePoints] = useState(0);
 
   // Level State
   const [currentLevelConfig, setCurrentLevelConfig] = useState<LevelConfig | null>(null);
@@ -41,11 +42,22 @@ export function ClerkRewardsTab() {
         setRewards(rewardsData);
 
         // Calculate Level
+        // Calculate Lifetime Points
+        let redemptionsData: any[] = [];
+        try {
+          redemptionsData = await getUserRedemptionRequests(currentUser.id);
+        } catch (e) { console.error(e); }
+
+        const totalRedeemed = redemptionsData.reduce((acc, r) => acc + (r.pointsCost || 0), 0);
+        const calculatedLifetimePoints = points + totalRedeemed;
+        setLifetimePoints(calculatedLifetimePoints);
+
+        // Calculate Level based on lifetime points
         const sorted = levelsData.sort((a, b) => a.minPoints - b.minPoints);
 
         let current = null;
         for (const l of sorted) {
-          if (points >= l.minPoints) {
+          if (calculatedLifetimePoints >= l.minPoints) {
             current = l;
           } else {
             break;
@@ -53,7 +65,7 @@ export function ClerkRewardsTab() {
         }
         setCurrentLevelConfig(current);
 
-        const next = sorted.find(l => l.minPoints > points);
+        const next = sorted.find(l => l.minPoints > calculatedLifetimePoints);
         setNextLevelConfig(next || null);
 
       } catch (error) {
@@ -63,7 +75,7 @@ export function ClerkRewardsTab() {
       }
     };
     loadData();
-  }, [points]);
+  }, [points, currentUser, currentUser?.id]);
 
   const categories = [
     { id: 'all', label: 'Todos', icon: Gift },
@@ -134,7 +146,7 @@ export function ClerkRewardsTab() {
 
   // Calculate Progress Percentage for Hero Card
   const progressPercent = nextLevelConfig
-    ? Math.min(100, Math.max(0, ((points - (currentLevelConfig?.minPoints || 0)) / (nextLevelConfig.minPoints - (currentLevelConfig?.minPoints || 0))) * 100))
+    ? Math.min(100, Math.max(0, ((lifetimePoints - (currentLevelConfig?.minPoints || 0)) / (nextLevelConfig.minPoints - (currentLevelConfig?.minPoints || 0))) * 100))
     : 100;
 
   return (
@@ -184,7 +196,7 @@ export function ClerkRewardsTab() {
                     ></div>
                   </div>
                   <p className="text-xs text-indigo-100 flex justify-between items-center mb-1">
-                    <span>Faltan {(nextLevelConfig.minPoints - points).toLocaleString()} pts</span>
+                    <span>Faltan {(nextLevelConfig.minPoints - lifetimePoints).toLocaleString()} pts</span>
                     <span className="bg-white/20 px-2 py-1 rounded text-white font-bold text-[10px] uppercase tracking-wide">
                       Bono Extra: {nextLevelConfig.rewardDescription}
                     </span>

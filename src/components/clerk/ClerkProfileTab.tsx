@@ -22,6 +22,7 @@ export function ClerkProfileTab() {
   const [pharmacyName, setPharmacyName] = useState<string>('Cargando...');
   const [showInfo, setShowInfo] = useState(false);
   const [showPharmacyInfo, setShowPharmacyInfo] = useState(false);
+  const [lifetimePoints, setLifetimePoints] = useState(0);
 
   // Level State
   const [levels, setLevels] = useState<LevelConfig[]>([]);
@@ -39,10 +40,21 @@ export function ClerkProfileTab() {
         // Sort levels by minPoints ascending just in case
         const sorted = levelsData.sort((a, b) => a.minPoints - b.minPoints);
 
-        // Find current level (highest level where user points >= minPoints)
+        // Calculate Lifetime Points
+        // We need to fetch redemptions first to know total points for level
+        let redemptionsData: any[] = [];
+        try {
+          redemptionsData = await getUserRedemptionRequests(currentUser.id);
+        } catch (e) { console.error(e); }
+
+        const totalRedeemed = redemptionsData.reduce((acc, r) => acc + (r.pointsCost || 0), 0);
+        const calculatedLifetimePoints = points + totalRedeemed;
+        setLifetimePoints(calculatedLifetimePoints);
+
+        // Find current level (highest level where user calculatedLifetimePoints >= minPoints)
         let current = null;
         for (const l of sorted) {
-          if (points >= l.minPoints) {
+          if (calculatedLifetimePoints >= l.minPoints) {
             current = l;
           } else {
             break;
@@ -51,7 +63,7 @@ export function ClerkProfileTab() {
         setCurrentLevelConfig(current);
 
         // Find next level
-        const next = sorted.find(l => l.minPoints > points);
+        const next = sorted.find(l => l.minPoints > calculatedLifetimePoints);
         setNextLevelConfig(next || null);
 
       } catch (error) {
@@ -107,10 +119,11 @@ export function ClerkProfileTab() {
         setPharmacyName('No asignada');
       }
     };
+
     if (currentUser) {
       loadData();
     }
-  }, [currentUser, currentUser?.id, currentUser?.pharmacyId]);
+  }, [currentUser, currentUser?.id, currentUser?.pharmacyId, points]);
 
   const handleLogout = () => {
     logout();
@@ -217,13 +230,13 @@ export function ClerkProfileTab() {
             <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-primary to-blue-400 transition-all duration-1000 ease-out relative"
-                style={{ width: `${Math.min(100, Math.max(0, ((points - (currentLevelConfig?.minPoints || 0)) / (nextLevelConfig.minPoints - (currentLevelConfig?.minPoints || 0))) * 100))}%` }}
+                style={{ width: `${Math.min(100, Math.max(0, ((lifetimePoints - (currentLevelConfig?.minPoints || 0)) / (nextLevelConfig.minPoints - (currentLevelConfig?.minPoints || 0))) * 100))}%` }}
               >
                 <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
               </div>
             </div>
             <p className="text-xs text-center mt-2 text-muted-foreground">
-              Faltan <span className="font-bold text-foreground">{(nextLevelConfig.minPoints - points).toLocaleString()}</span> puntos para subir de nivel
+              Faltan <span className="font-bold text-foreground">{(nextLevelConfig.minPoints - lifetimePoints).toLocaleString()}</span> puntos para subir de nivel
             </p>
           </div>
         )}
