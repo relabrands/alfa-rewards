@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Building2, Search, MapPin, TrendingUp, ArrowLeft, ChevronRight, Users, User, Package, Activity, ShoppingBag } from 'lucide-react';
+import { Building2, Search, MapPin, TrendingUp, ArrowLeft, ChevronRight, Users, User, Package, Activity, ShoppingBag, Share2 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { getPharmaciesByZone, getTeamMembers } from '@/lib/db';
 import { Pharmacy, RegisteredClerk } from '@/lib/types';
@@ -281,19 +281,45 @@ export function SalesRepPharmacies() {
                     <div className="space-y-6 pb-6 animate-in slide-in-from-right-4">
                         <Card className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-none shadow-lg">
                             <CardContent className="p-8">
-                                <h1 className="text-3xl font-bold mb-2">{selectedPharmacy.name}</h1>
-                                <div className="flex flex-wrap gap-6 mt-4">
+                                <div className="flex flex-col md:flex-row justify-between md:items-start gap-6">
                                     <div>
-                                        <p className="text-blue-100 text-sm">Zona</p>
-                                        <p className="font-bold">{selectedPharmacy.sector || 'N/A'}</p>
+                                        <h1 className="text-3xl font-bold mb-2">{selectedPharmacy.name}</h1>
+                                        <p className="text-blue-100">{selectedPharmacy.sector || 'N/A'} • {selectedPharmacy.address}</p>
+
+                                        <div className="flex gap-6 mt-6">
+                                            <div>
+                                                <p className="text-blue-200 text-xs uppercase font-bold">Puntos Mensuales</p>
+                                                <p className="font-bold text-2xl">{selectedPharmacy.monthlyPoints?.toLocaleString() || 0}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-blue-200 text-xs uppercase font-bold">Escaneos Total</p>
+                                                <p className="font-bold text-2xl">{selectedPharmacy.scanCount || 0}</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-blue-100 text-sm">Puntos Mensuales</p>
-                                        <p className="font-bold text-xl">{selectedPharmacy.monthlyPoints?.toLocaleString() || 0} pts</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-blue-100 text-sm">Escaneos Total</p>
-                                        <p className="font-bold text-xl">{selectedPharmacy.scanCount || 0}</p>
+
+                                    <div className="flex flex-col gap-3 min-w-[200px]">
+                                        <Button
+                                            variant="secondary"
+                                            className="w-full bg-white text-blue-600 hover:bg-blue-50 font-bold"
+                                            onClick={() => {
+                                                const url = `${window.location.origin}/register?pharmacy=${selectedPharmacy.id}`;
+                                                // Copy to clipboard or share
+                                                if (navigator.share) {
+                                                    navigator.share({
+                                                        title: 'Registro Alfa Rewards',
+                                                        text: `Regístrate en Alfa Rewards bajo ${selectedPharmacy.name}`,
+                                                        url: url
+                                                    }).catch(console.error);
+                                                } else {
+                                                    navigator.clipboard.writeText(url);
+                                                    // Assuming a toast hook is available in context or we need to import useToast
+                                                    alert("Link copiado al portapapeles: " + url);
+                                                }
+                                            }}
+                                        >
+                                            <Share2 className="w-4 h-4 mr-2" /> Avail. Link Invitación
+                                        </Button>
                                     </div>
                                 </div>
                             </CardContent>

@@ -1,10 +1,11 @@
-import { UserPlus, Users, User, LogOut, Pill, UserCheck, Building2 } from 'lucide-react';
+import { UserPlus, Users, User, LogOut, Pill, UserCheck, Building2, BarChart3, TrendingUp, Info, MessageCircle, Trophy, Megaphone } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { useNavigate } from 'react-router-dom';
+import { SalesRepSection } from '@/pages/SalesRepDashboard';
 
 interface SalesRepSidebarProps {
-  activeSection: 'register' | 'team' | 'profile' | 'approvals' | 'pharmacies';
-  onSectionChange: (section: 'register' | 'team' | 'profile' | 'approvals' | 'pharmacies') => void;
+  activeSection: SalesRepSection;
+  onSectionChange: (section: SalesRepSection) => void;
 }
 
 export function SalesRepSidebar({ activeSection, onSectionChange }: SalesRepSidebarProps) {
@@ -12,11 +13,12 @@ export function SalesRepSidebar({ activeSection, onSectionChange }: SalesRepSide
   const navigate = useNavigate();
 
   const menuItems = [
-    { id: 'register' as const, label: 'Registrar Nuevo', icon: UserPlus },
-    { id: 'approvals' as const, label: 'Aprobaciones', icon: UserCheck },
-    { id: 'team' as const, label: 'Mi Equipo', icon: Users },
+    { id: 'dashboard' as const, label: 'Dashboard', icon: BarChart3 },
     { id: 'pharmacies' as const, label: 'Mis Farmacias', icon: Building2 },
-    { id: 'profile' as const, label: 'Mi Perfil', icon: User },
+    { id: 'team' as const, label: 'Mis Dependientes', icon: Users },
+    { id: 'followup' as const, label: 'Seguimiento', icon: MessageCircle },
+    { id: 'performance' as const, label: 'Rendimiento', icon: Trophy },
+    { id: 'campaigns' as const, label: 'Campañas', icon: Megaphone },
   ];
 
   const handleLogout = () => {
