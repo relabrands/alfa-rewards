@@ -18,6 +18,7 @@ interface AppContextType extends AppState {
   logout: () => Promise<void>;
   setCampaignMode: (mode: 'points' | 'roulette') => void;
   addPoints: (amount: number) => void;
+  refreshUser: () => Promise<void>;
   isActive: boolean;
 }
 
@@ -101,6 +102,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, points: prev.points + amount }));
   };
 
+  const refreshUser = async () => {
+    if (auth.currentUser) {
+      const userProfile = await getUserProfile(auth.currentUser.uid);
+      if (userProfile) {
+        setState(prev => ({
+          ...prev,
+          currentUser: userProfile,
+          currentRole: userProfile.role,
+          points: userProfile.points || 0
+        }));
+      }
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       ...state,
@@ -108,6 +123,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       logout,
       setCampaignMode,
       addPoints,
+      refreshUser,
       isActive: state.currentUser?.status === 'active'
     }}>
       {!state.isLoading && children}
