@@ -253,10 +253,11 @@ exports.processInvoice = functions.firestore
             db.collection('users').doc(newData.userId).update({
                 scanCount: admin.firestore.FieldValue.increment(1)
             });
-        // Update Pharmacy Stats (Scan Count & Monthly Points)
+        // Update Pharmacy Stats (Scan Count & Monthly Points & Lifetime Points)
         const pharmacyUpdatePromise = db.collection('pharmacies').doc(matchedPharmacy.id).update({
             scanCount: admin.firestore.FieldValue.increment(1),
-            monthlyPoints: admin.firestore.FieldValue.increment(totalPoints)
+            monthlyPoints: admin.firestore.FieldValue.increment(totalPoints),
+            lifetimePoints: admin.firestore.FieldValue.increment(totalPoints)
         });
         await Promise.all([userUpdatePromise, pharmacyUpdatePromise]);
         return { success: true, points: totalPoints };

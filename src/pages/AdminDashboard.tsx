@@ -9,7 +9,7 @@ import { ScanRecord, DashboardStats } from '@/lib/types';
 import { getAdminStats, getFlaggedScans } from '@/lib/db';
 import {
   Map, Users, DollarSign, TrendingUp, CheckCircle2, XCircle, Trophy, History,
-  AlertTriangle, Settings, LogOut, Pill, BarChart3, Activity, Building2, Gift, Clock, ChevronRight
+  AlertTriangle, Settings, LogOut, Pill, BarChart3, Activity, Building2, Gift, Clock, ChevronRight, FileText
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
@@ -22,8 +22,9 @@ import AdminRewards from '@/components/admin/AdminRewards';
 import AdminProducts from '@/components/admin/AdminProducts';
 import AdminClerkPerformance from '@/components/admin/AdminClerkPerformance';
 import AdminLevels from '@/components/admin/AdminLevels';
+import AdminInvoices from '@/components/admin/AdminInvoices';
 
-type AdminView = 'dashboard' | 'map' | 'users' | 'pharmacies' | 'settings' | 'rewards' | 'products' | 'analytics' | 'levels';
+type AdminView = 'dashboard' | 'map' | 'users' | 'pharmacies' | 'settings' | 'rewards' | 'products' | 'analytics' | 'levels' | 'invoices';
 
 export default function AdminDashboard() {
   const { campaignMode, setCampaignMode, logout, currentUser } = useApp();
@@ -80,6 +81,7 @@ export default function AdminDashboard() {
       case 'products': return <AdminProducts />;
       case 'analytics': return <AdminClerkPerformance />;
       case 'levels': return <AdminLevels />;
+      case 'invoices': return <AdminInvoices />;
       case 'settings': return <AdminSettings />;
       default: return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -332,6 +334,9 @@ export default function AdminDashboard() {
         <nav className="flex-1 p-4 space-y-2">
           <button onClick={() => setCurrentView('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'dashboard' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
             <BarChart3 className="h-5 w-5" /> <span className="font-medium">Dashboard</span>
+          </button>
+          <button onClick={() => setCurrentView('invoices')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'invoices' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
+            <FileText className="h-5 w-5" /> <span className="font-medium">Facturas</span>
           </button>
           <button onClick={() => setCurrentView('map')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'map' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
             <Map className="h-5 w-5" /> <span className="font-medium">Mapa en Vivo</span>

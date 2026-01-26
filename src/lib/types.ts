@@ -39,6 +39,11 @@ export interface ScanRecord {
     pointsEarned: number;
     timestamp: Date;
     status: 'approved' | 'pending' | 'flagged' | 'processed' | 'error' | 'uploaded' | 'rejected' | 'pending_review';
+    userId?: string; // Optional because legacy scans might use clerkId, but we are moving to userId
+    ncf?: string;
+    imageUrl?: string;
+    rejectionReason?: string;
+    productsFound?: { product: string; quantity: number; points: number }[];
 }
 
 export interface Reward {

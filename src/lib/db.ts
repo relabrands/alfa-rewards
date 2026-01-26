@@ -129,6 +129,23 @@ export const getAllUserScans = async (userId: string): Promise<ScanRecord[]> => 
     });
 };
 
+export const getAllScans = async (): Promise<ScanRecord[]> => {
+    const q = query(
+        collection(db, "scans"),
+        orderBy("timestamp", "desc"),
+        limit(500)
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            timestamp: data.timestamp?.toDate() || new Date()
+        } as ScanRecord;
+    });
+};
+
 // Registered Clerks (Leads/Team)
 export const addRegisteredClerk = async (data: any) => {
     const docRef = await addDoc(collection(db, "registered_clerks"), {
