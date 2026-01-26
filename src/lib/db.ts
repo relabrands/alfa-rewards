@@ -465,10 +465,15 @@ export const resetSystemDatabase = async () => {
         }
     };
 
-    // 1. Reset all Users' points
+    // 1. Reset all Users' points and stats
     const usersSnapshot = await getDocs(collection(db, "users"));
     usersSnapshot.docs.forEach(doc => {
-        batch.update(doc.ref, { points: 0 });
+        batch.update(doc.ref, {
+            points: 0,
+            scanCount: 0,
+            monthlyPoints: 0,
+            monthlySales: 0
+        });
         addOp();
     });
 
@@ -490,6 +495,17 @@ export const resetSystemDatabase = async () => {
     const redemptionsSnapshot = await getDocs(collection(db, "redemption_requests"));
     redemptionsSnapshot.docs.forEach(doc => {
         batch.delete(doc.ref);
+        addOp();
+    });
+
+    // 5. Reset Pharmacy Stats
+    const pharmaciesSnapshot = await getDocs(collection(db, "pharmacies"));
+    pharmaciesSnapshot.docs.forEach(doc => {
+        batch.update(doc.ref, {
+            scanCount: 0,
+            monthlyPoints: 0,
+            monthlySales: 0
+        });
         addOp();
     });
 
