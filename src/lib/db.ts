@@ -13,7 +13,8 @@ import {
     limit,
     Timestamp,
     serverTimestamp,
-    deleteDoc
+    deleteDoc,
+    writeBatch
 } from "firebase/firestore";
 import { User, Pharmacy, ScanRecord, Reward, Product, LevelConfig, RedemptionRequest } from "./types";
 
@@ -441,32 +442,59 @@ export const deleteProduct = async (id: string) => {
 };
 
 // Admin System Reset
+// Helper to commit batches
+const commitBatches = async (batches: any[]) => {
+    await Promise.all(batches.map(b => b.commit()));
+};
+
 export const resetSystemDatabase = async () => {
-    // 1. Reset all Users' points to 0
+    // We need to use batches because Promise.all with thousands of writes might fail or timeout.
+    // Firestore batch limit is 500 operations.
+
+    const allOps: Promise<any>[] = [];
+    let batch = writeBatch(db);
+    let count = 0;
+    const batches = [batch];
+
+    const addOp = () => {
+        count++;
+        if (count >= 500) {
+            batch = writeBatch(db);
+            batches.push(batch);
+            count = 0;
+        }
+    };
+
+    // 1. Reset all Users' points
     const usersSnapshot = await getDocs(collection(db, "users"));
-    const userUpdates = usersSnapshot.docs.map(userDoc =>
-        updateDoc(doc(db, "users", userDoc.id), { points: 0 })
-    );
+    usersSnapshot.docs.forEach(doc => {
+        batch.update(doc.ref, { points: 0 });
+        addOp();
+    });
 
     // 2. Delete all Scans
     const scansSnapshot = await getDocs(collection(db, "scans"));
-    const scanDeletes = scansSnapshot.docs.map(scanDoc =>
-        deleteDoc(doc(db, "scans", scanDoc.id))
-    );
+    scansSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+        addOp();
+    });
 
-    // 3. Delete all Registered Clerks (Optional, but keeps things clean)
+    // 3. Delete all Registered Clerks
     const clerksSnapshot = await getDocs(collection(db, "registered_clerks"));
-    const clerkDeletes = clerksSnapshot.docs.map(clerkDoc =>
-        deleteDoc(doc(db, "registered_clerks", clerkDoc.id))
-    );
+    clerksSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+        addOp();
+    });
 
     // 4. Delete all Redemption Requests
     const redemptionsSnapshot = await getDocs(collection(db, "redemption_requests"));
-    const redemptionDeletes = redemptionsSnapshot.docs.map(docRef =>
-        deleteDoc(doc(db, "redemption_requests", docRef.id))
-    );
+    redemptionsSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+        addOp();
+    });
 
-    await Promise.all([...userUpdates, ...scanDeletes, ...clerkDeletes, ...redemptionDeletes]);
+    // Commit all batches
+    await Promise.all(batches.map(b => b.commit()));
 };
 
 // Advanced Analytics
