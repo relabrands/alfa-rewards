@@ -14,6 +14,8 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { updateDoc } from 'firebase/firestore';
 import { LevelConfig } from '@/lib/types'; // Added import
+import { ClerkHistoryView } from './ClerkHistoryView';
+
 
 export function ClerkProfileTab() {
   const { currentUser, points, logout } = useApp();
@@ -23,6 +25,8 @@ export function ClerkProfileTab() {
   const [showInfo, setShowInfo] = useState(false);
   const [showPharmacyInfo, setShowPharmacyInfo] = useState(false);
   const [lifetimePoints, setLifetimePoints] = useState(0);
+
+  const [showFullHistory, setShowFullHistory] = useState(false);
 
   // Level State
   const [levels, setLevels] = useState<LevelConfig[]>([]);
@@ -363,7 +367,11 @@ export function ClerkProfileTab() {
               )}
             </div>
             {history.length > 5 && (
-              <Button variant="ghost" className="w-full rounded-none border-t text-primary">
+              <Button
+                variant="ghost"
+                className="w-full rounded-none border-t text-primary"
+                onClick={() => setShowFullHistory(true)}
+              >
                 Ver historial completo
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
@@ -380,6 +388,8 @@ export function ClerkProfileTab() {
           <span>Cerrar Sesión</span>
         </button>
       </div>
+
+      <ClerkHistoryView isOpen={showFullHistory} onClose={() => setShowFullHistory(false)} />
     </div>
   );
 }
