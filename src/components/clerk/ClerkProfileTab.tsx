@@ -174,7 +174,7 @@ export function ClerkProfileTab() {
                   {nextLevelConfig.rewardDescription || 'Recompensa Sorpresa'}
                 </span>
                 <span className="text-xs font-bold text-primary">
-                  {Math.floor(Math.min(100, Math.max(0, ((points - (currentLevelConfig?.minPoints || 0)) / (nextLevelConfig.minPoints - (currentLevelConfig?.minPoints || 0))) * 100)))}%
+                  {Math.floor(Math.min(100, Math.max(0, ((lifetimePoints - (currentLevelConfig?.minPoints || 0)) / (nextLevelConfig.minPoints - (currentLevelConfig?.minPoints || 0))) * 100)))}%
                 </span>
               </div>
             </div>
