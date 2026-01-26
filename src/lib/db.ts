@@ -180,6 +180,13 @@ export const getTeamMembers = async (zones: string[]): Promise<any[]> => {
 };
 
 // Admin Stats
+export const getAllRedemptionRequests = async () => {
+    const q = query(collection(db, "redemption_requests"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RedemptionRequest));
+};
+
+// Admin Stats
 export const getAdminStats = async () => {
     // 1. Total Pharmacies & Active Clerks
     const pharmaciesSnapshot = await getDocs(collection(db, "pharmacies"));
@@ -258,14 +265,34 @@ export const getAdminStats = async () => {
         pointsChart.push({ name: dayStr, points: dayTotal });
     }
 
-    // 3. Top Performers
-    const clerksData = clerksSnapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.data().name || 'Unknown',
-        points: doc.data().points || 0,
-        pharmacyId: doc.data().pharmacyId
-    }));
-    const topClerks = clerksData.sort((a, b) => b.points - a.points).slice(0, 5);
+    // 3. Top Performers (Lifetime Points)
+    // Fetch all redemption requests to calculate lifetime points
+    const allRedemptions = await getAllRedemptionRequests();
+    const redemptionMap = new Map<string, number>();
+
+    allRedemptions.forEach(r => {
+        const cost = r.pointsCost || 0;
+        const cid = r.clerkId;
+        if (cid) {
+            redemptionMap.set(cid, (redemptionMap.get(cid) || 0) + cost);
+        }
+    });
+
+    const clerksData = clerksSnapshot.docs.map(doc => {
+        const data = doc.data();
+        const currentPoints = data.points || 0;
+        const redeemed = redemptionMap.get(doc.id) || 0;
+        return {
+            id: doc.id,
+            name: data.name || 'Unknown',
+            points: currentPoints,
+            lifetimePoints: currentPoints + redeemed,
+            pharmacyId: data.pharmacyId
+        };
+    });
+
+    // Sort by LIFETIME points
+    const topClerks = clerksData.sort((a, b) => b.lifetimePoints - a.lifetimePoints).slice(0, 5);
 
     // 4. Recent Activity
     const recentActivity = scans.reverse().slice(0, 5).map((s: any) => ({
@@ -523,15 +550,36 @@ export const getClerkPerformance = async () => {
     const pharmacies = await getPharmacies();
     const phMap = new Map(pharmacies.map(p => [p.id, p.name]));
 
-    // 3. Transform to performance metrics
-    // Note: In a real scaled app, we would use a dedicated 'stats' subcollection or aggregation.
-    // For now, we use the live 'points' field on the user document.
-    return clerks.map(clerk => ({
-        id: clerk.id,
-        name: `${clerk.name} ${clerk.lastName || ''}`.trim(),
-        pharmacyName: clerk.pharmacyId ? phMap.get(clerk.pharmacyId) || 'Sin Farmacia' : 'Sin Farmacia',
-        points: clerk.points || 0,
-        // Optional: We could fetch last scan date if we really needed it, but skipping for speed for now.
-        status: clerk.status || 'active'
-    })).sort((a, b) => b.points - a.points);
+    // 3. Get Redemptions for Lifetime Points Calculation
+    const allRedemptions = await getAllRedemptionRequests();
+    const redemptionMap = new Map<string, number>();
+
+    allRedemptions.forEach(r => {
+        const cost = r.pointsCost || 0;
+        const cid = r.clerkId;
+        if (cid) {
+            redemptionMap.set(cid, (redemptionMap.get(cid) || 0) + cost);
+        }
+    });
+
+    // 4. Transform to performance metrics
+    return clerks.map(clerk => {
+        const currentPoints = clerk.points || 0;
+        const redeemed = redemptionMap.get(clerk.id) || 0;
+        const lifetime = currentPoints + redeemed;
+
+        return {
+            id: clerk.id,
+            name: `${clerk.name} ${clerk.lastName || ''}`.trim(),
+            pharmacyName: clerk.pharmacyId ? phMap.get(clerk.pharmacyId) || 'Sin Farmacia' : 'Sin Farmacia',
+            points: currentPoints,
+            lifetimePoints: lifetime,
+            scanCount: clerk.scanCount || 0, // Using the aggregated field from User document (which we reset correctly now)
+            status: clerk.status || 'active',
+            // Detailed info (mocked or from fields)
+            email: clerk.email,
+            phone: clerk.phone,
+            cedula: clerk.cedula
+        };
+    }).sort((a, b) => b.lifetimePoints - a.lifetimePoints); // Sort by lifetime points
 };

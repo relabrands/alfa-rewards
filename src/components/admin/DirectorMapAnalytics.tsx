@@ -46,6 +46,7 @@ export default function DirectorMapAnalytics() {
     // Data State
     const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
     const [allClerks, setAllClerks] = useState<Clerk[]>([]);
+    const [redemptionMap, setRedemptionMap] = useState<Record<string, number>>({});
 
     // Navigation State
     const [view, setView] = useState<'list' | 'pharmacy' | 'clerk'>('list');
@@ -72,6 +73,8 @@ export default function DirectorMapAnalytics() {
         });
         return () => unsubscribe();
     }, []);
+
+    // 2. Fetch Clerks Realtime
     useEffect(() => {
         const q = query(collection(db, "users"), where("role", "==", "clerk"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -81,10 +84,28 @@ export default function DirectorMapAnalytics() {
                 pharmacyId: doc.data().pharmacyId,
                 assignedPharmacies: doc.data().assignedPharmacies || (doc.data().pharmacyId ? [doc.data().pharmacyId] : []),
                 points: doc.data().points || 0,
-                scans: doc.data().scanCount || 0, // scanCount should be updated by backend
+                scans: doc.data().scanCount || 0,
                 lastActive: doc.data().lastActive
             } as Clerk));
             setAllClerks(loaded);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    // 3. Fetch Redemptions Realtime (For Lifetime Points)
+    useEffect(() => {
+        const q = query(collection(db, "redemption_requests"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const map: Record<string, number> = {};
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                const cid = data.clerkId;
+                const cost = data.pointsCost || 0;
+                if (cid) {
+                    map[cid] = (map[cid] || 0) + cost;
+                }
+            });
+            setRedemptionMap(map);
         });
         return () => unsubscribe();
     }, []);
@@ -150,13 +171,17 @@ export default function DirectorMapAnalytics() {
     const pharmacyClerks = useMemo(() => {
         if (!selectedPharmacy) return [];
         return allClerks
+            .map(c => ({
+                ...c,
+                lifetimePoints: c.points + (redemptionMap[c.id] || 0)
+            }))
             .filter(c => {
                 // Check if pharmacy is in the assigned list OR matches the legacy ID
                 return (c.assignedPharmacies && c.assignedPharmacies.includes(selectedPharmacy.id)) ||
                     c.pharmacyId === selectedPharmacy.id;
             })
-            .sort((a, b) => b.points - a.points);
-    }, [allClerks, selectedPharmacy]);
+            .sort((a, b) => b.lifetimePoints - a.lifetimePoints); // Sort by lifetime
+    }, [allClerks, selectedPharmacy, redemptionMap]);
 
     const aggregatedProducts = useMemo(() => {
         const stats: Record<string, number> = {};
@@ -168,7 +193,10 @@ export default function DirectorMapAnalytics() {
             .sort((a, b) => b.count - a.count);
     }, [clerkScans]);
 
-
+    // Helper for selected clerk lifecycle points
+    const selectedClerkLifetime = selectedClerk
+        ? (selectedClerk.points + (redemptionMap[selectedClerk.id] || 0))
+        : 0;
 
     return (
         <div className="h-[calc(100vh-6rem)] w-full flex flex-col gap-4 animate-in fade-in duration-300">
@@ -303,8 +331,8 @@ export default function DirectorMapAnalytics() {
                                             </div>
                                             <div className="flex justify-between items-end">
                                                 <div>
-                                                    <p className="text-xs text-muted-foreground">Puntos</p>
-                                                    <p className="font-bold text-xl text-primary">{clerk.points.toLocaleString()}</p>
+                                                    <p className="text-xs text-muted-foreground">Histórico</p>
+                                                    <p className="font-bold text-xl text-primary">{clerk.lifetimePoints.toLocaleString()}</p>
                                                 </div>
                                                 <Button size="icon" variant="ghost" className="rounded-full shadow-none group-hover:bg-primary group-hover:text-white transition-colors">
                                                     <ChevronRight className="h-4 w-4" />
@@ -337,13 +365,17 @@ export default function DirectorMapAnalytics() {
                                 <CardContent className="space-y-4">
                                     <div className="grid grid-cols-2 gap-4 text-center py-4 border-y">
                                         <div>
-                                            <p className="text-2xl font-bold text-primary">{selectedClerk.points}</p>
-                                            <p className="text-xs text-muted-foreground uppercase">Puntos Total</p>
+                                            <p className="text-2xl font-bold text-primary">{selectedClerkLifetime.toLocaleString()}</p>
+                                            <p className="text-xs text-muted-foreground uppercase">Puntos Total (Histórico)</p>
                                         </div>
                                         <div>
-                                            <p className="text-2xl font-bold">{selectedClerk.scans}</p>
+                                            <p className="text-2xl font-bold">{selectedClerk.scans || 0}</p>
                                             <p className="text-xs text-muted-foreground uppercase">Escaneos</p>
                                         </div>
+                                    </div>
+                                    <div className="text-center pb-4 border-b">
+                                        <p className="text-xl font-bold text-slate-600">{selectedClerk.points.toLocaleString()}</p>
+                                        <p className="text-xs text-muted-foreground uppercase">Puntos Disponibles</p>
                                     </div>
                                     <div className="text-sm space-y-2">
                                         <div className="flex justify-between">

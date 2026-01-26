@@ -229,7 +229,12 @@ export default function AdminDashboard() {
                         <p className="text-sm font-bold truncate">{clerk.name}</p>
                         <p className="text-xs text-muted-foreground truncate">{clerk.pharmacyId || 'N/A'}</p>
                       </div>
-                      <Badge variant="secondary" className="font-mono">{clerk.points} pts</Badge>
+                      <div className="text-right">
+                        <Badge variant="secondary" className="font-mono flex flex-col items-end gap-0.5 h-auto py-1">
+                          <span className="font-bold">{clerk.lifetimePoints?.toLocaleString()} pts</span>
+                          <span className="text-[10px] text-muted-foreground font-normal uppercase">Histórico</span>
+                        </Badge>
+                      </div>
                     </div>
                   ))}
                   {(!stats.topClerks || stats.topClerks.length === 0) && (

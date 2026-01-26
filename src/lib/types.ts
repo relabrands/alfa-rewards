@@ -15,6 +15,7 @@ export interface User {
     assignedPharmacies?: string[]; // List of pharmacy IDs this user works at
     status?: 'active' | 'pending' | 'disabled';
     createdAt?: any;
+    scanCount?: number;
 }
 
 export interface Pharmacy {

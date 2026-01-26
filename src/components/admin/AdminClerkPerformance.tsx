@@ -10,6 +10,8 @@ interface ClerkPerformance {
     name: string;
     pharmacyName: string;
     points: number;
+    lifetimePoints: number;
+    scanCount: number;
     status: string;
 }
 
@@ -46,7 +48,7 @@ export default function AdminClerkPerformance() {
                     <BarChart3 className="h-5 w-5 text-primary" />
                     Rendimiento por Dependiente
                 </CardTitle>
-                <CardDescription>Ranking de dependientes basado en puntos generados</CardDescription>
+                <CardDescription>Ranking histórico basado en puntos generados totales</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="rounded-md border">
@@ -56,20 +58,21 @@ export default function AdminClerkPerformance() {
                                 <TableHead className="w-[80px]">Rank</TableHead>
                                 <TableHead>Dependiente</TableHead>
                                 <TableHead>Farmacia</TableHead>
-                                <TableHead>Estado</TableHead>
-                                <TableHead className="text-right">Puntos Totales</TableHead>
+                                <TableHead className="text-center">Escaneos</TableHead>
+                                <TableHead className="text-right">Histórico (Total)</TableHead>
+                                <TableHead className="text-right">Disponible</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8">
+                                    <TableCell colSpan={6} className="text-center py-8">
                                         Cargando datos...
                                     </TableCell>
                                 </TableRow>
                             ) : clerks.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                                         No hay datos de rendimiento disponibles.
                                     </TableCell>
                                 </TableRow>
@@ -81,14 +84,22 @@ export default function AdminClerkPerformance() {
                                                 {getRankIcon(index)}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="font-medium">{clerk.name}</TableCell>
-                                        <TableCell>{clerk.pharmacyName}</TableCell>
                                         <TableCell>
-                                            <Badge variant={clerk.status === 'active' ? 'default' : 'secondary'}>
-                                                {clerk.status === 'active' ? 'Activo' : 'Pendiente'}
-                                            </Badge>
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">{clerk.name}</span>
+                                                <Badge variant={clerk.status === 'active' ? 'outline' : 'secondary'} className="w-fit mt-1 text-[10px]">
+                                                    {clerk.status === 'active' ? 'Activo' : 'Pendiente'}
+                                                </Badge>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>{clerk.pharmacyName}</TableCell>
+                                        <TableCell className="text-center font-mono">
+                                            {clerk.scanCount}
                                         </TableCell>
                                         <TableCell className="text-right font-bold text-lg text-primary">
+                                            {clerk.lifetimePoints.toLocaleString()}
+                                        </TableCell>
+                                        <TableCell className="text-right text-muted-foreground">
                                             {clerk.points.toLocaleString()}
                                         </TableCell>
                                     </TableRow>
