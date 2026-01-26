@@ -14,6 +14,7 @@ export function SalesRepSidebar({ activeSection, onSectionChange }: SalesRepSide
 
   const menuItems = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: BarChart3 },
+    { id: 'approvals' as const, label: 'Aprobaciones', icon: UserCheck },
     { id: 'pharmacies' as const, label: 'Mis Farmacias', icon: Building2 },
     { id: 'team' as const, label: 'Mis Dependientes', icon: Users },
     { id: 'followup' as const, label: 'Seguimiento', icon: MessageCircle },

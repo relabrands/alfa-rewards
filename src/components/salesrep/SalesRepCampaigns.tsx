@@ -1,14 +1,46 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Gift, Percent, Info, AlertCircle } from 'lucide-react';
+import { Gift, Percent, Info, Trophy, Loader2 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { getLevels, getProducts, getRewards } from '@/lib/db';
+import { LevelConfig, Product, Reward } from '@/lib/types';
 
 export function SalesRepCampaigns() {
+    const [levels, setLevels] = useState<LevelConfig[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [rewards, setRewards] = useState<Reward[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const [l, p, r] = await Promise.all([
+                    getLevels(),
+                    getProducts(),
+                    getRewards()
+                ]);
+                setLevels(l);
+                setProducts(p);
+                setRewards(r);
+            } catch (error) {
+                console.error("Error loading campaign data:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        load();
+    }, []);
+
+    if (loading) {
+        return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-primary" /></div>;
+    }
+
     return (
         <div className="space-y-6 animate-fade-in">
             <div>
                 <h1 className="text-2xl font-bold text-foreground">Campañas Activas</h1>
-                <p className="text-muted-foreground">Información clave para informar a tus clientes</p>
+                <p className="text-muted-foreground">Información en tiempo real del sistema</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -23,19 +55,26 @@ export function SalesRepCampaigns() {
                             <AccordionItem value="item-1">
                                 <AccordionTrigger>¿Cómo ganan puntos?</AccordionTrigger>
                                 <AccordionContent>
-                                    Los dependientes ganan puntos escaneando el código NCF de las facturas que contengan productos participantes. La IA valida la factura automáticamente.
+                                    Los dependientes ganan puntos escaneando el código NCF de las facturas. La IA detecta los productos participantes automáticamente.
                                 </AccordionContent>
                             </AccordionItem>
                             <AccordionItem value="item-2">
-                                <AccordionTrigger>¿Cuándo vencen los puntos?</AccordionTrigger>
+                                <AccordionTrigger>Niveles y Gamificación</AccordionTrigger>
                                 <AccordionContent>
-                                    Los puntos tienen una vigencia de 12 meses desde su generación.
+                                    <div className="space-y-2 mt-2">
+                                        {levels.map(level => (
+                                            <div key={level.id} className="flex justify-between items-center text-sm border-b pb-1 last:border-0">
+                                                <span className="font-medium" style={{ color: level.color }}>{level.name}</span>
+                                                <span className="text-muted-foreground">{level.minPoints.toLocaleString()} pts</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </AccordionContent>
                             </AccordionItem>
                             <AccordionItem value="item-3">
-                                <AccordionTrigger>¿Cómo canjean premios?</AccordionTrigger>
+                                <AccordionTrigger>Vencimiento</AccordionTrigger>
                                 <AccordionContent>
-                                    Directamente en la app. Pueden elegir recargas (instantáneas) o bonos (procesados en 24h).
+                                    Los puntos tienen una vigencia de 12 meses (año calendario) desde su generación.
                                 </AccordionContent>
                             </AccordionItem>
                         </Accordion>
@@ -45,23 +84,18 @@ export function SalesRepCampaigns() {
                 <Card className="border-l-4 border-l-purple-500">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <Gift className="w-5 h-5 text-purple-600" /> Premios Destacados
+                            <Gift className="w-5 h-5 text-purple-600" /> Premios Vigentes
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <ul className="space-y-3">
-                            <li className="flex items-center justify-between p-2 bg-slate-50 rounded text-sm">
-                                <span>Recarga Telefónica (Claro/Altice)</span>
-                                <Badge variant="outline">Desde 500 pts</Badge>
-                            </li>
-                            <li className="flex items-center justify-between p-2 bg-slate-50 rounded text-sm">
-                                <span>Bono CCN / Jumbo</span>
-                                <Badge variant="outline">Desde 1,000 pts</Badge>
-                            </li>
-                            <li className="flex items-center justify-between p-2 bg-slate-50 rounded text-sm">
-                                <span>Entradas de Cine (Palacio)</span>
-                                <Badge variant="outline">800 pts</Badge>
-                            </li>
+                        <ul className="space-y-3 max-h-[300px] overflow-auto">
+                            {rewards.map(reward => (
+                                <li key={reward.id} className="flex items-center justify-between p-2 bg-slate-50 rounded text-sm mb-1">
+                                    <span className="truncate max-w-[180px]" title={reward.name}>{reward.name}</span>
+                                    <Badge variant="outline" className="shrink-0">{reward.pointsCost.toLocaleString()} pts</Badge>
+                                </li>
+                            ))}
+                            {rewards.length === 0 && <p className="text-sm text-muted-foreground">No hay premios configurados.</p>}
                         </ul>
                     </CardContent>
                 </Card>
@@ -69,17 +103,18 @@ export function SalesRepCampaigns() {
                 <Card className="md:col-span-2 border-l-4 border-l-green-600">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <Percent className="w-5 h-5 text-green-600" /> Productos Participantes (Este Mes)
+                            <Percent className="w-5 h-5 text-green-600" /> Productos Participantes
                         </CardTitle>
-                        <CardDescription>Enfatizar estos productos en tus visitas</CardDescription>
+                        <CardDescription>Estos son los productos que la IA está buscando activamente en las facturas</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="flex flex-wrap gap-2">
-                            <Badge className="text-sm py-1 px-3 bg-green-100 text-green-800 hover:bg-green-200">Aspirina 100mg (+10 pts)</Badge>
-                            <Badge className="text-sm py-1 px-3 bg-green-100 text-green-800 hover:bg-green-200">Alka-Seltzer (+5 pts)</Badge>
-                            <Badge className="text-sm py-1 px-3 bg-green-100 text-green-800 hover:bg-green-200">Vitamina C (+15 pts)</Badge>
-                            <Badge className="text-sm py-1 px-3 bg-green-100 text-green-800 hover:bg-green-200">Apronax (+20 pts)</Badge>
-                            <Badge className="text-sm py-1 px-3 bg-green-100 text-green-800 hover:bg-green-200">Bepanthen (+12 pts)</Badge>
+                            {products.map(product => (
+                                <Badge key={product.id} className="text-sm py-1 px-3 bg-green-100 text-green-800 hover:bg-green-200 border-green-200">
+                                    {product.name} (+{product.points} pts)
+                                </Badge>
+                            ))}
+                            {products.length === 0 && <p className="text-sm text-muted-foreground">No hay productos activos.</p>}
                         </div>
                     </CardContent>
                 </Card>

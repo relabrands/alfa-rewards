@@ -6,8 +6,9 @@ import { SalesRepPharmacies } from '@/components/salesrep/SalesRepPharmacies';
 import { SalesRepFollowUp } from '@/components/salesrep/SalesRepFollowUp';
 import { SalesRepPerformance } from '@/components/salesrep/SalesRepPerformance';
 import { SalesRepCampaigns } from '@/components/salesrep/SalesRepCampaigns';
+import { SalesRepApprovals } from '@/components/salesrep/SalesRepApprovals';
 
-export type SalesRepSection = 'dashboard' | 'pharmacies' | 'team' | 'followup' | 'performance' | 'campaigns';
+export type SalesRepSection = 'dashboard' | 'pharmacies' | 'team' | 'followup' | 'performance' | 'campaigns' | 'approvals';
 
 export default function SalesRepDashboard() {
   const [activeSection, setActiveSection] = useState<SalesRepSection>('dashboard');
@@ -19,6 +20,7 @@ export default function SalesRepDashboard() {
       <main className="flex-1 p-6 overflow-auto bg-slate-50/50">
         <div className="max-w-7xl mx-auto">
           {activeSection === 'dashboard' && <SalesRepStats />}
+          {activeSection === 'approvals' && <SalesRepApprovals />}
           {activeSection === 'pharmacies' && <SalesRepPharmacies />}
           {activeSection === 'team' && <SalesRepTeamSection />}
           {activeSection === 'followup' && <SalesRepFollowUp />}
