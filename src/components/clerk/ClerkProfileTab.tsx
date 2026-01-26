@@ -1,32 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useApp } from '@/context/AppContext';
-// import { pharmacies } from '@/lib/constants'; // Removed static
-import { ScanRecord, RedemptionRequest } from '@/lib/types';
-import { getScanHistory, getLevels, getUserRedemptionRequests } from '@/lib/db'; // Updated import
+import { getLevels, getUserRedemptionRequests } from '@/lib/db';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { User, Phone, MapPin, History, LogOut, ChevronRight, CheckCircle2, Clock, AlertCircle, Coins, ChevronDown, ChevronUp, XCircle, AlertTriangle } from 'lucide-react';
+import { User, MapPin, LogOut, Coins, ChevronDown, ChevronUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { updateDoc } from 'firebase/firestore';
-import { LevelConfig } from '@/lib/types'; // Added import
+import { LevelConfig } from '@/lib/types';
 import { ClerkHistoryView } from './ClerkHistoryView';
-
 
 export function ClerkProfileTab() {
   const { currentUser, points, logout } = useApp();
   const navigate = useNavigate();
-  const [history, setHistory] = useState<(ScanRecord | RedemptionRequest)[]>([]);
   const [pharmacyName, setPharmacyName] = useState<string>('Cargando...');
   const [showInfo, setShowInfo] = useState(false);
   const [showPharmacyInfo, setShowPharmacyInfo] = useState(false);
   const [lifetimePoints, setLifetimePoints] = useState(0);
-
-  const [showFullHistory, setShowFullHistory] = useState(false);
 
   // Level State
   const [levels, setLevels] = useState<LevelConfig[]>([]);
@@ -74,37 +63,6 @@ export function ClerkProfileTab() {
         console.error("Error loading levels", error);
       }
 
-      if (currentUser?.id) {
-        // Load History
-        try {
-          let scans: any[] = [];
-          let redemptions: any[] = [];
-
-          try {
-            scans = await getScanHistory(currentUser.id);
-          } catch (e) {
-            console.error("Error loading scans", e);
-          }
-
-          try {
-            redemptions = await getUserRedemptionRequests(currentUser.id);
-          } catch (e) {
-            console.error("Error loading redemptions", e);
-          }
-
-          // Merge and sort
-          const merged = [...scans, ...redemptions].sort((a, b) => {
-            const tA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-            const tB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-            return tB - tA;
-          });
-
-          setHistory(merged);
-        } catch (error) {
-          console.error("Error loading history", error);
-        }
-      }
-
       // Load Pharmacy
       if (currentUser?.pharmacyId) {
         try {
@@ -132,23 +90,6 @@ export function ClerkProfileTab() {
   const handleLogout = () => {
     logout();
     navigate('/');
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'processed':
-      case 'approved':
-        return <CheckCircle2 className="h-5 w-5 text-green-500" />;
-      case 'pending':
-      case 'pending_review':
-        return <Clock className="h-5 w-5 text-yellow-500" />;
-      case 'rejected':
-        return <XCircle className="h-5 w-5 text-red-500" />;
-      case 'error':
-        return <AlertTriangle className="h-5 w-5 text-red-500" />;
-      default:
-        return <AlertCircle className="h-5 w-5 text-slate-300" />;
-    }
   };
 
   if (!currentUser) return <div>Cargando...</div>;
@@ -179,19 +120,14 @@ export function ClerkProfileTab() {
           </div>
         </div>
 
-        {/* Stats Row - Gamified */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        {/* Stats Row - Gamified (Updated to 2 columns) */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
           <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all group">
             <div className="flex items-center gap-1">
               <span className="text-2xl font-black text-[#FFD700] drop-shadow-sm">{points.toLocaleString()}</span>
               <Coins className="w-4 h-4 text-[#FFD700]" />
             </div>
             <span className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wide group-hover:text-[#FFD700] transition-colors">Coins</span>
-          </div>
-
-          <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all">
-            <span className="text-2xl font-black text-primary">{history.length}</span>
-            <span className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wide">Escaneos</span>
           </div>
 
           <div className="bg-white p-3 rounded-[1.5rem] shadow-sm border border-slate-50 flex flex-col items-center justify-center min-h-[100px] hover:shadow-md transition-all">
@@ -312,72 +248,8 @@ export function ClerkProfileTab() {
           </div>
         </div>
 
-        {/* Scan History */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <History className="h-5 w-5 text-muted-foreground" />
-              Mi Historial
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y divide-border">
-              {history.length > 0 ? (
-                history.map((item) => {
-                  const isRedemption = 'rewardName' in item;
-                  const points = isRedemption ? (item as RedemptionRequest).pointsCost : (item as ScanRecord).pointsEarned;
-
-                  return (
-                    <div key={item.id} className="px-4 py-3 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {isRedemption ? (
-                          <span className="text-xl">🎁</span>
-                        ) : (
-                          getStatusIcon((item as ScanRecord).status)
-                        )}
-
-                        <div>
-                          <p className="text-sm font-medium">
-                            {isRedemption ? `Canje: ${(item as RedemptionRequest).rewardName}` : (
-                              (item as ScanRecord).status === 'rejected' ? '❌ Rechazada' :
-                                (item as ScanRecord).status === 'error' ? '⚠️ Error' :
-                                  (item as ScanRecord).status === 'pending_review' ? '⏳ En Revisión' :
-                                    `Factura Procesada`
-                            )}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(item.timestamp, "d 'de' MMMM", { locale: es })}
-                          </p>
-                        </div>
-                      </div>
-                      {isRedemption ? (
-                        <span className="text-sm font-bold text-red-500">-{points} pts</span>
-                      ) : (
-                        points > 0 ? (
-                          <span className="text-sm font-bold text-green-600">+{points} pts</span>
-                        ) : (
-                          <span className="text-xs font-bold text-slate-400">0 pts</span>
-                        )
-                      )}
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="p-4 text-center text-muted-foreground text-sm">No hay actividad reciente</div>
-              )}
-            </div>
-            {history.length > 5 && (
-              <Button
-                variant="ghost"
-                className="w-full rounded-none border-t text-primary"
-                onClick={() => setShowFullHistory(true)}
-              >
-                Ver historial completo
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+        {/* Embedded History */}
+        <ClerkHistoryView />
 
         {/* Logout Button */}
         <button
@@ -388,8 +260,6 @@ export function ClerkProfileTab() {
           <span>Cerrar Sesión</span>
         </button>
       </div>
-
-      <ClerkHistoryView isOpen={showFullHistory} onClose={() => setShowFullHistory(false)} />
     </div>
   );
 }

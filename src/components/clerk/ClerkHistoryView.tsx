@@ -1,27 +1,22 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, ArrowUpRight, ArrowDownLeft, Calendar, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, Calendar, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScanRecord, RedemptionRequest } from '@/lib/types';
 import { getAllUserScans, getUserRedemptionRequests } from '@/lib/db';
 import { useApp } from '@/context/AppContext';
-import { format, isToday, isYesterday, isSameWeek, isSameMonth, parseISO } from 'date-fns';
+import { format, isToday, isSameWeek, isSameMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
-
-interface ClerkHistoryViewProps {
-    isOpen: boolean;
-    onClose: () => void;
-}
 
 type HISTORY_FILTER = 'all' | 'earned' | 'redeemed';
 type TIME_FILTER = 'all' | 'month' | 'week';
 
-export function ClerkHistoryView({ isOpen, onClose }: ClerkHistoryViewProps) {
+export function ClerkHistoryView() {
     const { currentUser } = useApp();
     const [loading, setLoading] = useState(true);
     const [history, setHistory] = useState<(ScanRecord | RedemptionRequest)[]>([]);
     const [filterType, setFilterType] = useState<HISTORY_FILTER>('all');
-    const [timeFilter, setTimeFilter] = useState<TIME_FILTER>('all');
+    const [timeFilter] = useState<TIME_FILTER>('all');
 
     // Analytics State
     const [stats, setStats] = useState({
@@ -33,10 +28,10 @@ export function ClerkHistoryView({ isOpen, onClose }: ClerkHistoryViewProps) {
     });
 
     useEffect(() => {
-        if (isOpen && currentUser?.id) {
+        if (currentUser?.id) {
             loadFullHistory();
         }
-    }, [isOpen, currentUser?.id]);
+    }, [currentUser?.id]);
 
     const loadFullHistory = async () => {
         setLoading(true);
@@ -112,142 +107,133 @@ export function ClerkHistoryView({ isOpen, onClose }: ClerkHistoryViewProps) {
         return filtered;
     }, [history, filterType, timeFilter]);
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="flex flex-col h-full max-w-md mx-auto bg-background shadow-2xl relative">
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-border/50 bg-background/80 backdrop-blur-md sticky top-0 z-10">
-                    <h2 className="text-lg font-bold">Historial de Puntos</h2>
-                    <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
-                        <X className="w-5 h-5" />
-                    </Button>
+        <div className="space-y-6 pt-4">
+            <div className="flex items-center gap-2 mb-2">
+                <History className="h-5 w-5 text-muted-foreground" />
+                <h2 className="text-lg font-bold">Historial de Puntos</h2>
+            </div>
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-3 gap-2">
+                <Card className="bg-primary/5 border-none shadow-none">
+                    <CardContent className="p-3 flex flex-col items-center justify-center text-center">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground">Hoy</span>
+                        <span className="text-xl font-black text-primary">+{stats.today}</span>
+                    </CardContent>
+                </Card>
+                <Card className="bg-primary/5 border-none shadow-none">
+                    <CardContent className="p-3 flex flex-col items-center justify-center text-center">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground">Semana</span>
+                        <span className="text-xl font-black text-primary">+{stats.week}</span>
+                    </CardContent>
+                </Card>
+                <Card className="bg-primary/5 border-none shadow-none">
+                    <CardContent className="p-3 flex flex-col items-center justify-center text-center">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground">Mes</span>
+                        <span className="text-xl font-black text-primary">+{stats.month}</span>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Detailed Stats */}
+            <div className="bg-slate-50 rounded-2xl p-4 flex justify-between items-center">
+                <div>
+                    <p className="text-xs text-muted-foreground font-medium">Total Ganado</p>
+                    <p className="text-lg font-bold text-green-600 flex items-center gap-1">
+                        <ArrowUpRight className="w-4 h-4" />
+                        {stats.totalEarned.toLocaleString()}
+                    </p>
                 </div>
+                <div className="h-8 w-px bg-slate-200"></div>
+                <div className="text-right">
+                    <p className="text-xs text-muted-foreground font-medium">Total Canjeado</p>
+                    <p className="text-lg font-bold text-red-500 flex items-center gap-1 justify-end">
+                        <ArrowDownLeft className="w-4 h-4" />
+                        {stats.totalRedeemed.toLocaleString()}
+                    </p>
+                </div>
+            </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                    {/* Summary Cards */}
-                    <div className="grid grid-cols-3 gap-2">
-                        <Card className="bg-primary/5 border-none shadow-none">
-                            <CardContent className="p-3 flex flex-col items-center justify-center text-center">
-                                <span className="text-[10px] uppercase font-bold text-muted-foreground">Hoy</span>
-                                <span className="text-xl font-black text-primary">+{stats.today}</span>
-                            </CardContent>
-                        </Card>
-                        <Card className="bg-primary/5 border-none shadow-none">
-                            <CardContent className="p-3 flex flex-col items-center justify-center text-center">
-                                <span className="text-[10px] uppercase font-bold text-muted-foreground">Semana</span>
-                                <span className="text-xl font-black text-primary">+{stats.week}</span>
-                            </CardContent>
-                        </Card>
-                        <Card className="bg-primary/5 border-none shadow-none">
-                            <CardContent className="p-3 flex flex-col items-center justify-center text-center">
-                                <span className="text-[10px] uppercase font-bold text-muted-foreground">Mes</span>
-                                <span className="text-xl font-black text-primary">+{stats.month}</span>
-                            </CardContent>
-                        </Card>
+            {/* Filters */}
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                <Button
+                    variant={filterType === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilterType('all')}
+                    className="rounded-full text-xs"
+                >
+                    Todos
+                </Button>
+                <Button
+                    variant={filterType === 'earned' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilterType('earned')}
+                    className="rounded-full text-xs"
+                >
+                    Ganados
+                </Button>
+                <Button
+                    variant={filterType === 'redeemed' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilterType('redeemed')}
+                    className="rounded-full text-xs"
+                >
+                    Canjeados
+                </Button>
+            </div>
+
+            <div className="space-y-4">
+                <h3 className="text-sm font-bold text-muted-foreground flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Actividad Reciente
+                </h3>
+
+                {loading ? (
+                    <div className="space-y-3">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="h-16 bg-slate-100 rounded-xl animate-pulse" />
+                        ))}
                     </div>
+                ) : filteredHistory.length > 0 ? (
+                    <div className="space-y-3">
+                        {filteredHistory.map((item) => {
+                            const isRedemption = 'rewardName' in item;
+                            const itemPoints = isRedemption ? (item as RedemptionRequest).pointsCost : (item as ScanRecord).pointsEarned;
+                            const date = new Date(item.timestamp);
 
-                    {/* Detailed Stats */}
-                    <div className="bg-slate-50 rounded-2xl p-4 flex justify-between items-center">
-                        <div>
-                            <p className="text-xs text-muted-foreground font-medium">Total Ganado</p>
-                            <p className="text-lg font-bold text-green-600 flex items-center gap-1">
-                                <ArrowUpRight className="w-4 h-4" />
-                                {stats.totalEarned.toLocaleString()}
-                            </p>
-                        </div>
-                        <div className="h-8 w-px bg-slate-200"></div>
-                        <div className="text-right">
-                            <p className="text-xs text-muted-foreground font-medium">Total Canjeado</p>
-                            <p className="text-lg font-bold text-red-500 flex items-center gap-1 justify-end">
-                                <ArrowDownLeft className="w-4 h-4" />
-                                {stats.totalRedeemed.toLocaleString()}
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Filters */}
-                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                        <Button
-                            variant={filterType === 'all' ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setFilterType('all')}
-                            className="rounded-full text-xs"
-                        >
-                            Todos
-                        </Button>
-                        <Button
-                            variant={filterType === 'earned' ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setFilterType('earned')}
-                            className="rounded-full text-xs"
-                        >
-                            Ganados
-                        </Button>
-                        <Button
-                            variant={filterType === 'redeemed' ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setFilterType('redeemed')}
-                            className="rounded-full text-xs"
-                        >
-                            Canjeados
-                        </Button>
-                    </div>
-
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-bold text-muted-foreground flex items-center gap-2">
-                            <Calendar className="w-4 h-4" />
-                            Actividad Reciente
-                        </h3>
-
-                        {loading ? (
-                            <div className="space-y-3">
-                                {[1, 2, 3].map(i => (
-                                    <div key={i} className="h-16 bg-slate-100 rounded-xl animate-pulse" />
-                                ))}
-                            </div>
-                        ) : filteredHistory.length > 0 ? (
-                            <div className="space-y-3">
-                                {filteredHistory.map((item) => {
-                                    const isRedemption = 'rewardName' in item;
-                                    const itemPoints = isRedemption ? (item as RedemptionRequest).pointsCost : (item as ScanRecord).pointsEarned;
-                                    const date = new Date(item.timestamp);
-
-                                    return (
-                                        <div key={item.id} className="bg-white border border-slate-100 rounded-xl p-3 flex items-center justify-between shadow-sm">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isRedemption ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-600'}`}>
-                                                    {isRedemption ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-bold text-foreground">
-                                                        {isRedemption ? 'Canje de Recompensa' : 'Escaneo de Factura'}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {format(date, "d MMM, yyyy • h:mm a", { locale: es })}
-                                                    </p>
-                                                    {isRedemption && (
-                                                        <p className="text-xs text-slate-500 mt-0.5">
-                                                            {(item as RedemptionRequest).rewardName}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <span className={`font-black text-sm ${isRedemption ? 'text-red-500' : 'text-green-600'}`}>
-                                                {isRedemption ? '-' : '+'}{itemPoints}
-                                            </span>
+                            return (
+                                <div key={item.id} className="bg-white border border-slate-100 rounded-xl p-3 flex items-center justify-between shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isRedemption ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-600'}`}>
+                                            {isRedemption ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            <div className="text-center py-10 text-muted-foreground text-sm">
-                                No hay registros para este filtro.
-                            </div>
-                        )}
+                                        <div>
+                                            <p className="text-sm font-bold text-foreground">
+                                                {isRedemption ? 'Canje de Recompensa' : 'Escaneo de Factura'}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {format(date, "d MMM, yyyy • h:mm a", { locale: es })}
+                                            </p>
+                                            {isRedemption && (
+                                                <p className="text-xs text-slate-500 mt-0.5">
+                                                    {(item as RedemptionRequest).rewardName}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <span className={`font-black text-sm ${isRedemption ? 'text-red-500' : 'text-green-600'}`}>
+                                        {isRedemption ? '-' : '+'}{itemPoints}
+                                    </span>
+                                </div>
+                            );
+                        })}
                     </div>
-                </div>
+                ) : (
+                    <div className="text-center py-10 text-muted-foreground text-sm">
+                        No hay registros para este filtro.
+                    </div>
+                )}
             </div>
         </div>
     );
