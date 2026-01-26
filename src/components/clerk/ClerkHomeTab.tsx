@@ -54,10 +54,21 @@ export function ClerkHomeTab() {
     const loadDashboardData = async () => {
       try {
         // 1. Load History & Calculate Stats
-        const [scans, redemptions] = await Promise.all([
-          getScanHistory(currentUser.id),
-          getUserRedemptionRequests(currentUser.id)
-        ]);
+        // 1. Load History & Calculate Stats
+        let scans: any[] = [];
+        let redemptions: any[] = [];
+
+        try {
+          scans = await getScanHistory(currentUser.id);
+        } catch (e) {
+          console.error("Error loading scans", e);
+        }
+
+        try {
+          redemptions = await getUserRedemptionRequests(currentUser.id);
+        } catch (e) {
+          console.error("Error loading redemptions (likely missing index)", e);
+        }
 
         // Merge and sort desc
         const merged = [...scans, ...redemptions].sort((a, b) => {

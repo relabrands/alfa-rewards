@@ -61,10 +61,20 @@ export function ClerkProfileTab() {
       if (currentUser?.id) {
         // Load History
         try {
-          const [scans, redemptions] = await Promise.all([
-            getScanHistory(currentUser.id),
-            getUserRedemptionRequests(currentUser.id)
-          ]);
+          let scans: any[] = [];
+          let redemptions: any[] = [];
+
+          try {
+            scans = await getScanHistory(currentUser.id);
+          } catch (e) {
+            console.error("Error loading scans", e);
+          }
+
+          try {
+            redemptions = await getUserRedemptionRequests(currentUser.id);
+          } catch (e) {
+            console.error("Error loading redemptions", e);
+          }
 
           // Merge and sort
           const merged = [...scans, ...redemptions].sort((a, b) => {
