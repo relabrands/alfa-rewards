@@ -460,7 +460,13 @@ export const resetSystemDatabase = async () => {
         deleteDoc(doc(db, "registered_clerks", clerkDoc.id))
     );
 
-    await Promise.all([...userUpdates, ...scanDeletes, ...clerkDeletes]);
+    // 4. Delete all Redemption Requests
+    const redemptionsSnapshot = await getDocs(collection(db, "redemption_requests"));
+    const redemptionDeletes = redemptionsSnapshot.docs.map(docRef =>
+        deleteDoc(doc(db, "redemption_requests", docRef.id))
+    );
+
+    await Promise.all([...userUpdates, ...scanDeletes, ...clerkDeletes, ...redemptionDeletes]);
 };
 
 // Advanced Analytics
