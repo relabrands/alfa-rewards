@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { getAllScans, getAllPharmacies, getAllUsers } from '@/lib/db';
 import { ScanRecord, Pharmacy, User } from '@/lib/types';
 import { FileText, Search, Filter, Eye, X } from 'lucide-react';
+import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export default function AdminInvoices() {
@@ -23,6 +24,8 @@ export default function AdminInvoices() {
 
     // Modal
     const [selectedInvoice, setSelectedInvoice] = useState<ScanRecord | null>(null);
+    const [invoiceImageUrl, setInvoiceImageUrl] = useState<string | null>(null);
+    const [imageLoading, setImageLoading] = useState(false);
 
     useEffect(() => {
         const loadData = async () => {
@@ -43,6 +46,34 @@ export default function AdminInvoices() {
         };
         loadData();
     }, []);
+
+    useEffect(() => {
+        const fetchImage = async () => {
+            if (selectedInvoice) {
+                if (selectedInvoice.imageUrl) {
+                    setInvoiceImageUrl(selectedInvoice.imageUrl);
+                } else if ((selectedInvoice as any).storagePath) {
+                    try {
+                        setImageLoading(true);
+                        const storage = getStorage();
+                        const pathReference = ref(storage, (selectedInvoice as any).storagePath);
+                        const url = await getDownloadURL(pathReference);
+                        setInvoiceImageUrl(url);
+                    } catch (e) {
+                        console.error("Error fetching image:", e);
+                        setInvoiceImageUrl(null);
+                    } finally {
+                        setImageLoading(false);
+                    }
+                } else {
+                    setInvoiceImageUrl(null);
+                }
+            } else {
+                setInvoiceImageUrl(null);
+            }
+        };
+        fetchImage();
+    }, [selectedInvoice]);
 
     const userMap = useMemo(() => {
         return new Map(users.map(u => [u.id, u]));
@@ -232,10 +263,12 @@ export default function AdminInvoices() {
                                 </div>
                             </div>
 
-                            <div className="flex-1 bg-slate-900 rounded-lg overflow-hidden relative flex items-center justify-center">
-                                {selectedInvoice.imageUrl ? (
+                            <div className="flex-1 bg-slate-900 rounded-lg overflow-hidden relative flex items-center justify-center min-h-[300px]">
+                                {imageLoading ? (
+                                    <div className="text-white">Cargando imagen...</div>
+                                ) : invoiceImageUrl ? (
                                     <img
-                                        src={selectedInvoice.imageUrl}
+                                        src={invoiceImageUrl}
                                         alt="Factura"
                                         className="max-w-full max-h-full object-contain"
                                     />
