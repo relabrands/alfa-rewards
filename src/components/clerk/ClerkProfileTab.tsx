@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useApp } from '@/context/AppContext';
 // import { pharmacies } from '@/lib/constants'; // Removed static
-import { ScanRecord } from '@/lib/types';
-import { getScanHistory, getLevels } from '@/lib/db'; // Updated import
+import { ScanRecord, RedemptionRequest } from '@/lib/types';
+import { getScanHistory, getLevels, getUserRedemptionRequests } from '@/lib/db'; // Updated import
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { User, Phone, MapPin, History, LogOut, ChevronRight, CheckCircle2, Clock, AlertCircle, Coins, ChevronDown, ChevronUp, XCircle, AlertTriangle } from 'lucide-react';
@@ -18,7 +18,7 @@ import { LevelConfig } from '@/lib/types'; // Added import
 export function ClerkProfileTab() {
   const { currentUser, points, logout } = useApp();
   const navigate = useNavigate();
-  const [history, setHistory] = useState<ScanRecord[]>([]);
+  const [history, setHistory] = useState<(ScanRecord | RedemptionRequest)[]>([]);
   const [pharmacyName, setPharmacyName] = useState<string>('Cargando...');
   const [showInfo, setShowInfo] = useState(false);
   const [showPharmacyInfo, setShowPharmacyInfo] = useState(false);
@@ -61,8 +61,19 @@ export function ClerkProfileTab() {
       if (currentUser?.id) {
         // Load History
         try {
-          const scans = await getScanHistory(currentUser.id);
-          setHistory(scans);
+          const [scans, redemptions] = await Promise.all([
+            getScanHistory(currentUser.id),
+            getUserRedemptionRequests(currentUser.id)
+          ]);
+
+          // Merge and sort
+          const merged = [...scans, ...redemptions].sort((a, b) => {
+            const tA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+            const tB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+            return tB - tA;
+          });
+
+          setHistory(merged);
         } catch (error) {
           console.error("Error loading history", error);
         }
@@ -285,29 +296,45 @@ export function ClerkProfileTab() {
           <CardContent className="p-0">
             <div className="divide-y divide-border">
               {history.length > 0 ? (
-                history.map((scan) => (
-                  <div key={scan.id} className="px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      {getStatusIcon(scan.status)}
-                      <div>
-                        <p className="text-sm font-medium">
-                          {scan.status === 'rejected' ? '❌ Rechazada' :
-                            scan.status === 'error' ? '⚠️ Error' :
-                              scan.status === 'pending_review' ? '⏳ En Revisión' :
-                                `Factura Procesada`}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(scan.timestamp, "d 'de' MMMM", { locale: es })}
-                        </p>
+                history.map((item) => {
+                  const isRedemption = 'rewardName' in item;
+                  const points = isRedemption ? (item as RedemptionRequest).pointsCost : (item as ScanRecord).pointsEarned;
+
+                  return (
+                    <div key={item.id} className="px-4 py-3 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {isRedemption ? (
+                          <span className="text-xl">🎁</span>
+                        ) : (
+                          getStatusIcon((item as ScanRecord).status)
+                        )}
+
+                        <div>
+                          <p className="text-sm font-medium">
+                            {isRedemption ? `Canje: ${(item as RedemptionRequest).rewardName}` : (
+                              (item as ScanRecord).status === 'rejected' ? '❌ Rechazada' :
+                                (item as ScanRecord).status === 'error' ? '⚠️ Error' :
+                                  (item as ScanRecord).status === 'pending_review' ? '⏳ En Revisión' :
+                                    `Factura Procesada`
+                            )}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(item.timestamp, "d 'de' MMMM", { locale: es })}
+                          </p>
+                        </div>
                       </div>
+                      {isRedemption ? (
+                        <span className="text-sm font-bold text-red-500">-{points} pts</span>
+                      ) : (
+                        points > 0 ? (
+                          <span className="text-sm font-bold text-green-600">+{points} pts</span>
+                        ) : (
+                          <span className="text-xs font-bold text-slate-400">0 pts</span>
+                        )
+                      )}
                     </div>
-                    {scan.pointsEarned > 0 ? (
-                      <span className="text-sm font-bold text-green-600">+{scan.pointsEarned} pts</span>
-                    ) : (
-                      <span className="text-xs font-bold text-slate-400">0 pts</span>
-                    )}
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="p-4 text-center text-muted-foreground text-sm">No hay actividad reciente</div>
               )}

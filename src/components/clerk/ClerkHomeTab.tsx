@@ -9,8 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { db, storage } from '@/lib/firebase';
 import { collection, addDoc, doc, onSnapshot, serverTimestamp, updateDoc, getDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes } from 'firebase/storage';
-import { getScanHistory } from '@/lib/db';
-import { ScanRecord } from '@/lib/types';
+import { getScanHistory, getUserRedemptionRequests } from '@/lib/db';
+import { ScanRecord, RedemptionRequest } from '@/lib/types';
 import { format, isSameDay, isSameWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -24,7 +24,7 @@ export function ClerkHomeTab() {
   const [recentEarnings, setRecentEarnings] = useState<number | null>(null);
 
   // Real Data State
-  const [history, setHistory] = useState<ScanRecord[]>([]);
+  const [history, setHistory] = useState<(ScanRecord | RedemptionRequest)[]>([]);
   const [weeklyPoints, setWeeklyPoints] = useState(0);
   const [scansToday, setScansToday] = useState(0);
   const [rankingPercentile, setRankingPercentile] = useState(0);
@@ -54,8 +54,19 @@ export function ClerkHomeTab() {
     const loadDashboardData = async () => {
       try {
         // 1. Load History & Calculate Stats
-        const scans = await getScanHistory(currentUser.id);
-        setHistory(scans);
+        const [scans, redemptions] = await Promise.all([
+          getScanHistory(currentUser.id),
+          getUserRedemptionRequests(currentUser.id)
+        ]);
+
+        // Merge and sort desc
+        const merged = [...scans, ...redemptions].sort((a, b) => {
+          const tA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+          const tB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+          return tB - tA;
+        });
+
+        setHistory(merged);
 
         const now = new Date();
         const todayScans = scans.filter(s => s.timestamp && isSameDay(s.timestamp, now));
@@ -313,32 +324,43 @@ export function ClerkHomeTab() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-border">
-              {history.slice(0, 5).map((item, index) => (
-                <div key={index} className="px-4 py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {/* Dynamic Icon directly here or helper */}
-                    {item.status === 'rejected' ? <span className="text-red-500 text-lg">❌</span> :
-                      item.status === 'error' ? <span className="text-red-500 text-lg">⚠️</span> :
-                        item.status === 'pending_review' ? <span className="text-yellow-500 text-lg">⏳</span> :
-                          <span className="text-green-500 text-lg">✅</span>}
+              {history.slice(0, 5).map((item, index) => {
+                const isRedemption = 'rewardName' in item;
+                const points = isRedemption ? (item as RedemptionRequest).pointsCost : (item as ScanRecord).pointsEarned;
 
-                    <div>
-                      <p className="text-sm font-medium">
-                        {item.status === 'rejected' ? 'Factura Rechazada' :
-                          item.status === 'error' ? 'Error Procesando' :
-                            item.status === 'pending_review' ? 'En Revisión' :
-                              'Factura Aprobada'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.timestamp ? format(item.timestamp, "d MMM, h:mm a", { locale: es }) : '...'}
-                      </p>
+                return (
+                  <div key={index} className="px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {/* Dynamic Icon directly here or helper */}
+                      {isRedemption ? (
+                        <span className="text-xl">🎁</span>
+                      ) : (
+                        item.status === 'rejected' ? <span className="text-red-500 text-lg">❌</span> :
+                          item.status === 'error' ? <span className="text-red-500 text-lg">⚠️</span> :
+                            item.status === 'pending_review' ? <span className="text-yellow-500 text-lg">⏳</span> :
+                              <span className="text-green-500 text-lg">✅</span>
+                      )}
+
+                      <div>
+                        <p className="text-sm font-medium">
+                          {isRedemption ? `Canje: ${(item as RedemptionRequest).rewardName}` : (
+                            item.status === 'rejected' ? 'Factura Rechazada' :
+                              item.status === 'error' ? 'Error Procesando' :
+                                item.status === 'pending_review' ? 'En Revisión' :
+                                  'Factura Aprobada'
+                          )}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.timestamp ? format(item.timestamp, "d MMM, h:mm a", { locale: es }) : '...'}
+                        </p>
+                      </div>
                     </div>
+                    <span className={`font-bold ${!isRedemption && points > 0 ? 'text-green-600' : isRedemption ? 'text-red-500' : 'text-slate-400'}`}>
+                      {isRedemption ? `-${points}` : (points > 0 ? `+${points}` : '0')}
+                    </span>
                   </div>
-                  <span className={`font-bold ${item.pointsEarned > 0 ? 'text-green-600' : 'text-slate-400'}`}>
-                    {item.pointsEarned > 0 ? `+${item.pointsEarned}` : '0'}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
               {history.length === 0 && (
                 <div className="p-4 text-center text-sm text-muted-foreground">
                   No hay actividad reciente.

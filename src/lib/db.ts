@@ -363,6 +363,23 @@ export const updateRedemptionStatus = async (id: string, status: 'approved' | 'r
     await updateDoc(docRef, { status });
 };
 
+export const getUserRedemptionRequests = async (userId: string) => {
+    const q = query(
+        collection(db, "redemption_requests"),
+        where("clerkId", "==", userId),
+        orderBy("timestamp", "desc")
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            timestamp: data.timestamp?.toDate() || new Date()
+        } as RedemptionRequest;
+    });
+};
+
 // --- Levels (Gamification) ---
 export const getLevels = async () => {
     const q = query(collection(db, "levels"), orderBy("minPoints", "asc"));
