@@ -366,17 +366,23 @@ export const updateRedemptionStatus = async (id: string, status: 'approved' | 'r
 export const getUserRedemptionRequests = async (userId: string) => {
     const q = query(
         collection(db, "redemption_requests"),
-        where("clerkId", "==", userId),
-        orderBy("timestamp", "desc")
+        where("clerkId", "==", userId)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => {
+    const requests = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
             id: doc.id,
             ...data,
             timestamp: data.timestamp?.toDate() || new Date()
         } as RedemptionRequest;
+    });
+
+    // Sort in memory (descending)
+    return requests.sort((a, b) => {
+        const tA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const tB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return tB - tA;
     });
 };
 
