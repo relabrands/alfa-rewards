@@ -32,6 +32,8 @@ service cloud.firestore {
       allow create: if isOwner(userId) || isAdmin();
       // Allow updating own profile OR Sales Rep (approvals) OR Admin
       allow update: if isOwner(userId) || isSalesRep() || isAdmin();
+      // Allow delete only for internal system cleanup (Admins)
+      allow delete: if isAdmin();
     }
     
     // Rules for 'registered_clerks'
@@ -67,6 +69,7 @@ service cloud.firestore {
       allow read: if isAuthenticated(); // Users need to read their own (optimize later if needed), Admin reads all
       allow create: if isAuthenticated();
       allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     // Rules for 'levels' (Gamification)
