@@ -163,10 +163,36 @@ export default function DirectorMapAnalytics() {
     };
 
     // Computations
+    const pharmacyStats = useMemo(() => {
+        const stats: Record<string, { lifetimePoints: number }> = {};
+
+        pharmacies.forEach(p => {
+            stats[p.id] = { lifetimePoints: 0 };
+        });
+
+        allClerks.forEach(c => {
+            // Calculate clerk's lifetime points
+            const cLifetime = c.points + (redemptionMap[c.id] || 0);
+
+            // Add to their primary pharmacy
+            if (c.pharmacyId && stats[c.pharmacyId]) {
+                stats[c.pharmacyId].lifetimePoints += cLifetime;
+            }
+
+            // If we want to be more precise with multi-pharmacy, we'd need scan attribution.
+            // For now, attributing to primary pharmacy is the safest approx.
+        });
+
+        return stats;
+    }, [allClerks, pharmacies, redemptionMap]);
+
     const filteredPharmacies = pharmacies.filter(p =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.city?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    ).map(p => ({
+        ...p,
+        lifetimePoints: pharmacyStats[p.id]?.lifetimePoints || 0
+    }));
 
     const pharmacyClerks = useMemo(() => {
         if (!selectedPharmacy) return [];
@@ -271,8 +297,8 @@ export default function DirectorMapAnalytics() {
 
                                         <div className="grid grid-cols-2 gap-2 pt-4 border-t">
                                             <div>
-                                                <p className="text-xs text-muted-foreground uppercase">Puntos Mes</p>
-                                                <p className="font-bold text-lg text-primary">{pharmacy.monthlyPoints?.toLocaleString() || 0}</p>
+                                                <p className="text-xs text-muted-foreground uppercase">Histórico</p>
+                                                <p className="font-bold text-lg text-primary">{pharmacy.lifetimePoints?.toLocaleString() || 0}</p>
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-xs text-muted-foreground uppercase">Escaneos</p>
@@ -297,8 +323,17 @@ export default function DirectorMapAnalytics() {
                                         <p className="font-bold">{selectedPharmacy.city} - {selectedPharmacy.zone}</p>
                                     </div>
                                     <div>
-                                        <p className="text-blue-100 text-sm">Puntos Mensuales</p>
-                                        <p className="font-bold text-xl">{selectedPharmacy.monthlyPoints?.toLocaleString() || 0} pts</p>
+                                        <p className="text-blue-100 text-sm">Puntos Históricos (Total)</p>
+                                        <p className="font-bold text-xl">
+                                            {/* Calculate lifetime points for selected pharmacy specifically or use passed prop if possible. 
+                                                Since selectedPharmacy state might rely on the clicked pharmacy object which we augmented in render map, 
+                                                we need to be careful. The 'handleSelectPharmacy' sets the 'pharmacy' object from the map loop. 
+                                                The map loop uses 'filteredPharmacies' which HAS 'lifetimePoints'. 
+                                              */
+                                                (selectedPharmacy as any).lifetimePoints?.toLocaleString() ||
+                                                pharmacyStats[selectedPharmacy.id]?.lifetimePoints?.toLocaleString() || 0
+                                            } pts
+                                        </p>
                                     </div>
                                 </div>
                             </CardContent>
