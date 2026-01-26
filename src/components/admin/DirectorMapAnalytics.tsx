@@ -67,6 +67,9 @@ export default function DirectorMapAnalytics() {
                 zone: doc.data().zone || doc.data().sector,
                 monthlySales: doc.data().monthlySales || 0,
                 scanCount: doc.data().scanCount || 0,
+                // Prioritize DB value, fall back to calculation if needed later, but here we just read it.
+                // If the field doesn't exist yet (old data), it will be undefined, which is fine, we handle it in display.
+                lifetimePoints: doc.data().lifetimePoints || 0,
                 image: doc.data().image
             } as Pharmacy));
             setPharmacies(loaded);

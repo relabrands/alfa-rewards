@@ -531,6 +531,7 @@ export const resetSystemDatabase = async () => {
         batch.update(doc.ref, {
             scanCount: 0,
             monthlyPoints: 0,
+            lifetimePoints: 0,
             monthlySales: 0
         });
         addOp();
