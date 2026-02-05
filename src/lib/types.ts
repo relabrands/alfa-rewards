@@ -70,6 +70,8 @@ export interface RedemptionRequest {
         accountNumber: string;
         accountType: string;
     };
+    targetPhoneNumber?: string;
+    isOwnPhone?: boolean;
 }
 
 export interface RegisteredClerk {

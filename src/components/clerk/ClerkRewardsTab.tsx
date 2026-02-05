@@ -32,6 +32,13 @@ export function ClerkRewardsTab() {
   });
   const [isRedeeming, setIsRedeeming] = useState(false);
 
+  // Topup State
+  const [isTopupDialogOpen, setIsTopupDialogOpen] = useState(false);
+  const [topupDetails, setTopupDetails] = useState({
+    phoneNumber: '',
+    isOwnPhone: true
+  });
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -92,6 +99,12 @@ export function ClerkRewardsTab() {
     setSelectedReward(reward);
     if (reward.requiresBankDetails) {
       setIsRedeemDialogOpen(true);
+    } else if (reward.category === 'topup') {
+      setTopupDetails({
+        phoneNumber: currentUser?.phone || '',
+        isOwnPhone: true
+      });
+      setIsTopupDialogOpen(true);
     } else {
       // Confirm direct redemption? Or just do it. Let's ask for confirmation via standard alert/dialog or just proceed. 
       // For UX consistency, let's just proceed for non-bank items or maybe show a simple confirm dialog later.
@@ -100,7 +113,7 @@ export function ClerkRewardsTab() {
     }
   };
 
-  const processRedemption = async (reward: Reward, details?: typeof bankDetails) => {
+  const processRedemption = async (reward: Reward, details?: typeof bankDetails, topup?: typeof topupDetails) => {
     if (points < reward.pointsCost) return;
     setIsRedeeming(true);
 
@@ -114,7 +127,8 @@ export function ClerkRewardsTab() {
         pointsCost: reward.pointsCost,
         status: 'pending',
         timestamp: new Date(),
-        ...(details ? { bankDetails: details } : {})
+        ...(details ? { bankDetails: details } : {}),
+        ...(topup ? { targetPhoneNumber: topup.phoneNumber, isOwnPhone: topup.isOwnPhone } : {})
       });
 
       // 2. Deduct Points (Optimistic)
@@ -130,6 +144,7 @@ export function ClerkRewardsTab() {
         description: `Se ha solicitado el canje de ${reward.name}. Te notificaremos cuando sea aprobado.`,
       });
       setIsRedeemDialogOpen(false);
+      setIsTopupDialogOpen(false);
       setBankDetails({ bankName: '', accountNumber: '', accountType: 'ahorros' });
 
     } catch (error) {
@@ -296,6 +311,68 @@ export function ClerkRewardsTab() {
             )}
           </div>
         )}
+
+        {/* Topup Details Dialog */}
+        <Dialog open={isTopupDialogOpen} onOpenChange={setIsTopupDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Detalles de Recarga</DialogTitle>
+              <DialogDescription>
+                ¿A qué número deseas aplicar la recarga de {selectedReward?.name}?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Selecciona una opción</Label>
+                <div className="flex flex-col gap-2">
+                  <div className={`border rounded-lg p-3 cursor-pointer transition-colors ${topupDetails.isOwnPhone ? 'bg-primary/10 border-primary' : 'hover:bg-muted'}`}
+                    onClick={() => setTopupDetails({ ...topupDetails, isOwnPhone: true, phoneNumber: currentUser?.phone || '' })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${topupDetails.isOwnPhone ? 'border-primary' : 'border-muted-foreground'}`}>
+                        {topupDetails.isOwnPhone && <div className="w-2 h-2 rounded-full bg-primary" />}
+                      </div>
+                      <span className="font-medium">Mi número registrado</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground ml-6 mt-1">{currentUser?.phone || 'No registrado'}</p>
+                  </div>
+
+                  <div className={`border rounded-lg p-3 cursor-pointer transition-colors ${!topupDetails.isOwnPhone ? 'bg-primary/10 border-primary' : 'hover:bg-muted'}`}
+                    onClick={() => setTopupDetails({ ...topupDetails, isOwnPhone: false, phoneNumber: '' })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${!topupDetails.isOwnPhone ? 'border-primary' : 'border-muted-foreground'}`}>
+                        {!topupDetails.isOwnPhone && <div className="w-2 h-2 rounded-full bg-primary" />}
+                      </div>
+                      <span className="font-medium">Otro número</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {!topupDetails.isOwnPhone && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                  <Label>Número de Teléfono</Label>
+                  <Input
+                    value={topupDetails.phoneNumber}
+                    onChange={e => setTopupDetails({ ...topupDetails, phoneNumber: e.target.value })}
+                    placeholder="Ej. 809-555-5555"
+                    type="tel"
+                  />
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsTopupDialogOpen(false)}>Cancelar</Button>
+              <Button
+                onClick={() => selectedReward && processRedemption(selectedReward, undefined, topupDetails)}
+                disabled={isRedeeming || !topupDetails.phoneNumber}
+              >
+                {isRedeeming ? 'Procesando...' : 'Confirmar Recarga'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Bank Details Dialog */}
         <Dialog open={isRedeemDialogOpen} onOpenChange={setIsRedeemDialogOpen}>

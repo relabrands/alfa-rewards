@@ -8,9 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Added Tabs
 import { Checkbox } from "@/components/ui/checkbox"; // Added Checkbox
 import { useToast } from "@/hooks/use-toast";
-import { getRewards, createReward, deleteReward, getRedemptionRequests, updateRedemptionStatus } from '@/lib/db';
-import { Reward, RedemptionRequest } from '@/lib/types';
-import { Gift, PlusCircle, Trash2, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { getRewards, createReward, deleteReward, getRedemptionRequests, updateRedemptionStatus, getUserProfile } from '@/lib/db';
+import { Reward, RedemptionRequest, User } from '@/lib/types';
+import { Gift, PlusCircle, Trash2, Loader2, CheckCircle, XCircle, Eye, Phone } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -20,6 +20,10 @@ export default function AdminRewards() {
     const [requests, setRequests] = useState<RedemptionRequest[]>([]); // New State
     const [isLoading, setIsLoading] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+    // User Profile View State
+    const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [isUserDetailOpen, setIsUserDetailOpen] = useState(false);
 
     // New Reward State
     const [newReward, setNewReward] = useState<Partial<Reward>>({
@@ -97,6 +101,24 @@ export default function AdminRewards() {
         } catch (error) {
             console.error(error);
             toast({ title: "Error", description: "No se pudo actualizar la solicitud.", variant: 'destructive' });
+        }
+    };
+
+    const handleViewProfile = async (clerkId: string) => {
+        setIsLoading(true);
+        try {
+            const user = await getUserProfile(clerkId);
+            if (user) {
+                setSelectedUser(user);
+                setIsUserDetailOpen(true);
+            } else {
+                toast({ title: "Error", description: "Usuario no encontrado", variant: 'destructive' });
+            }
+        } catch (error) {
+            console.error(error);
+            toast({ title: "Error", description: "Error al cargar perfil", variant: 'destructive' });
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -241,21 +263,33 @@ export default function AdminRewards() {
                                                             <p className="text-muted-foreground capitalize">{req.bankDetails.accountType}</p>
                                                         </div>
                                                     ) : <span className="text-muted-foreground text-xs">N/A</span>}
+                                                    {req.targetPhoneNumber && (
+                                                        <div className="mt-1 text-xs bg-primary/10 p-1 rounded text-primary font-medium flex items-center gap-1">
+                                                            <Phone className="w-3 h-3" />
+                                                            {req.targetPhoneNumber}
+                                                            {req.isOwnPhone && <span className="text-[10px] text-muted-foreground">(Propio)</span>}
+                                                        </div>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell>
                                                     <span className={`px-2 py-1 rounded-full text-xs font-bold ${req.status === 'approved' ? 'bg-green-100 text-green-700' :
-                                                            req.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                                                                'bg-yellow-100 text-yellow-700'
+                                                        req.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                                            'bg-yellow-100 text-yellow-700'
                                                         }`}>
                                                         {req.status === 'approved' ? 'Aplicado' : req.status === 'pending' ? 'Pendiente' : 'Rechazado'}
                                                     </span>
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    {req.status === 'pending' && (
-                                                        <Button size="sm" onClick={() => handleApproveRequest(req)} className="bg-green-600 hover:bg-green-700 text-white">
-                                                            Aplicar Canje
+                                                    <div className="flex justify-end gap-2">
+                                                        <Button variant="outline" size="icon" onClick={() => handleViewProfile(req.clerkId)} title="Ver Perfil">
+                                                            <Eye className="h-4 w-4" />
                                                         </Button>
-                                                    )}
+                                                        {req.status === 'pending' && (
+                                                            <Button size="sm" onClick={() => handleApproveRequest(req)} className="bg-green-600 hover:bg-green-700 text-white">
+                                                                Aplicar
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))
@@ -264,8 +298,54 @@ export default function AdminRewards() {
                             </Table>
                         </div>
                     </TabsContent>
+
                 </Tabs>
-            </CardContent>
-        </Card>
+
+                {/* User Details Dialog */}
+                <Dialog open={isUserDetailOpen} onOpenChange={setIsUserDetailOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Perfil del Dependiente</DialogTitle>
+                            <DialogDescription>Información detallada del usuario.</DialogDescription>
+                        </DialogHeader>
+                        {selectedUser && (
+                            <div className="space-y-4 py-2">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-2xl">
+                                        {selectedUser.avatar || '👤'}
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-lg">{selectedUser.name} {selectedUser.lastName}</h3>
+                                        <p className="text-sm text-muted-foreground capitalize">{selectedUser.role}</p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div className="space-y-1">
+                                        <Label>Email</Label>
+                                        <div className="text-muted-foreground">{selectedUser.email || 'N/A'}</div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label>Teléfono</Label>
+                                        <div className="text-muted-foreground">{selectedUser.phone || 'N/A'}</div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label>Cédula</Label>
+                                        <div className="text-muted-foreground">{selectedUser.cedula || 'N/A'}</div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label>Estado</Label>
+                                        <div className="capitalize">{selectedUser.status || 'Active'}</div>
+                                    </div>
+                                </div>
+                                {/* Can add more details if needed, e.g. Pharmacy */}
+                            </div>
+                        )}
+                        <DialogFooter>
+                            <Button onClick={() => setIsUserDetailOpen(false)}>Cerrar</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            </CardContent >
+        </Card >
     );
 }
