@@ -311,8 +311,12 @@ export default function AdminRewards() {
                         {selectedUser && (
                             <div className="space-y-4 py-2">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-2xl">
-                                        {selectedUser.avatar || '👤'}
+                                    <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-2xl overflow-hidden">
+                                        {selectedUser.avatar?.startsWith('http') ? (
+                                            <img src={selectedUser.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                                        ) : (
+                                            selectedUser.avatar || '👤'
+                                        )}
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-lg">{selectedUser.name} {selectedUser.lastName}</h3>
