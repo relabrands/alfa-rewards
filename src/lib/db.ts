@@ -162,7 +162,7 @@ export const getTeamMembers = async (zones: string[]): Promise<any[]> => {
     if (!zones || zones.length === 0) return [];
 
     // 1. Get all clerks
-    const q = query(collection(db, "users"), where("role", "==", "clerk"));
+    const q = query(collection(db, "users"), where("role", "==", "clerk"), where("status", "==", "active"));
     const snapshot = await getDocs(q);
     const allClerks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
 
@@ -209,7 +209,7 @@ export const getAdminStats = async () => {
     const pharmaciesSnapshot = await getDocs(collection(db, "pharmacies"));
     const totalPharmacies = pharmaciesSnapshot.size;
 
-    const clerksSnapshot = await getDocs(query(collection(db, "users"), where("role", "==", "clerk")));
+    const clerksSnapshot = await getDocs(query(collection(db, "users"), where("role", "==", "clerk"), where("status", "==", "active")));
     const activeClerks = clerksSnapshot.size;
 
     // 2. Sales Analytics (Points)
@@ -560,8 +560,8 @@ export const resetSystemDatabase = async () => {
 
 // Advanced Analytics
 export const getClerkPerformance = async () => {
-    // 1. Get all clerks
-    const clerksSnapshot = await getDocs(query(collection(db, "users"), where("role", "==", "clerk")));
+    // 1. Get all active clerks
+    const clerksSnapshot = await getDocs(query(collection(db, "users"), where("role", "==", "clerk"), where("status", "==", "active")));
     const clerks = clerksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
 
     // 2. Get Pharmacy Map
