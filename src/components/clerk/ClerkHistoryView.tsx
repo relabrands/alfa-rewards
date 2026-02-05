@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowUpRight, ArrowDownLeft, Calendar, History } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, Calendar, History, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScanRecord, RedemptionRequest } from '@/lib/types';
@@ -199,18 +199,20 @@ export function ClerkHistoryView() {
                     <div className="space-y-3">
                         {filteredHistory.map((item) => {
                             const isRedemption = 'rewardName' in item;
+                            const scan = !isRedemption ? (item as ScanRecord) : null;
+                            const isRejected = scan?.status === 'rejected' || scan?.status === 'error';
                             const itemPoints = isRedemption ? (item as RedemptionRequest).pointsCost : (item as ScanRecord).pointsEarned;
                             const date = new Date(item.timestamp);
 
                             return (
                                 <div key={item.id} className="bg-white border border-slate-100 rounded-xl p-3 flex items-center justify-between shadow-sm">
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isRedemption ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-600'}`}>
-                                            {isRedemption ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isRedemption ? 'bg-blue-50 text-blue-500' : isRejected ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-600'}`}>
+                                            {isRedemption ? <ArrowDownLeft className="w-5 h-5" /> : isRejected ? <XCircle className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
                                         </div>
                                         <div>
-                                            <p className="text-sm font-bold text-foreground">
-                                                {isRedemption ? 'Canje de Recompensa' : 'Escaneo de Factura'}
+                                            <p className={`text-sm font-bold ${isRejected ? 'text-red-500' : 'text-foreground'}`}>
+                                                {isRedemption ? 'Canje de Recompensa' : isRejected ? 'Factura Rechazada' : 'Escaneo de Factura'}
                                             </p>
                                             <p className="text-xs text-muted-foreground">
                                                 {format(date, "d MMM, yyyy • h:mm a", { locale: es })}
@@ -220,9 +222,14 @@ export function ClerkHistoryView() {
                                                     {(item as RedemptionRequest).rewardName}
                                                 </p>
                                             )}
+                                            {isRejected && scan?.rejectionReason && (
+                                                <p className="text-xs text-red-400 mt-0.5 max-w-[200px] truncate">
+                                                    {scan.rejectionReason}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
-                                    <span className={`font-black text-sm ${isRedemption ? 'text-red-500' : 'text-green-600'}`}>
+                                    <span className={`font-black text-sm ${isRedemption ? 'text-blue-500' : isRejected ? 'text-red-500' : 'text-green-600'}`}>
                                         {isRedemption ? '-' : '+'}{itemPoints}
                                     </span>
                                 </div>
