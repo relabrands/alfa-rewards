@@ -6,9 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from "@/hooks/use-toast";
-import { getProducts, createProduct, deleteProduct, getProductLines, createProductLine, deleteProductLine } from '@/lib/db';
+import { getProducts, createProduct, updateProduct, deleteProduct, getProductLines, createProductLine, updateProductLine, deleteProductLine } from '@/lib/db';
 import { Product, ProductLineConfig } from '@/lib/types';
-import { ScanBarcode, PlusCircle, Trash2, Loader2, Tag, Upload, Percent, Layers } from 'lucide-react';
+import { ScanBarcode, PlusCircle, Trash2, Loader2, Tag, Upload, Percent, Layers, Pencil } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import Papa from 'papaparse';
@@ -27,8 +27,12 @@ export default function AdminProducts() {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // New Product State
-    const [newProduct, setNewProduct] = useState({
+    // Edit Mode State
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [editingLine, setEditingLine] = useState<ProductLineConfig | null>(null);
+
+    // Form State
+    const [productForm, setProductForm] = useState({
         name: '',
         keywordsString: '',
         points: 0,
@@ -37,8 +41,7 @@ export default function AdminProducts() {
         line: ''
     });
 
-    // New Line State
-    const [newLine, setNewLine] = useState({
+    const [lineForm, setLineForm] = useState({
         name: '',
         commission: 0
     });
@@ -66,19 +69,34 @@ export default function AdminProducts() {
     };
 
     // --- LINE MANAGEMENT ---
-    const handleCreateLine = async (e: React.FormEvent) => {
+    const openLineDialog = (line?: ProductLineConfig) => {
+        if (line) {
+            setEditingLine(line);
+            setLineForm({ name: line.name, commission: line.commission });
+        } else {
+            setEditingLine(null);
+            setLineForm({ name: '', commission: 0 });
+        }
+        setIsLineDialogOpen(true);
+    };
+
+    const handleSaveLine = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newLine.name) return;
+        if (!lineForm.name) return;
 
         setIsLoading(true);
         try {
-            await createProductLine(newLine);
-            toast({ title: "Línea Creada", description: "Nueva línea de productos agregada." });
+            if (editingLine) {
+                await updateProductLine(editingLine.id, lineForm);
+                toast({ title: "Línea Actualizada" });
+            } else {
+                await createProductLine(lineForm);
+                toast({ title: "Línea Creada", description: "Nueva línea de productos agregada." });
+            }
             setIsLineDialogOpen(false);
-            setNewLine({ name: '', commission: 0 });
             loadData();
         } catch (error) {
-            toast({ title: "Error", description: "No se pudo crear la línea.", variant: 'destructive' });
+            toast({ title: "Error", description: "No se pudo guardar la línea.", variant: 'destructive' });
         } finally {
             setIsLoading(false);
         }
@@ -96,39 +114,69 @@ export default function AdminProducts() {
     };
 
     // --- PRODUCT MANAGEMENT ---
+    const openProductDialog = (product?: Product) => {
+        if (product) {
+            setEditingProduct(product);
+            setProductForm({
+                name: product.name,
+                keywordsString: product.keywords.join(', '),
+                points: product.points,
+                commission: product.commission || 0,
+                image: product.image || '💊',
+                line: product.line || ''
+            });
+        } else {
+            setEditingProduct(null);
+            setProductForm({
+                name: '',
+                keywordsString: '',
+                points: 0,
+                commission: 0,
+                image: '💊',
+                line: ''
+            });
+        }
+        setIsProductDialogOpen(true);
+    }
+
     const handleLineSelect = (lineId: string) => {
         const selectedLine = lines.find(l => l.name === lineId || l.id === lineId); // Matching by name for now as the value
         if (selectedLine) {
-            setNewProduct({ ...newProduct, line: selectedLine.name, commission: selectedLine.commission });
+            setProductForm({ ...productForm, line: selectedLine.name, commission: selectedLine.commission });
         } else {
-            setNewProduct({ ...newProduct, line: lineId });
+            setProductForm({ ...productForm, line: lineId });
         }
     };
 
-    const handleCreateProduct = async (e: React.FormEvent) => {
+    const handleSaveProduct = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newProduct.name || !newProduct.keywordsString) return;
+        if (!productForm.name || !productForm.keywordsString) return;
 
         setIsLoading(true);
         try {
-            const keywords = newProduct.keywordsString.split(',').map(k => k.trim().toLowerCase()).filter(k => k.length > 0);
-
-            await createProduct({
-                name: newProduct.name,
+            const keywords = productForm.keywordsString.split(',').map(k => k.trim().toLowerCase()).filter(k => k.length > 0);
+            const productData = {
+                name: productForm.name,
                 keywords,
-                points: newProduct.points,
-                commission: newProduct.commission,
-                image: newProduct.image,
-                line: newProduct.line
-            });
+                points: productForm.points,
+                commission: productForm.commission,
+                image: productForm.image,
+                line: productForm.line
+            };
 
-            toast({ title: "Producto Creado", description: "El producto ha sido agregado." });
+            if (editingProduct) {
+                await updateProduct(editingProduct.id, productData);
+                toast({ title: "Producto Actualizado" });
+            } else {
+                await createProduct(productData);
+                toast({ title: "Producto Creado" });
+            }
+
             setIsProductDialogOpen(false);
-            setNewProduct({ name: '', keywordsString: '', points: 0, commission: 0, image: '💊', line: '' });
             loadData();
         } catch (error) {
             console.error(error);
-            toast({ title: "Error", description: "No se pudo crear el producto.", variant: 'destructive' });
+            toast({ title: "Error", description: "No se pudo guardar el producto.", variant: 'destructive' });
         } finally {
             setIsLoading(false);
         }
@@ -222,22 +270,22 @@ export default function AdminProducts() {
                         </div>
                         <Dialog open={isLineDialogOpen} onOpenChange={setIsLineDialogOpen}>
                             <DialogTrigger asChild>
-                                <Button variant="secondary" size="sm">
+                                <Button variant="secondary" size="sm" onClick={() => openLineDialog()}>
                                     <PlusCircle className="mr-2 h-4 w-4" />
                                     Nueva Línea
                                 </Button>
                             </DialogTrigger>
                             <DialogContent>
                                 <DialogHeader>
-                                    <DialogTitle>Nueva Línea de Producto</DialogTitle>
+                                    <DialogTitle>{editingLine ? 'Editar Línea' : 'Nueva Línea de Producto'}</DialogTitle>
                                     <DialogDescription>Define el nombre y el porcentaje de comisión base.</DialogDescription>
                                 </DialogHeader>
-                                <form onSubmit={handleCreateLine} className="space-y-4">
+                                <form onSubmit={handleSaveLine} className="space-y-4">
                                     <div className="space-y-2">
                                         <Label>Nombre de la Línea</Label>
                                         <Input
-                                            value={newLine.name}
-                                            onChange={e => setNewLine({ ...newLine, name: e.target.value })}
+                                            value={lineForm.name}
+                                            onChange={e => setLineForm({ ...lineForm, name: e.target.value })}
                                             placeholder="Ej. Nutrición, Dermatología"
                                             required
                                         />
@@ -246,13 +294,13 @@ export default function AdminProducts() {
                                         <Label>Comisión Base (%)</Label>
                                         <Input
                                             type="number"
-                                            value={newLine.commission}
-                                            onChange={e => setNewLine({ ...newLine, commission: parseFloat(e.target.value) || 0 })}
+                                            value={lineForm.commission}
+                                            onChange={e => setLineForm({ ...lineForm, commission: parseFloat(e.target.value) || 0 })}
                                             required
                                         />
                                     </div>
                                     <DialogFooter>
-                                        <Button type="submit" disabled={isLoading}>Guardar Línea</Button>
+                                        <Button type="submit" disabled={isLoading}>{editingLine ? 'Actualizar' : 'Guardar'} Línea</Button>
                                     </DialogFooter>
                                 </form>
                             </DialogContent>
@@ -265,12 +313,17 @@ export default function AdminProducts() {
                             <p className="text-sm text-muted-foreground italic">No hay líneas configuradas.</p>
                         ) : (
                             lines.map(line => (
-                                <Badge key={line.id} variant="outline" className="pl-2 pr-1 py-1 flex items-center gap-2 bg-slate-50">
+                                <Badge key={line.id} variant="outline" className="pl-2 pr-1 py-1 flex items-center gap-2 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => openLineDialog(line)}>
                                     <span className="font-medium">{line.name}</span>
                                     <span className="bg-green-100 text-green-700 text-xs px-1.5 py-0.5 rounded-full font-bold">
                                         {line.commission}%
                                     </span>
-                                    <Button variant="ghost" size="icon" className="h-4 w-4 ml-1 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteLine(line.id)}>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-4 w-4 ml-1 text-muted-foreground hover:text-destructive"
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteLine(line.id); }}
+                                    >
                                         <Trash2 className="h-3 w-3" />
                                     </Button>
                                 </Badge>
@@ -305,22 +358,22 @@ export default function AdminProducts() {
                             </Button>
                             <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
                                 <DialogTrigger asChild>
-                                    <Button>
+                                    <Button onClick={() => openProductDialog()}>
                                         <PlusCircle className="mr-2 h-4 w-4" />
                                         Agregar Producto
                                     </Button>
                                 </DialogTrigger>
                                 <DialogContent>
                                     <DialogHeader>
-                                        <DialogTitle>Nuevo Producto</DialogTitle>
+                                        <DialogTitle>{editingProduct ? 'Editar Producto' : 'Nuevo Producto'}</DialogTitle>
                                         <DialogDescription>Asigna el producto a una línea para heredar la comisión.</DialogDescription>
                                     </DialogHeader>
-                                    <form onSubmit={handleCreateProduct} className="space-y-4">
+                                    <form onSubmit={handleSaveProduct} className="space-y-4">
                                         <div className="space-y-2">
                                             <Label>Nombre del Producto</Label>
                                             <Input
-                                                value={newProduct.name}
-                                                onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
+                                                value={productForm.name}
+                                                onChange={e => setProductForm({ ...productForm, name: e.target.value })}
                                                 placeholder="Ej. Aspirina 500mg"
                                                 required
                                             />
@@ -329,7 +382,7 @@ export default function AdminProducts() {
                                             <div className="space-y-2">
                                                 <Label>Línea de Producto</Label>
                                                 <Select
-                                                    value={newProduct.line}
+                                                    value={productForm.line}
                                                     onValueChange={handleLineSelect}
                                                 >
                                                     <SelectTrigger>
@@ -349,8 +402,8 @@ export default function AdminProducts() {
                                                     <Percent className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
                                                     <Input
                                                         type="number"
-                                                        value={newProduct.commission}
-                                                        onChange={e => setNewProduct({ ...newProduct, commission: parseFloat(e.target.value) || 0 })}
+                                                        value={productForm.commission}
+                                                        onChange={e => setProductForm({ ...productForm, commission: parseFloat(e.target.value) || 0 })}
                                                         required
                                                         className="pr-8"
                                                     />
@@ -361,8 +414,8 @@ export default function AdminProducts() {
                                         <div className="space-y-2">
                                             <Label>Palabras Clave (Separadas por comas)</Label>
                                             <Input
-                                                value={newProduct.keywordsString}
-                                                onChange={e => setNewProduct({ ...newProduct, keywordsString: e.target.value })}
+                                                value={productForm.keywordsString}
+                                                onChange={e => setProductForm({ ...productForm, keywordsString: e.target.value })}
                                                 placeholder="ej. aspirina, bayer, 500mg"
                                                 required
                                             />
@@ -370,15 +423,15 @@ export default function AdminProducts() {
                                         <div className="space-y-2">
                                             <Label>Emoji / Ícono</Label>
                                             <Input
-                                                value={newProduct.image}
-                                                onChange={e => setNewProduct({ ...newProduct, image: e.target.value })}
+                                                value={productForm.image}
+                                                onChange={e => setProductForm({ ...productForm, image: e.target.value })}
                                                 placeholder="💊"
                                             />
                                         </div>
                                         <DialogFooter>
                                             <Button type="submit" disabled={isLoading}>
                                                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                                Guardar Producto
+                                                {editingProduct ? 'Actualizar' : 'Guardar'} Producto
                                             </Button>
                                         </DialogFooter>
                                     </form>
@@ -435,6 +488,14 @@ export default function AdminProducts() {
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-right">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-primary hover:bg-primary/10 mr-1"
+                                                    onClick={() => openProductDialog(product)}
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
