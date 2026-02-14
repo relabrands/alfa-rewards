@@ -490,6 +490,11 @@ export const createProduct = async (data: Omit<Product, 'id'>) => {
     return docRef.id;
 };
 
+export const updateProduct = async (id: string, data: Partial<Product>) => {
+    const docRef = doc(db, "products", id);
+    await updateDoc(docRef, data);
+};
+
 export const deleteProduct = async (id: string) => {
     await deleteDoc(doc(db, "products", id));
 };
@@ -504,6 +509,11 @@ export const getProductLines = async () => {
 export const createProductLine = async (data: Omit<ProductLineConfig, 'id'>) => {
     const docRef = await addDoc(collection(db, "product_lines"), data);
     return docRef.id;
+};
+
+export const updateProductLine = async (id: string, data: Partial<ProductLineConfig>) => {
+    const docRef = doc(db, "product_lines", id);
+    await updateDoc(docRef, data);
 };
 
 export const deleteProductLine = async (id: string) => {
