@@ -16,7 +16,7 @@ import {
     deleteDoc,
     writeBatch
 } from "firebase/firestore";
-import { User, Pharmacy, ScanRecord, Reward, Product, LevelConfig, RedemptionRequest } from "./types";
+import { User, Pharmacy, ScanRecord, Reward, Product, LevelConfig, RedemptionRequest, ProductLineConfig } from "./types";
 
 // Users
 export const getUserProfile = async (uid: string): Promise<User | null> => {
@@ -492,6 +492,22 @@ export const createProduct = async (data: Omit<Product, 'id'>) => {
 
 export const deleteProduct = async (id: string) => {
     await deleteDoc(doc(db, "products", id));
+};
+
+// Product Lines (Categories)
+export const getProductLines = async () => {
+    const q = query(collection(db, "product_lines"), orderBy("name"));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductLineConfig));
+};
+
+export const createProductLine = async (data: Omit<ProductLineConfig, 'id'>) => {
+    const docRef = await addDoc(collection(db, "product_lines"), data);
+    return docRef.id;
+};
+
+export const deleteProductLine = async (id: string) => {
+    await deleteDoc(doc(db, "product_lines", id));
 };
 
 // Admin System Reset

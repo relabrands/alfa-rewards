@@ -93,16 +93,23 @@ export interface RegisteredClerk {
     pointsGenerated: number;
 }
 
-export type ProductLine = 'OTC' | 'Genericos' | 'Eticos' | 'Varios';
+export interface ProductLineConfig {
+    id: string;
+    name: string;
+    commission: number; // Percentage (0-100)
+}
+
+// Deprecated union type, moving to dynamic strings. Kept for loose typing if needed.
+export type ProductLineType = string;
 
 export interface Product {
     id: string;
     name: string;
     keywords: string[]; // e.g., ["aspirina", "bayer"]
     points: number; // Keep for backward compat or display "Avg Points"
-    commission?: number; // New: Percentage (0-100)
+    commission?: number; // New: Percentage (0-100) - Denormalized from Line
     image?: string;
-    line?: ProductLine; // New field
+    line?: string; // Changed from ProductLine to string to support dynamic lines
 }
 
 // Stats Interfaces
