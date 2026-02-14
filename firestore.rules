@@ -58,6 +58,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Rules for 'product_lines' (New Dynamic Categories)
+    match /product_lines/{lineId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     // Rules for 'rewards'
     match /rewards/{rewardId} {
       allow read: if isAuthenticated();
