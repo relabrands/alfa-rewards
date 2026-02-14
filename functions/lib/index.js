@@ -225,6 +225,13 @@ exports.processInvoice = functions.firestore
         // If we are here, everything is VALID
         let totalPoints = 0;
         const validProducts = [];
+        const repRewards = {}; // { repId: points }
+        // Fetch Reps assigned to this pharmacy
+        const repsSnapshot = await db.collection('users')
+            .where('role', '==', 'salesRep')
+            .where('assignedPharmacies', 'array-contains', matchedPharmacy.id)
+            .get();
+        const reps = repsSnapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
         aiData.products.forEach((match) => {
             const productConfig = products.find((p) => p.name === match.name);
             if (productConfig) {
@@ -238,8 +245,7 @@ exports.processInvoice = functions.firestore
                     points = Math.round(totalSale * (commissionPct / 100)); // Round to nearest integer
                 }
                 else {
-                    // Fallback to legacy points ONLY IF commission is 0 (or price missing but we want to be nice? No, user wants strictness).
-                    // We'll fallback if commission is explicitly 0, assuming legacy product.
+                    // Fallback to legacy points ONLY IF commission is 0
                     if (commissionPct === 0) {
                         const pointsPerUnit = Number(productConfig.points) || 0;
                         points = quantity * pointsPerUnit;
@@ -251,8 +257,32 @@ exports.processInvoice = functions.firestore
                     quantity,
                     unitPrice,
                     commissionPct,
-                    points
+                    points,
+                    line: productConfig.line || 'General'
                 });
+                // --- REPUTATION / ATTRIBUTION LOGIC ---
+                // Find which Rep handles this product line
+                const productLine = productConfig.line || 'General';
+                const matchingReps = reps.filter(r => r.productLines && r.productLines.includes(productLine));
+                if (matchingReps.length > 0) {
+                    // If multiple reps handle the same line in the same pharmacy (unlikely but possible), split? or give to all?
+                    // Let's give full credit to each for now (motivational), or split. 
+                    // Plan says "Attribute points/value to that Rep". 
+                    // Let's split if multiple, or just first one. 
+                    // Actually, lines should be exclusive per pharmacy usually. 
+                    // Let's give to ALL matching reps (Double spending points? No, this is Rep Score, not redeemable currency usually... 
+                    // Wait, Rep points might be for their own rewards? 
+                    // User said: "los puntos (record de vendedor) ya se le agregarian a cada uno dependiendo la linea"
+                    // Implies record/score. Let's give full points to each matching rep.
+                    matchingReps.forEach(rep => {
+                        repRewards[rep.id] = (repRewards[rep.id] || 0) + points;
+                    });
+                }
+                else {
+                    // Fallback: If no specific line match, check for "General" reps? 
+                    // or Reps with empty lines (catch-all)?
+                    // For now, only exact line match attributes points.
+                }
             }
         });
         updates.status = 'processed';
@@ -260,7 +290,8 @@ exports.processInvoice = functions.firestore
         updates.productsFound = validProducts;
         updates.ncf = aiData.ncf;
         updates.invoiceDate = aiData.invoiceDate;
-        updates.pharmacyId = matchedPharmacy.id; // Link pharmacy ID
+        updates.pharmacyId = matchedPharmacy.id;
+        updates.salesRepRewards = repRewards; // Store who got what
         await db.collection('scans').doc(scanId).update(updates);
         // Update User Wallet & Stats
         const userUpdatePromise = totalPoints > 0 ?
@@ -271,13 +302,21 @@ exports.processInvoice = functions.firestore
             db.collection('users').doc(newData.userId).update({
                 scanCount: admin.firestore.FieldValue.increment(1)
             });
-        // Update Pharmacy Stats (Scan Count & Monthly Points & Lifetime Points)
+        // Update Pharmacy Stats
         const pharmacyUpdatePromise = db.collection('pharmacies').doc(matchedPharmacy.id).update({
             scanCount: admin.firestore.FieldValue.increment(1),
             monthlyPoints: admin.firestore.FieldValue.increment(totalPoints),
             lifetimePoints: admin.firestore.FieldValue.increment(totalPoints)
         });
-        await Promise.all([userUpdatePromise, pharmacyUpdatePromise]);
+        // Update Sales Rep Buckets
+        const repUpdates = Object.keys(repRewards).map(repId => {
+            const points = repRewards[repId];
+            return db.collection('users').doc(repId).update({
+                points: admin.firestore.FieldValue.increment(points),
+                monthlySales: admin.firestore.FieldValue.increment(points) // Tracking monthly performance
+            });
+        });
+        await Promise.all([userUpdatePromise, pharmacyUpdatePromise, ...repUpdates]);
         return { success: true, points: totalPoints };
     }
     catch (error) {
