@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { getAllUsers, createUserProfile, updateUserProfile, getPharmacies, getProductLines } from '@/lib/db';
+import { getAllUsers, createUserProfile, updateUserProfile, getPharmacies, getProductLines, deleteUser } from '@/lib/db';
 import { User, Pharmacy, ProductLineConfig } from '@/lib/types';
-import { User as UserIcon, Users, Shield, Briefcase, Search, PlusCircle, Loader2, Check, ChevronsUpDown, X, Store, Tag } from 'lucide-react';
+import { User as UserIcon, Users, Shield, Briefcase, Search, PlusCircle, Loader2, Check, ChevronsUpDown, X, Store, Tag, Trash2, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -286,8 +286,9 @@ export default function AdminUsers() {
                                                 </div>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-right">
+                                        <TableCell className="text-right flex items-center justify-end gap-2">
                                             <EditUserDialog user={user} pharmacies={pharmacyList} productLines={productLines} onUpdate={loadUsers} />
+                                            <DeleteUserDialog user={user} onDelete={loadUsers} />
                                         </TableCell>
                                     </TableRow>
                                 )

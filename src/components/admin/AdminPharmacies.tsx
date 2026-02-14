@@ -7,9 +7,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Badge } from '@/components/ui/badge';
 import { useToast } from "@/hooks/use-toast";
-import { getPharmacies, createPharmacy, updatePharmacy } from '@/lib/db';
+import { getPharmacies, createPharmacy, updatePharmacy, deletePharmacy } from '@/lib/db';
 import { Pharmacy, User, ProductLine } from '@/lib/types';
-import { Building2, Plus, Upload, Loader2, Search, FileSpreadsheet, Pencil, X, Check } from 'lucide-react';
+import { Building2, Plus, Upload, Loader2, Search, FileSpreadsheet, Pencil, X, Check, Trash2, AlertTriangle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SECTORS, DR_LOCATIONS } from '@/lib/locations';
 import { collection, query, where, getDocs } from 'firebase/firestore';
@@ -346,8 +346,9 @@ export default function AdminPharmacies() {
                                                 {p.isActive ? 'Activa' : 'Inactiva'}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right">
+                                        <TableCell className="text-right flex items-center justify-end gap-2">
                                             <EditPharmacyDialog pharmacy={p} reps={reps} onUpdate={loadPharmacies} />
+                                            <DeletePharmacyDialog pharmacy={p} onDelete={loadPharmacies} />
                                         </TableCell>
                                     </TableRow>
                                 ))

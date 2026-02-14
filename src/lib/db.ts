@@ -40,6 +40,10 @@ export const updateUserPoints = async (uid: string, newPoints: number) => {
     await updateDoc(docRef, { points: newPoints });
 };
 
+export const deleteUser = async (uid: string) => {
+    await deleteDoc(doc(db, "users", uid));
+};
+
 // Pharmacies
 export const getPharmacies = async (): Promise<Pharmacy[]> => {
     const q = query(collection(db, "pharmacies"), orderBy("name"));
@@ -58,6 +62,10 @@ export const createPharmacy = async (data: Omit<Pharmacy, 'id'>) => {
 export const updatePharmacy = async (id: string, data: Partial<Pharmacy>) => {
     const docRef = doc(db, "pharmacies", id);
     await updateDoc(docRef, data);
+};
+
+export const deletePharmacy = async (id: string) => {
+    await deleteDoc(doc(db, "pharmacies", id));
 };
 
 // Deprecated: Moving to direct assignment
