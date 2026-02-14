@@ -72,7 +72,7 @@ export default function AdminUsers() {
                 avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`
             });
 
-            toast({ title: "Visitador Creado", description: "El usuario ha sido registrado exitosamente." });
+            toast({ title: "Vendedor Creado", description: "El usuario ha sido registrado exitosamente." });
             setIsDialogOpen(false);
             setNewRep({ name: '', email: '', password: '', phone: '', zone: [] });
             loadUsers(); // Refresh list
@@ -80,7 +80,7 @@ export default function AdminUsers() {
             console.error(error);
             toast({
                 title: "Error",
-                description: error.message || "No se pudo crear el visitador.",
+                description: error.message || "No se pudo crear el vendedor.",
                 variant: 'destructive'
             });
         } finally {
@@ -99,7 +99,7 @@ export default function AdminUsers() {
         switch (role) {
             case 'director': return <Badge variant="default" className="bg-purple-600">Director</Badge>;
             case 'manager': return <Badge variant="default" className="bg-blue-600">Manager</Badge>;
-            case 'salesRep': return <Badge variant="default" className="bg-green-600">Visitador</Badge>;
+            case 'salesRep': return <Badge variant="default" className="bg-green-600">Vendedor</Badge>;
             case 'clerk': return <Badge variant="secondary">Dependiente</Badge>;
             default: return <Badge variant="outline">{role}</Badge>;
         }
@@ -130,14 +130,14 @@ export default function AdminUsers() {
                             <DialogTrigger asChild>
                                 <Button>
                                     <PlusCircle className="mr-2 h-4 w-4" />
-                                    Crear Visitador
+                                    Crear Vendedor
                                 </Button>
                             </DialogTrigger>
                             <DialogContent>
                                 <DialogHeader>
-                                    <DialogTitle>Registrar Nuevo Visitador</DialogTitle>
+                                    <DialogTitle>Registrar Nuevo Vendedor</DialogTitle>
                                     <DialogDescription>
-                                        Ingresa los datos del nuevo visitador médico.
+                                        Ingresa los datos del nuevo vendedor.
                                     </DialogDescription>
                                 </DialogHeader>
                                 <form onSubmit={handleCreateRep} className="space-y-4">
@@ -354,7 +354,7 @@ function EditUserDialog({ user, pharmacies, onUpdate }: { user: User, pharmacies
                             onChange={e => setData({ ...data, role: e.target.value as any })}
                         >
                             <option value="clerk">Dependiente</option>
-                            <option value="salesRep">Visitador</option>
+                            <option value="salesRep">Vendedor</option>
                             <option value="manager">Manager</option>
                             <option value="director">Director</option>
                         </select>

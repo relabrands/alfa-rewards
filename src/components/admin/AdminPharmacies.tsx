@@ -8,12 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Badge } from '@/components/ui/badge';
 import { useToast } from "@/hooks/use-toast";
 import { getPharmacies, createPharmacy, updatePharmacy } from '@/lib/db';
-import { Pharmacy, User } from '@/lib/types';
-import { Building2, Plus, Upload, Loader2, Search, FileSpreadsheet, Pencil } from 'lucide-react';
+import { Pharmacy, User, ProductLine } from '@/lib/types';
+import { Building2, Plus, Upload, Loader2, Search, FileSpreadsheet, Pencil, X, Check } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SECTORS, DR_LOCATIONS } from '@/lib/locations';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function AdminPharmacies() {
     const { toast } = useToast();
@@ -25,13 +26,21 @@ export default function AdminPharmacies() {
     const [isLoading, setIsLoading] = useState(false);
 
     // Single Add Form
-    const [newPharmacy, setNewPharmacy] = useState({
+    // assignments is a map of repId -> lines[]
+    const [newPharmacy, setNewPharmacy] = useState<{
+        name: string;
+        address: string;
+        city: string;
+        sector: string;
+        clientCode: string;
+        repAssignments: { [repId: string]: ProductLine[] };
+    }>({
         name: '',
         address: '',
         city: '',
         sector: '',
         clientCode: '',
-        assigned_rep_id: ''
+        repAssignments: {}
     });
 
     // Bulk Upload
@@ -68,23 +77,28 @@ export default function AdminPharmacies() {
         e.preventDefault();
         setIsLoading(true);
         try {
+            // Calculate assignedRepIds for query efficiency
+            const assignedRepIds = Object.keys(newPharmacy.repAssignments);
+
             await createPharmacy({
                 name: newPharmacy.name,
                 address: newPharmacy.address,
-                city: newPharmacy.city,   // New Field
+                city: newPharmacy.city,
                 sector: newPharmacy.sector,
-                zone: newPharmacy.city,   // Map legacy zone to city for now
                 clientCode: newPharmacy.clientCode,
-                assigned_rep_id: newPharmacy.assigned_rep_id, // Assign Rep
-                lat: 18.4861, // Default to SD center if no coords
+                repAssignments: newPharmacy.repAssignments,
+                assignedRepIds: assignedRepIds,
+                // Deprecated but kept for compatibility logic loops
+                assigned_rep_id: assignedRepIds.length > 0 ? assignedRepIds[0] : '',
+                lat: 18.4861,
                 lng: -69.9312,
                 status: 'active',
                 isActive: true
-            } as any); // Cast to any to bypass strict type check if types.ts isn't updated instantly
+            } as any);
 
             toast({ title: "Farmacia Creada", description: "Se ha agregado la farmacia exitosamente." });
             setIsSingleDialogOpen(false);
-            setNewPharmacy({ name: '', address: '', city: '', sector: '', clientCode: '', assigned_rep_id: '' });
+            setNewPharmacy({ name: '', address: '', city: '', sector: '', clientCode: '', repAssignments: {} });
             loadPharmacies();
         } catch (error) {
             toast({ title: "Error", description: "No se pudo crear la farmacia.", variant: "destructive" });
@@ -94,15 +108,11 @@ export default function AdminPharmacies() {
     };
 
     const handleBulkUpload = async () => {
-        // Implementation for bulk upload same as before but simplified for brevity
-        // ... (Keep existing logic or update if user asks later)
         if (!bulkFile) return;
         setIsLoading(true);
         const reader = new FileReader();
         reader.onload = async (e) => {
-            const text = e.target?.result as string;
-            const lines = text.split('\n').filter(l => l.trim() !== '');
-            // Logic...
+            // Simplified bulk upload logic
             toast({ title: "Simulación", description: "Carga masiva pendiente de actualización de formato." });
             setIsLoading(false);
             setIsBulkDialogOpen(false);
@@ -140,7 +150,7 @@ export default function AdminPharmacies() {
                                     Agregar Una
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-h-[90vh] overflow-y-auto">
+                            <DialogContent className="max-h-[90vh] overflow-y-auto max-w-2xl">
                                 <DialogHeader>
                                     <DialogTitle>Nueva Farmacia</DialogTitle>
                                     <DialogDescription>Ingresa los detalles reales de la farmacia.</DialogDescription>
@@ -156,7 +166,7 @@ export default function AdminPharmacies() {
                                             <Label>Ciudad</Label>
                                             <Select
                                                 value={newPharmacy.city}
-                                                onValueChange={(val) => setNewPharmacy({ ...newPharmacy, city: val, sector: '' })} // Reset sector on city change
+                                                onValueChange={(val) => setNewPharmacy({ ...newPharmacy, city: val, sector: '' })}
                                             >
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Selecciona Ciudad" />
@@ -193,22 +203,14 @@ export default function AdminPharmacies() {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label>Visitador Asignado (Vendedor)</Label>
-                                        <Select
-                                            value={newPharmacy.assigned_rep_id}
-                                            onValueChange={(val) => setNewPharmacy({ ...newPharmacy, assigned_rep_id: val })}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Asignar Visitador" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {reps.map(rep => (
-                                                    <SelectItem key={rep.id} value={rep.id}>
-                                                        {rep.name} {rep.lastName || ''}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <Label>Asignación de Vendedores</Label>
+                                        <div className="border rounded-md p-4 bg-slate-50">
+                                            <AssignmentManager
+                                                reps={reps}
+                                                assignments={newPharmacy.repAssignments}
+                                                onUpdate={(newAssignments) => setNewPharmacy({ ...newPharmacy, repAssignments: newAssignments })}
+                                            />
+                                        </div>
                                     </div>
 
                                     <div className="space-y-2">
@@ -293,6 +295,7 @@ export default function AdminPharmacies() {
                                 <TableHead>Nombre</TableHead>
                                 <TableHead>Dirección / Sector</TableHead>
                                 <TableHead>Código Cliente</TableHead>
+                                <TableHead>Vendedores</TableHead>
                                 <TableHead className="text-right">Estado</TableHead>
                                 <TableHead className="text-right">Acciones</TableHead>
                             </TableRow>
@@ -300,7 +303,7 @@ export default function AdminPharmacies() {
                         <TableBody>
                             {filteredPharmacies.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center">
+                                    <TableCell colSpan={6} className="h-24 text-center">
                                         No se encontraron resultados
                                     </TableCell>
                                 </TableRow>
@@ -317,13 +320,34 @@ export default function AdminPharmacies() {
                                         <TableCell>
                                             {p.clientCode ? <Badge variant="outline">{p.clientCode}</Badge> : '-'}
                                         </TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-wrap gap-1">
+                                                {p.repAssignments && Object.keys(p.repAssignments).length > 0 ? (
+                                                    Object.keys(p.repAssignments).map(repId => {
+                                                        const rep = reps.find(r => r.id === repId);
+                                                        return (
+                                                            <Badge key={repId} variant="secondary" className="text-[10px]">
+                                                                {rep ? rep.name : 'Unknown'}
+                                                            </Badge>
+                                                        );
+                                                    })
+                                                ) : (
+                                                    // Fallback for legacy
+                                                    p.assigned_rep_id ? (
+                                                        <Badge variant="secondary" className="text-[10px]">
+                                                            {reps.find(r => r.id === p.assigned_rep_id)?.name || 'Unknown'}
+                                                        </Badge>
+                                                    ) : <span className="text-xs text-muted-foreground">Sin Asignar</span>
+                                                )}
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="text-right">
                                             <Badge variant={p.isActive ? "default" : "secondary"} className={p.isActive ? "bg-green-600" : ""}>
                                                 {p.isActive ? 'Activa' : 'Inactiva'}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <EditPharmacyDialog pharmacy={p} onUpdate={loadPharmacies} />
+                                            <EditPharmacyDialog pharmacy={p} reps={reps} onUpdate={loadPharmacies} />
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -336,22 +360,30 @@ export default function AdminPharmacies() {
     );
 }
 
-function EditPharmacyDialog({ pharmacy, onUpdate }: { pharmacy: Pharmacy, onUpdate: () => void }) {
+function EditPharmacyDialog({ pharmacy, reps, onUpdate }: { pharmacy: Pharmacy, reps: User[], onUpdate: () => void }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
+    // ... existing code ...
     const [data, setData] = useState({
         name: pharmacy.name,
         address: pharmacy.address,
         sector: pharmacy.sector || '',
         clientCode: pharmacy.clientCode || '',
-        isActive: pharmacy.isActive
+        isActive: pharmacy.isActive,
+        repAssignments: pharmacy.repAssignments || (pharmacy.assigned_rep_id ? { [pharmacy.assigned_rep_id]: ['OTC', 'Genericos', 'Eticos', 'Varios'] as ProductLine[] } : {})
     });
+    // ... existing code ...
 
     const handleUpdate = async () => {
         setIsLoading(true);
         try {
-            await updatePharmacy(pharmacy.id, data);
+            const assignedRepIds = Object.keys(data.repAssignments);
+            await updatePharmacy(pharmacy.id, {
+                ...data,
+                assignedRepIds,
+                assigned_rep_id: assignedRepIds.length > 0 ? assignedRepIds[0] : ''
+            });
             toast({ title: 'Farmacia Actualizada', description: 'Los cambios han sido guardados.' });
             setIsOpen(false);
             onUpdate();
@@ -370,7 +402,7 @@ function EditPharmacyDialog({ pharmacy, onUpdate }: { pharmacy: Pharmacy, onUpda
                     <Pencil className="h-4 w-4" />
                 </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Editar Farmacia</DialogTitle>
                 </DialogHeader>
@@ -401,6 +433,18 @@ function EditPharmacyDialog({ pharmacy, onUpdate }: { pharmacy: Pharmacy, onUpda
                             </SelectContent>
                         </Select>
                     </div>
+
+                    <div className="space-y-2">
+                        <Label>Asignación de Vendedores</Label>
+                        <div className="border rounded-md p-4 bg-slate-50">
+                            <AssignmentManager
+                                reps={reps}
+                                assignments={data.repAssignments}
+                                onUpdate={(newAssignments) => setData({ ...data, repAssignments: newAssignments })}
+                            />
+                        </div>
+                    </div>
+
                     <div className="space-y-2">
                         <Label>Código Cliente</Label>
                         <Input value={data.clientCode} onChange={e => setData({ ...data, clientCode: e.target.value })} />
@@ -426,5 +470,131 @@ function EditPharmacyDialog({ pharmacy, onUpdate }: { pharmacy: Pharmacy, onUpda
                 </div>
             </DialogContent>
         </Dialog>
+    );
+}
+
+// Sub-component for managing multi-rep assignments
+function AssignmentManager({ reps, assignments, onUpdate }: {
+    reps: User[],
+    assignments: { [repId: string]: ProductLine[] },
+    onUpdate: (assignments: { [repId: string]: ProductLine[] }) => void
+}) {
+    const [selectedRep, setSelectedRep] = useState<string>('');
+    const [selectedLines, setSelectedLines] = useState<ProductLine[]>([]);
+
+    // Product Lines
+    const PRODUCT_LINES: ProductLine[] = ['OTC', 'Genericos', 'Eticos', 'Varios'];
+
+    const handleAddRep = () => {
+        if (!selectedRep || selectedLines.length === 0) return;
+
+        const newAssignments = { ...assignments };
+        newAssignments[selectedRep] = selectedLines;
+        onUpdate(newAssignments);
+
+        // Reset
+        setSelectedRep('');
+        setSelectedLines([]);
+    };
+
+    const handleRemoveRep = (repId: string) => {
+        const newAssignments = { ...assignments };
+        delete newAssignments[repId];
+        onUpdate(newAssignments);
+    };
+
+    const toggleLine = (line: ProductLine) => {
+        if (selectedLines.includes(line)) {
+            setSelectedLines(selectedLines.filter(l => l !== line));
+        } else {
+            setSelectedLines([...selectedLines, line]);
+        }
+    };
+
+    const assignedRepIds = Object.keys(assignments);
+
+    return (
+        <div className="space-y-4">
+            {/* List of assigned reps */}
+            <div className="space-y-2">
+                {assignedRepIds.length === 0 && (
+                    <p className="text-sm text-muted-foreground italic">No hay vendedores asignados.</p>
+                )}
+                {assignedRepIds.map(repId => {
+                    const rep = reps.find(r => r.id === repId);
+                    const lines = assignments[repId];
+                    return (
+                        <div key={repId} className="flex items-center justify-between bg-white p-2 rounded border">
+                            <div>
+                                <p className="font-medium text-sm">{rep?.name || 'Desconocido'}</p>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                    {lines.map(line => (
+                                        <Badge key={line} variant="secondary" className="text-[10px] px-1 py-0 h-4">
+                                            {line}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 text-destructive"
+                                onClick={() => handleRemoveRep(repId)}
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Add Rep Form */}
+            <div className="pt-2 border-t">
+                <Label className="text-xs mb-2 block">Agregar Vendedor</Label>
+                <div className="flex gap-2 mb-2">
+                    <Select value={selectedRep} onValueChange={setSelectedRep}>
+                        <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Seleccionar Vendedor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {reps
+                                .filter(r => !assignedRepIds.includes(r.id))
+                                .map(r => (
+                                    <SelectItem key={r.id} value={r.id}>{r.name} {r.lastName}</SelectItem>
+                                ))
+                            }
+                        </SelectContent>
+                    </Select>
+                    <Button
+                        size="sm"
+                        onClick={handleAddRep}
+                        disabled={!selectedRep || selectedLines.length === 0}
+                        className="h-8"
+                    >
+                        <Plus className="h-3 w-3 mr-1" /> Agregar
+                    </Button>
+                </div>
+
+                {selectedRep && (
+                    <div className="flex gap-4">
+                        {PRODUCT_LINES.map(line => (
+                            <div key={line} className="flex items-center space-x-2">
+                                <Checkbox
+                                    id={`line-${line}`}
+                                    checked={selectedLines.includes(line)}
+                                    onCheckedChange={() => toggleLine(line)}
+                                />
+                                <label
+                                    htmlFor={`line-${line}`}
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                    {line}
+                                </label>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
     );
 }

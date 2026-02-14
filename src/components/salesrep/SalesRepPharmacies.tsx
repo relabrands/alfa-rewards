@@ -7,8 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Building2, Search, MapPin, TrendingUp, ArrowLeft, ChevronRight, Users, User, Package, Activity, ShoppingBag, Share2 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import { getPharmaciesByZone, getTeamMembers } from '@/lib/db';
-import { Pharmacy, RegisteredClerk } from '@/lib/types';
+import { getPharmaciesForRep, getTeamMembers, getProducts } from '@/lib/db';
+import { Pharmacy, RegisteredClerk, Product, ProductLine } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
 
@@ -26,6 +26,7 @@ export function SalesRepPharmacies() {
     const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
     const [loading, setLoading] = useState(true);
     const [pharmacyClerks, setPharmacyClerks] = useState<RegisteredClerk[]>([]);
+    const [allProducts, setAllProducts] = useState<Product[]>([]);
 
     // Navigation State
     const [view, setView] = useState<'list' | 'pharmacy' | 'clerk'>('list');
@@ -36,91 +37,77 @@ export function SalesRepPharmacies() {
     const [clerkScans, setClerkScans] = useState<ProductScan[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // 1. Fetch Pharmacies
+    // 1. Fetch Pharmacies for Rep
     useEffect(() => {
-        const loadPharmacies = async () => {
-            if (currentUser?.zone && currentUser.zone.length > 0) {
-                const data = await getPharmaciesByZone(currentUser.zone);
+        const loadData = async () => {
+            if (currentUser?.id) {
+                const data = await getPharmaciesForRep(currentUser.id);
                 setPharmacies(data);
             }
+            // Load products global definition for line mapping
+            const products = await getProducts();
+            setAllProducts(products);
+
             setLoading(false);
         };
-        loadPharmacies();
-    }, [currentUser?.zone]);
+        loadData();
+    }, [currentUser?.id]);
 
     // 2. Fetch Clerks when Pharmacy Selected
     useEffect(() => {
         const loadClerks = async () => {
             if (!selectedPharmacy) return;
 
-            // Fetch all clerks in the zone (we already have a helper for this)
-            // Then filter by the selected pharmacy ID
-            if (currentUser?.zone) {
-                const allZoneClerks = await getTeamMembers(currentUser.zone);
+            // Direct fetch for this pharmacy
+            // We need to query users where assignedPharmacies array-contains ID OR pharmacyId == ID
 
-                const filtered = allZoneClerks.filter((c: any) => {
-                    // Check primary pharmacy
-                    if (c.pharmacyId === selectedPharmacy.id) return true;
-                    // Check assigned pharmacies (if fetched - getTeamMembers returns simplified RegisteredClerk, might need to enhance it)
-                    // Limitation: getTeamMembers currently maps to RegisteredClerk which might not have assignedPharmacies.
-                    // Let's check logic. If strict, we might need a direct query here.
-                    return false;
-                });
+            // 1. Fetch by assignedPharmacies
+            const q = query(
+                collection(db, "users"),
+                where("role", "==", "clerk"),
+                where("assignedPharmacies", "array-contains", selectedPharmacy.id)
+            );
+            const snapshot = await getDocs(q);
+            const assignedClerks = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    ...data,
+                    name: `${data.name} ${data.lastName || ''}`.trim(),
+                    pharmacyName: selectedPharmacy.name,
+                    pointsGenerated: data.points || 0
+                } as unknown as RegisteredClerk;
+            });
 
-                // Better approach: Direct query for this pharmacy to ensure we get everyone assigned here
-                // We need to query users where assignedPharmacies array-contains ID OR pharmacyId == ID
-                // Firestore OR is not native, so we do two queries or client filter.
-                // Let's do client filter on all zone clerks if getTeamMembers returns raw data, but it returns structured data.
+            // 2. Fetch by legacy pharmacyId
+            const qLegacy = query(
+                collection(db, "users"),
+                where("role", "==", "clerk"),
+                where("pharmacyId", "==", selectedPharmacy.id)
+            );
+            const snapshotLegacy = await getDocs(qLegacy);
+            const legacyClerks = snapshotLegacy.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    ...data,
+                    name: `${data.name} ${data.lastName || ''}`.trim(),
+                    pharmacyName: selectedPharmacy.name,
+                    pointsGenerated: data.points || 0
+                } as unknown as RegisteredClerk;
+            });
 
-                // Let's do a direct fetch for accuracy
-                // Let's do a direct fetch for accuracy
-                const q = query(
-                    collection(db, "users"),
-                    where("role", "==", "clerk"),
-                    where("assignedPharmacies", "array-contains", selectedPharmacy.id)
-                );
-                const snapshot = await getDocs(q);
-                const assignedClerks = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    return {
-                        id: doc.id,
-                        ...data,
-                        name: `${data.name} ${data.lastName || ''}`.trim(),
-                        pharmacyName: selectedPharmacy.name,
-                        pointsGenerated: data.points || 0
-                    } as unknown as RegisteredClerk;
-                });
+            // Merge and dedup
+            const combined = [...assignedClerks, ...legacyClerks];
+            const unique = Array.from(new Map(combined.map(c => [c.id, c])).values());
 
-                // Also fetch legacy pharmacyId matches (if not already in assigned)
-                const qLegacy = query(
-                    collection(db, "users"),
-                    where("role", "==", "clerk"),
-                    where("pharmacyId", "==", selectedPharmacy.id)
-                );
-                const snapshotLegacy = await getDocs(qLegacy);
-                const legacyClerks = snapshotLegacy.docs.map(doc => {
-                    const data = doc.data();
-                    return {
-                        id: doc.id,
-                        ...data,
-                        name: `${data.name} ${data.lastName || ''}`.trim(),
-                        pharmacyName: selectedPharmacy.name,
-                        pointsGenerated: data.points || 0
-                    } as unknown as RegisteredClerk;
-                });
-
-                // Merge and dedup
-                const combined = [...assignedClerks, ...legacyClerks];
-                const unique = Array.from(new Map(combined.map(c => [c.id, c])).values());
-
-                setPharmacyClerks(unique.sort((a, b) => (b.pointsGenerated || 0) - (a.pointsGenerated || 0)));
-            }
+            setPharmacyClerks(unique.sort((a, b) => (b.pointsGenerated || 0) - (a.pointsGenerated || 0)));
         };
 
         if (view === 'pharmacy' && selectedPharmacy) {
             loadClerks();
         }
-    }, [selectedPharmacy, view, currentUser]);
+    }, [selectedPharmacy, view]);
 
     // 3. Fetch Scans when Clerk Selected
     useEffect(() => {
@@ -161,20 +148,52 @@ export function SalesRepPharmacies() {
         else if (view === 'pharmacy') setView('list');
     };
 
+    // Aggregate products, filtering by assigned lines if applicable
     const aggregatedProducts = useMemo(() => {
+        if (!selectedPharmacy || !currentUser) return [];
+
+        const assignedLines = selectedPharmacy.repAssignments?.[currentUser.id];
+        // If no explicit assignments (legacy), assume all or default logic.
+        // If assignments exist, filter.
+
         const stats: Record<string, number> = {};
         clerkScans.forEach(s => {
+            // Check if product belongs to assigned line
+            if (assignedLines && assignedLines.length > 0) {
+                // Find product definition
+                // We match by name (fuzzy) or exact?
+                // The scan record stores 'product' name.
+                // We look it up in allProducts.
+                const productDef = allProducts.find(p => p.name.toLowerCase() === s.product.toLowerCase() || p.keywords.includes(s.product.toLowerCase()));
+                if (productDef && productDef.line) {
+                    if (!assignedLines.includes(productDef.line)) return; // Skip if not in assigned lines
+                } else {
+                    // If product not found or has no line, defaulting to OTC or showing it?
+                    // Let's show it if we are unsure, or hide it? 
+                    // Better to hide strictly if assigned lines are present to avoid noise.
+                    // But 'Varios' might cover it. 
+                    // Let's assume default is OTC if undefined.
+                    if (!assignedLines.includes('OTC')) return;
+                }
+            }
+
             stats[s.product] = (stats[s.product] || 0) + s.quantity;
         });
+
         return Object.entries(stats)
             .map(([name, count]) => ({ name, count }))
             .sort((a, b) => b.count - a.count);
-    }, [clerkScans]);
+    }, [clerkScans, selectedPharmacy, currentUser, allProducts]);
 
     const filteredPharmacies = pharmacies.filter(p =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (p.sector && p.sector.toLowerCase().includes(searchTerm.toLowerCase()))
     );
+
+    const getMyLines = (pharmacy: Pharmacy) => {
+        if (!currentUser || !pharmacy.repAssignments) return [];
+        return pharmacy.repAssignments[currentUser.id] || [];
+    };
 
     return (
         <div className="max-w-6xl mx-auto space-y-6 animate-fade-in h-[calc(100vh-6rem)] flex flex-col">
@@ -229,7 +248,7 @@ export function SalesRepPharmacies() {
                                     <Building2 className="w-8 h-8 text-muted-foreground" />
                                 </div>
                                 <h3 className="text-lg font-medium">No se encontraron farmacias</h3>
-                                <p className="text-muted-foreground">No hay farmacias asignadas a tu zona.</p>
+                                <p className="text-muted-foreground">No tienes farmacias asignadas.</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-6">
@@ -247,9 +266,21 @@ export function SalesRepPharmacies() {
                                                 <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
                                                     <Building2 className="h-5 w-5" />
                                                 </div>
-                                                <Badge variant={pharmacy.isActive ? 'default' : 'secondary'} className={pharmacy.isActive ? 'bg-green-100 text-green-700 hover:bg-green-100' : ''}>
-                                                    {pharmacy.isActive ? 'Activa' : 'Inactiva'}
-                                                </Badge>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <Badge variant={pharmacy.isActive ? 'default' : 'secondary'} className={pharmacy.isActive ? 'bg-green-100 text-green-700 hover:bg-green-100' : ''}>
+                                                        {pharmacy.isActive ? 'Activa' : 'Inactiva'}
+                                                    </Badge>
+                                                    {/* Show assigned lines if any */}
+                                                    {getMyLines(pharmacy).length > 0 && (
+                                                        <div className="flex gap-1">
+                                                            {getMyLines(pharmacy).map(l => (
+                                                                <span key={l} className="text-[10px] bg-slate-100 px-1 rounded text-slate-600 border border-slate-200">
+                                                                    {l}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             <h3 className="font-bold text-lg mb-1 truncate">{pharmacy.name}</h3>
@@ -284,7 +315,19 @@ export function SalesRepPharmacies() {
                                 <div className="flex flex-col md:flex-row justify-between md:items-start gap-6">
                                     <div>
                                         <h1 className="text-3xl font-bold mb-2">{selectedPharmacy.name}</h1>
-                                        <p className="text-blue-100">{selectedPharmacy.sector || 'N/A'} • {selectedPharmacy.address}</p>
+                                        <div className="flex items-center gap-2 text-blue-100">
+                                            <MapPin className="h-4 w-4" />
+                                            <p>{selectedPharmacy.sector || 'N/A'} • {selectedPharmacy.address}</p>
+                                        </div>
+                                        {getMyLines(selectedPharmacy).length > 0 && (
+                                            <div className="mt-2 flex gap-2">
+                                                {getMyLines(selectedPharmacy).map(l => (
+                                                    <Badge key={l} className="bg-white/20 hover:bg-white/30 text-white border-0">
+                                                        Línea: {l}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        )}
 
                                         <div className="flex gap-6 mt-6">
                                             <div>
@@ -304,7 +347,6 @@ export function SalesRepPharmacies() {
                                             className="w-full bg-white text-blue-600 hover:bg-blue-50 font-bold"
                                             onClick={() => {
                                                 const url = `${window.location.origin}/register?pharmacy=${selectedPharmacy.id}`;
-                                                // Copy to clipboard or share
                                                 if (navigator.share) {
                                                     navigator.share({
                                                         title: 'Registro Alfa Rewards',
@@ -313,12 +355,11 @@ export function SalesRepPharmacies() {
                                                     }).catch(console.error);
                                                 } else {
                                                     navigator.clipboard.writeText(url);
-                                                    // Assuming a toast hook is available in context or we need to import useToast
                                                     alert("Link copiado al portapapeles: " + url);
                                                 }
                                             }}
                                         >
-                                            <Share2 className="w-4 h-4 mr-2" /> Avail. Link Invitación
+                                            <Share2 className="w-4 h-4 mr-2" /> Link Invitación Dependiente
                                         </Button>
                                     </div>
                                 </div>
@@ -445,7 +486,14 @@ export function SalesRepPharmacies() {
                                             <ShoppingBag className="w-5 h-5 text-primary" />
                                             Desglose de Productos
                                         </CardTitle>
-                                        <CardDescription>Productos validados a través de escaneos de facturas</CardDescription>
+                                        <CardDescription>
+                                            Productos validados a través de escaneos de facturas
+                                            {getMyLines(selectedPharmacy!).length > 0 && (
+                                                <span className="ml-1 text-xs text-primary bg-primary/10 px-2 py-0.5 rounded">
+                                                    Filtrado por: {getMyLines(selectedPharmacy!).join(', ')}
+                                                </span>
+                                            )}
+                                        </CardDescription>
                                     </CardHeader>
                                     <CardContent>
                                         <div className="space-y-4">
@@ -464,7 +512,8 @@ export function SalesRepPharmacies() {
                                             ))}
                                             {aggregatedProducts.length === 0 && (
                                                 <div className="text-center py-8 text-muted-foreground">
-                                                    No se han detectado productos en los escaneos recientes.
+                                                    No se han detectado productos en los escaneos recientes
+                                                    {getMyLines(selectedPharmacy!).length > 0 ? " para tus líneas asignadas." : "."}
                                                 </div>
                                             )}
                                         </div>

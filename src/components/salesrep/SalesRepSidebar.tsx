@@ -37,7 +37,7 @@ export function SalesRepSidebar({ activeSection, onSectionChange }: SalesRepSide
           </div>
           <div>
             <h1 className="font-bold text-foreground">Alfa Rewards</h1>
-            <p className="text-xs text-muted-foreground">Portal Visitador</p>
+            <p className="text-xs text-muted-foreground">Portal Vendedor</p>
           </div>
         </div>
       </div>
@@ -74,7 +74,7 @@ export function SalesRepSidebar({ activeSection, onSectionChange }: SalesRepSide
           </div>
           <div>
             <p className="text-sm font-medium">{currentUser.name}</p>
-            <p className="text-xs text-muted-foreground">Visitador</p>
+            <p className="text-xs text-muted-foreground">Vendedor</p>
           </div>
         </div>
 

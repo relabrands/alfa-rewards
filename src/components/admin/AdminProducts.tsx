@@ -7,8 +7,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from "@/hooks/use-toast";
 import { getProducts, createProduct, deleteProduct } from '@/lib/db';
-import { Product } from '@/lib/types';
+import { Product, ProductLine } from '@/lib/types';
 import { ScanBarcode, PlusCircle, Trash2, Loader2, Tag, Upload } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import Papa from 'papaparse';
 
 export default function AdminProducts() {
@@ -23,7 +25,8 @@ export default function AdminProducts() {
         name: '',
         keywordsString: '', // Separate by commas
         points: 0,
-        image: '💊'
+        image: '💊',
+        line: 'OTC' as ProductLine
     });
 
     useEffect(() => {
@@ -59,12 +62,13 @@ export default function AdminProducts() {
                 name: newProduct.name,
                 keywords,
                 points: newProduct.points,
-                image: newProduct.image
+                image: newProduct.image,
+                line: newProduct.line
             });
 
             toast({ title: "Producto Creado", description: "El producto ha sido agregado para escaneo." });
             setIsDialogOpen(false);
-            setNewProduct({ name: '', keywordsString: '', points: 0, image: '💊' });
+            setNewProduct({ name: '', keywordsString: '', points: 0, image: '💊', line: 'OTC' });
             loadProducts();
         } catch (error) {
             console.error(error);
@@ -105,11 +109,17 @@ export default function AdminProducts() {
                                 ? row.Keywords.toString().split(',').map((k: string) => k.trim().toLowerCase())
                                 : [row.Name.toLowerCase()];
 
+                            // Determine line (default to OTC if missing or invalid)
+                            const lineInput: string = row.Line ? row.Line.trim() : 'OTC';
+                            const validLines: ProductLine[] = ['OTC', 'Genericos', 'Eticos', 'Varios'];
+                            const line: ProductLine = validLines.includes(lineInput as any) ? (lineInput as ProductLine) : 'OTC';
+
                             await createProduct({
                                 name: row.Name,
                                 points: parseInt(row.Points) || 10,
                                 keywords: keywords,
-                                image: row.Image || '💊'
+                                image: row.Image || '💊',
+                                line: line
                             });
                             count++;
                         }
@@ -140,6 +150,15 @@ export default function AdminProducts() {
                 });
             }
         });
+    };
+
+    const getLineColor = (line?: ProductLine) => {
+        switch (line) {
+            case 'OTC': return 'bg-blue-100 text-blue-800 border-blue-200';
+            case 'Genericos': return 'bg-green-100 text-green-800 border-green-200';
+            case 'Eticos': return 'bg-purple-100 text-purple-800 border-purple-200';
+            default: return 'bg-gray-100 text-gray-800 border-gray-200';
+        }
     };
 
     return (
@@ -186,6 +205,23 @@ export default function AdminProducts() {
                                             placeholder="Ej. Aspirina 500mg"
                                             required
                                         />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Línea de Producto</Label>
+                                        <Select
+                                            value={newProduct.line}
+                                            onValueChange={(val: ProductLine) => setNewProduct({ ...newProduct, line: val })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Selecciona Línea" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="OTC">OTC (Venta Libre)</SelectItem>
+                                                <SelectItem value="Genericos">Genéricos</SelectItem>
+                                                <SelectItem value="Eticos">Éticos (Receta)</SelectItem>
+                                                <SelectItem value="Varios">Varios</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Palabras Clave (Separadas por comas)</Label>
@@ -235,6 +271,7 @@ export default function AdminProducts() {
                             <TableRow>
                                 <TableHead className="w-[50px]">Img</TableHead>
                                 <TableHead>Producto</TableHead>
+                                <TableHead>Línea</TableHead>
                                 <TableHead>Palabras Clave</TableHead>
                                 <TableHead>Puntos</TableHead>
                                 <TableHead className="text-right">Acciones</TableHead>
@@ -243,7 +280,7 @@ export default function AdminProducts() {
                         <TableBody>
                             {products.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                                         No hay productos configurados.
                                     </TableCell>
                                 </TableRow>
@@ -253,6 +290,11 @@ export default function AdminProducts() {
                                         <TableCell className="text-2xl">{product.image}</TableCell>
                                         <TableCell>
                                             <p className="font-medium">{product.name}</p>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className={getLineColor(product.line)}>
+                                                {product.line || 'OTC'}
+                                            </Badge>
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex flex-wrap gap-1">

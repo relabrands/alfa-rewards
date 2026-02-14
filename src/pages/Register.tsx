@@ -88,7 +88,7 @@ export default function Register() {
 
             toast({
                 title: '¡Registro Exitoso!',
-                description: 'Tu cuenta ha sido creada y está pendiente de aprobación por un visitador.',
+                description: 'Tu cuenta ha sido creada y está pendiente de aprobación por un vendedor.',
             });
 
             // Navigate to login or a pending page

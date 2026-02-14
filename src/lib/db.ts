@@ -60,18 +60,9 @@ export const updatePharmacy = async (id: string, data: Partial<Pharmacy>) => {
     await updateDoc(docRef, data);
 };
 
+// Deprecated: Moving to direct assignment
 export const getPharmaciesByZone = async (zones: string[]): Promise<Pharmacy[]> => {
     if (!zones || zones.length === 0) return [];
-
-    // Note: Firestore 'in' query supports max 10 values.
-    // If zones > 10, we'd need multiple queries, but for now we assume < 10.
-    // Also matching on 'zone' field or 'city'? Using 'zone' as per requirement.
-    // We try to match 'sector' or 'zone' field. Let's assume 'sector' holds the zone name based on earlier files.
-
-    // Actually, looking at AdminPharmacies.tsx or similar might verify usage.
-    // Let's assume filtering client-side for flexibility if data set is small, 
-    // or exact match query if large.
-
     const q = query(collection(db, "pharmacies"));
     const querySnapshot = await getDocs(q);
     const all = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pharmacy));
@@ -80,6 +71,24 @@ export const getPharmaciesByZone = async (zones: string[]): Promise<Pharmacy[]> 
         (p.sector && p.sector.toLowerCase().includes(z.toLowerCase())) ||
         (p.address && p.address.toLowerCase().includes(z.toLowerCase()))
     ));
+};
+
+export const getPharmaciesForRep = async (repId: string): Promise<Pharmacy[]> => {
+    // 1. Try to fetch by new assignedRepIds field
+    const q = query(collection(db, "pharmacies"), where("assignedRepIds", "array-contains", repId));
+    const snapshot = await getDocs(q);
+    const assigned = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pharmacy));
+
+    // 2. Fallback: Fetch by legacy assigned_rep_id if not found in array (migration support)
+    const qLegacy = query(collection(db, "pharmacies"), where("assigned_rep_id", "==", repId));
+    const snapshotLegacy = await getDocs(qLegacy);
+    const legacy = snapshotLegacy.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pharmacy));
+
+    // Merge and Deduplicate
+    const combined = [...assigned, ...legacy];
+    const unique = Array.from(new Map(combined.map(p => [p.id, p])).values());
+
+    return unique.sort((a, b) => a.name.localeCompare(b.name));
 };
 
 // Scans

@@ -53,7 +53,7 @@ export function SalesRepProfileSection() {
     <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Mi Perfil</h1>
-        <p className="text-muted-foreground mt-1">Información y estadísticas del visitador</p>
+        <p className="text-muted-foreground mt-1">Información y estadísticas del vendedor</p>
       </div>
 
       {/* Profile Header */}
@@ -67,7 +67,7 @@ export function SalesRepProfileSection() {
             </Avatar>
             <div>
               <h2 className="text-2xl font-bold">{currentUser.name}</h2>
-              <p className="text-muted-foreground">Visitador Médico</p>
+              <p className="text-muted-foreground">Vendedor</p>
               <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                 <Calendar className="h-4 w-4" />
                 <span className="capitalize">Desde {sinceDate}</span>
@@ -92,7 +92,7 @@ export function SalesRepProfileSection() {
           <Label>Rol</Label>
           <div className="flex items-center space-x-2">
             <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
-              Visitador Médico
+              Vendedor
             </span>
           </div>
         </div>

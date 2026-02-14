@@ -23,7 +23,7 @@ export default function PendingApproval() {
                     <p><strong>¿Qué sigue?</strong></p>
                     <ul className="list-disc list-inside text-muted-foreground">
                         <li>Tu solicitud ha sido enviada a tu zona.</li>
-                        <li>Un visitador verificará tus datos.</li>
+                        <li>Un vendedor verificará tus datos.</li>
                         <li>Una vez aprobado, podrás acceder con tu correo y contraseña.</li>
                     </ul>
                 </div>

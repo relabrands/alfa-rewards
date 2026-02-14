@@ -25,10 +25,16 @@ export interface Pharmacy {
     lat: number;
     lng: number;
     sector?: string;
+    city?: string; // Explicitly add city
     clientCode?: string;
     isActive?: boolean;
     monthlyPoints?: number;
     scanCount?: number;
+    // New Assignment Logic
+    assignedRepIds?: string[]; // Array of User IDs for easy querying
+    repAssignments?: { [repId: string]: string[] }; // Map repId -> ['OTC', 'Eticos', etc.]
+    // Deprecated but kept for backward compatibility if needed temporarily
+    assigned_rep_id?: string;
 }
 
 export interface ScanRecord {
@@ -87,12 +93,15 @@ export interface RegisteredClerk {
     pointsGenerated: number;
 }
 
+export type ProductLine = 'OTC' | 'Genericos' | 'Eticos' | 'Varios';
+
 export interface Product {
     id: string;
     name: string;
     keywords: string[]; // e.g., ["aspirina", "bayer"]
     points: number;
     image?: string;
+    line?: ProductLine; // New field
 }
 
 // Stats Interfaces
