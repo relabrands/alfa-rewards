@@ -80,8 +80,6 @@ export default function AdminUsers() {
                 phone: newRep.phone,
                 role: 'salesRep',
                 status: 'active',
-                role: 'salesRep',
-                status: 'active',
                 zone: [],
                 assignedPharmacies: newRep.assignedPharmacies,
                 productLines: newRep.productLines,
@@ -669,5 +667,55 @@ function ProductLineMultiSelect({ lines, selectedLines, onChange }: { lines: Pro
                 </PopoverContent>
             </Popover>
         </div>
+    );
+}
+
+function DeleteUserDialog({ user, onDelete }: { user: User, onDelete: () => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
+
+    const handleDelete = async () => {
+        setIsLoading(true);
+        try {
+            await deleteUser(user.id);
+            toast({ title: 'Usuario Eliminado', description: 'El usuario ha sido eliminado correctamente.' });
+            setIsOpen(false);
+            onDelete();
+        } catch (error) {
+            console.error(error);
+            toast({ title: 'Error', description: 'No se pudo eliminar el usuario', variant: 'destructive' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-destructive">
+                        <AlertTriangle className="h-5 w-5" />
+                        Eliminar Usuario
+                    </DialogTitle>
+                    <DialogDescription>
+                        ¿Estás seguro de que deseas eliminar al usuario <strong>{user.name} {user.lastName}</strong>?
+                        Esta acción no se puede deshacer y perderá el acceso al sistema.
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isLoading}>Cancelar</Button>
+                    <Button variant="destructive" onClick={handleDelete} disabled={isLoading}>
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Eliminar
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

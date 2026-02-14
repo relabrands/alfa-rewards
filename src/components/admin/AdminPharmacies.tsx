@@ -8,13 +8,15 @@ import { Label } from "@/components/ui/label";
 import { Badge } from '@/components/ui/badge';
 import { useToast } from "@/hooks/use-toast";
 import { getPharmacies, createPharmacy, updatePharmacy, deletePharmacy } from '@/lib/db';
-import { Pharmacy, User, ProductLine } from '@/lib/types';
+import { Pharmacy, User, ProductLineType } from '@/lib/types';
 import { Building2, Plus, Upload, Loader2, Search, FileSpreadsheet, Pencil, X, Check, Trash2, AlertTriangle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SECTORS, DR_LOCATIONS } from '@/lib/locations';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Checkbox } from "@/components/ui/checkbox";
+
+type ProductLine = ProductLineType;
 
 export default function AdminPharmacies() {
     const { toast } = useToast();
@@ -597,5 +599,55 @@ function AssignmentManager({ reps, assignments, onUpdate }: {
                 )}
             </div>
         </div>
+    );
+}
+
+function DeletePharmacyDialog({ pharmacy, onDelete }: { pharmacy: Pharmacy, onDelete: () => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
+
+    const handleDelete = async () => {
+        setIsLoading(true);
+        try {
+            await deletePharmacy(pharmacy.id);
+            toast({ title: 'Farmacia Eliminada', description: 'La farmacia ha sido eliminada correctamente.' });
+            setIsOpen(false);
+            onDelete();
+        } catch (error) {
+            console.error(error);
+            toast({ title: 'Error', description: 'No se pudo eliminar la farmacia', variant: 'destructive' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-destructive">
+                        <AlertTriangle className="h-5 w-5" />
+                        Eliminar Farmacia
+                    </DialogTitle>
+                    <DialogDescription>
+                        ¿Estás seguro de que deseas eliminar la farmacia <strong>{pharmacy.name}</strong>?
+                        Esta acción no se puede deshacer.
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isLoading}>Cancelar</Button>
+                    <Button variant="destructive" onClick={handleDelete} disabled={isLoading}>
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Eliminar
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
