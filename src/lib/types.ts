@@ -51,6 +51,7 @@ export interface ScanRecord {
     imageUrl?: string;
     rejectionReason?: string;
     productsFound?: { product: string; quantity: number; points: number }[];
+    expiresAt?: Date; // Points expiration date (12 months from approval)
 }
 
 export interface Reward {

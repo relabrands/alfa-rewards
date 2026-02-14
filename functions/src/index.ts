@@ -302,6 +302,14 @@ export const processInvoice = functions.firestore
             updates.pharmacyId = matchedPharmacy.id;
             updates.salesRepRewards = repRewards; // Store who got what
 
+            // Expiration Logic: 12 Months from now
+            const expirationDate = new Date();
+            expirationDate.setFullYear(expirationDate.getFullYear() + 1);
+            updates.expiresAt = admin.firestore.Timestamp.fromDate(expirationDate);
+            updates.invoiceDate = aiData.invoiceDate;
+            updates.pharmacyId = matchedPharmacy.id;
+            updates.salesRepRewards = repRewards; // Store who got what
+
             await db.collection('scans').doc(scanId).update(updates);
 
             // Update User Wallet & Stats
