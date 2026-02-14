@@ -71,7 +71,9 @@ export const processInvoice = functions.firestore
                 4. PRODUCTS:
                    - Look for these specific active products: [${productNames}].
                    - Return ONLY products that appear in this list.
-                   - for each match, extract quantity.
+                   - for each match, extract:
+                     - Quantity
+                     - Unit Price (Extract the specific price per unit for this item from the invoice columns)
 
                 5. TOTAL AMOUNT:
                    - Extract the total invoice amount.
@@ -81,7 +83,7 @@ export const processInvoice = functions.firestore
                     "pharmacyName": "Registered Name" | null,
                     "ncf": "String" | null,
                     "invoiceDate": "YYYY-MM-DD" | null,
-                    "products": [ { "name": "Registered Product Name", "quantity": number } ],
+                    "products": [ { "name": "Registered Product Name", "quantity": number, "unitPrice": number } ],
                     "totalAmount": number,
                     "rawPharmacyName": "What you actually saw",
                     "confidence": "high" | "medium" | "low"
@@ -227,13 +229,31 @@ export const processInvoice = functions.firestore
             aiData.products.forEach((match: any) => {
                 const productConfig = products.find((p: any) => p.name === match.name);
                 if (productConfig) {
-                    const pointsPerUnit = Number(productConfig.points) || 0;
                     const quantity = Number(match.quantity) || 1;
-                    const points = quantity * pointsPerUnit;
+                    const unitPrice = Number(match.unitPrice) || 0;
+
+                    // COMMISSION LOGIC: Points = (Price * Qty) * Commission%
+                    const commissionPct = Number(productConfig.commission) || 0;
+                    let points = 0;
+
+                    if (unitPrice > 0 && commissionPct > 0) {
+                        const totalSale = unitPrice * quantity;
+                        points = Math.round(totalSale * (commissionPct / 100)); // Round to nearest integer
+                    } else {
+                        // Fallback to legacy points ONLY IF commission is 0 (or price missing but we want to be nice? No, user wants strictness).
+                        // We'll fallback if commission is explicitly 0, assuming legacy product.
+                        if (commissionPct === 0) {
+                            const pointsPerUnit = Number(productConfig.points) || 0;
+                            points = quantity * pointsPerUnit;
+                        }
+                    }
+
                     totalPoints += points;
                     validProducts.push({
                         product: match.name,
                         quantity,
+                        unitPrice,
+                        commissionPct,
                         points
                     });
                 }

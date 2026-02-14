@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from "@/hooks/use-toast";
 import { getProducts, createProduct, deleteProduct } from '@/lib/db';
 import { Product, ProductLine } from '@/lib/types';
-import { ScanBarcode, PlusCircle, Trash2, Loader2, Tag, Upload } from 'lucide-react';
+import { ScanBarcode, PlusCircle, Trash2, Loader2, Tag, Upload, Percent } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import Papa from 'papaparse';
@@ -24,7 +24,8 @@ export default function AdminProducts() {
     const [newProduct, setNewProduct] = useState({
         name: '',
         keywordsString: '', // Separate by commas
-        points: 0,
+        points: 0, // Legacy/Estimated
+        commission: 0, // Percentage
         image: '💊',
         line: 'OTC' as ProductLine
     });
@@ -50,9 +51,21 @@ export default function AdminProducts() {
         }
     };
 
+    // Auto-set commission based on line
+    const handleLineChange = (val: ProductLine) => {
+        let defaultComm = 0;
+        switch (val) {
+            case 'OTC': defaultComm = 10; break;
+            case 'Genericos': defaultComm = 5; break;
+            case 'Eticos': defaultComm = 3; break;
+            default: defaultComm = 0;
+        }
+        setNewProduct({ ...newProduct, line: val, commission: defaultComm });
+    };
+
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newProduct.name || !newProduct.points || !newProduct.keywordsString) return;
+        if (!newProduct.name || !newProduct.keywordsString) return;
 
         setIsLoading(true);
         try {
@@ -61,14 +74,15 @@ export default function AdminProducts() {
             await createProduct({
                 name: newProduct.name,
                 keywords,
-                points: newProduct.points,
+                points: newProduct.points, // Legacy
+                commission: newProduct.commission,
                 image: newProduct.image,
                 line: newProduct.line
             });
 
             toast({ title: "Producto Creado", description: "El producto ha sido agregado para escaneo." });
             setIsDialogOpen(false);
-            setNewProduct({ name: '', keywordsString: '', points: 0, image: '💊', line: 'OTC' });
+            setNewProduct({ name: '', keywordsString: '', points: 0, commission: 0, image: '💊', line: 'OTC' });
             loadProducts();
         } catch (error) {
             console.error(error);
@@ -104,19 +118,23 @@ export default function AdminProducts() {
 
                 try {
                     for (const row of data) {
-                        if (row.Name && row.Points) {
+                        if (row.Name) {
                             const keywords = row.Keywords
                                 ? row.Keywords.toString().split(',').map((k: string) => k.trim().toLowerCase())
                                 : [row.Name.toLowerCase()];
 
-                            // Determine line (default to OTC if missing or invalid)
+                            // Determine line
                             const lineInput: string = row.Line ? row.Line.trim() : 'OTC';
                             const validLines: ProductLine[] = ['OTC', 'Genericos', 'Eticos', 'Varios'];
                             const line: ProductLine = validLines.includes(lineInput as any) ? (lineInput as ProductLine) : 'OTC';
 
+                            // Determine Commission
+                            const commission = parseFloat(row.Commission) || (line === 'OTC' ? 10 : (line === 'Genericos' ? 5 : 3));
+
                             await createProduct({
                                 name: row.Name,
-                                points: parseInt(row.Points) || 10,
+                                points: parseInt(row.Points) || 10, // Legacy
+                                commission: commission,
                                 keywords: keywords,
                                 image: row.Image || '💊',
                                 line: line
@@ -170,7 +188,7 @@ export default function AdminProducts() {
                             <ScanBarcode className="h-5 w-5 text-primary" />
                             Productos Participantes (IA)
                         </CardTitle>
-                        <CardDescription>Configura los productos que la IA debe detectar en las facturas</CardDescription>
+                        <CardDescription>Configura los productos y su porcentaje de comisión.</CardDescription>
                     </div>
                     <div className="flex gap-2">
                         <input
@@ -194,7 +212,7 @@ export default function AdminProducts() {
                             <DialogContent>
                                 <DialogHeader>
                                     <DialogTitle>Nuevo Producto Participante</DialogTitle>
-                                    <DialogDescription>Define el producto y las palabras clave para detectarlo.</DialogDescription>
+                                    <DialogDescription>Define el producto, línea y comisión.</DialogDescription>
                                 </DialogHeader>
                                 <form onSubmit={handleCreate} className="space-y-4">
                                     <div className="space-y-2">
@@ -206,22 +224,38 @@ export default function AdminProducts() {
                                             required
                                         />
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label>Línea de Producto</Label>
-                                        <Select
-                                            value={newProduct.line}
-                                            onValueChange={(val: ProductLine) => setNewProduct({ ...newProduct, line: val })}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Selecciona Línea" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="OTC">OTC (Venta Libre)</SelectItem>
-                                                <SelectItem value="Genericos">Genéricos</SelectItem>
-                                                <SelectItem value="Eticos">Éticos (Receta)</SelectItem>
-                                                <SelectItem value="Varios">Varios</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>Línea de Producto</Label>
+                                            <Select
+                                                value={newProduct.line}
+                                                onValueChange={(val: ProductLine) => handleLineChange(val)}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecciona Línea" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="OTC">OTC (Venta Libre)</SelectItem>
+                                                    <SelectItem value="Genericos">Genéricos</SelectItem>
+                                                    <SelectItem value="Eticos">Éticos (Receta)</SelectItem>
+                                                    <SelectItem value="Varios">Varios</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Comisión (%)</Label>
+                                            <div className="relative">
+                                                <Percent className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                                                <Input
+                                                    type="number"
+                                                    value={newProduct.commission}
+                                                    onChange={e => setNewProduct({ ...newProduct, commission: parseFloat(e.target.value) || 0 })}
+                                                    required
+                                                    className="pr-8"
+                                                />
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground">Porcentaje del valor de venta.</p>
+                                        </div>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Palabras Clave (Separadas por comas)</Label>
@@ -233,24 +267,13 @@ export default function AdminProducts() {
                                         />
                                         <p className="text-xs text-muted-foreground">La IA buscará estas palabras en la factura.</p>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label>Puntos a Otorgar</Label>
-                                            <Input
-                                                type="number"
-                                                value={newProduct.points}
-                                                onChange={e => setNewProduct({ ...newProduct, points: parseInt(e.target.value) || 0 })}
-                                                required
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>Emoji / Ícono</Label>
-                                            <Input
-                                                value={newProduct.image}
-                                                onChange={e => setNewProduct({ ...newProduct, image: e.target.value })}
-                                                placeholder="💊"
-                                            />
-                                        </div>
+                                    <div className="space-y-2">
+                                        <Label>Emoji / Ícono</Label>
+                                        <Input
+                                            value={newProduct.image}
+                                            onChange={e => setNewProduct({ ...newProduct, image: e.target.value })}
+                                            placeholder="💊"
+                                        />
                                     </div>
                                     <DialogFooter>
                                         <Button type="submit" disabled={isLoading}>
@@ -273,7 +296,7 @@ export default function AdminProducts() {
                                 <TableHead>Producto</TableHead>
                                 <TableHead>Línea</TableHead>
                                 <TableHead>Palabras Clave</TableHead>
-                                <TableHead>Puntos</TableHead>
+                                <TableHead>Comisión</TableHead>
                                 <TableHead className="text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -305,8 +328,11 @@ export default function AdminProducts() {
                                                 ))}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="font-bold text-success">
-                                            +{product.points}
+                                        <TableCell>
+                                            <div className="flex items-center gap-1 font-bold text-primary">
+                                                <Percent className="h-3 w-3" />
+                                                {product.commission || 0}%
+                                            </div>
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <Button

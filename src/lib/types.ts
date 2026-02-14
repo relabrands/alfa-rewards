@@ -99,7 +99,8 @@ export interface Product {
     id: string;
     name: string;
     keywords: string[]; // e.g., ["aspirina", "bayer"]
-    points: number;
+    points: number; // Keep for backward compat or display "Avg Points"
+    commission?: number; // New: Percentage (0-100)
     image?: string;
     line?: ProductLine; // New field
 }
