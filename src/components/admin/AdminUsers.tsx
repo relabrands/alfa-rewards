@@ -588,3 +588,85 @@ function PharmacyMultiSelect({ pharmacies, selectedIds, onChange }: { pharmacies
         </div>
     );
 }
+
+function ProductLineMultiSelect({ lines, selectedLines, onChange }: { lines: ProductLineConfig[], selectedLines: string[], onChange: (lines: string[]) => void }) {
+    const [open, setOpen] = useState(false);
+
+    const handleSelect = (currentValue: string) => {
+        // Value corresponds to Line Name
+        if (selectedLines.includes(currentValue)) {
+            onChange(selectedLines.filter(l => l !== currentValue));
+        } else {
+            onChange([...selectedLines, currentValue]);
+        }
+        setOpen(false);
+    };
+
+    const removeLine = (lineToRemove: string) => {
+        onChange(selectedLines.filter(l => l !== lineToRemove));
+    };
+
+    return (
+        <div className="space-y-2">
+            <div className="flex flex-wrap gap-2 mb-2">
+                {selectedLines.map(line => (
+                    <Badge key={line} variant="secondary" className="flex items-center gap-1 pl-2 pr-1 py-1 bg-purple-50 text-purple-700 border-purple-200">
+                        <Tag className="w-3 h-3 mr-1" />
+                        {line}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-4 w-4 rounded-full ml-1 hover:bg-destructive/10 hover:text-destructive p-0"
+                            onClick={() => removeLine(line)}
+                        >
+                            <X className="h-3 w-3" />
+                        </Button>
+                    </Badge>
+                ))}
+            </div>
+
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        className="w-full justify-between"
+                    >
+                        <span className="text-muted-foreground font-normal">
+                            {selectedLines.length > 0 ? "Agregar otra línea..." : "Seleccionar líneas..."}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                        <CommandInput placeholder="Buscar línea..." />
+                        <CommandList>
+                            <CommandEmpty>No encontrada.</CommandEmpty>
+                            <CommandGroup className="max-h-64 overflow-auto">
+                                {lines.map((line) => (
+                                    <CommandItem
+                                        key={line.id}
+                                        value={line.name}
+                                        onSelect={() => handleSelect(line.name)}
+                                    >
+                                        <div className={cn(
+                                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                            selectedLines.includes(line.name)
+                                                ? "bg-primary text-primary-foreground"
+                                                : "opacity-50 [&_svg]:invisible"
+                                        )}>
+                                            <Check className={cn("h-4 w-4", selectedLines.includes(line.name) ? "opacity-100" : "opacity-0")} />
+                                        </div>
+                                        {line.name}
+                                    </CommandItem>
+                                ))}
+                            </CommandGroup>
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
+        </div>
+    );
+}
