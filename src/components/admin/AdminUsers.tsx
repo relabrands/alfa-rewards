@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { getAllUsers, createUserProfile, updateUserProfile, getPharmacies } from '@/lib/db';
-import { User, Pharmacy } from '@/lib/types';
-import { User as UserIcon, Users, Shield, Briefcase, Search, PlusCircle, Loader2, Check, ChevronsUpDown, X, Store } from 'lucide-react';
+import { getAllUsers, createUserProfile, updateUserProfile, getPharmacies, getProductLines } from '@/lib/db';
+import { User, Pharmacy, ProductLineConfig } from '@/lib/types';
+import { User as UserIcon, Users, Shield, Briefcase, Search, PlusCircle, Loader2, Check, ChevronsUpDown, X, Store, Tag } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -29,7 +29,16 @@ export default function AdminUsers() {
     const [isLoading, setIsLoading] = useState(false);
 
     // Changed zone to string[] for better handling
-    const [newRep, setNewRep] = useState({ name: '', email: '', password: '', phone: '', zone: [] as string[] });
+    const [newRep, setNewRep] = useState({
+        name: '',
+        email: '',
+        password: '',
+        phone: '',
+        zone: [] as string[], // Deprecated
+        assignedPharmacies: [] as string[],
+        productLines: [] as string[]
+    });
+    const [productLines, setProductLines] = useState<ProductLineConfig[]>([]);
 
     useEffect(() => {
         loadData();
@@ -43,6 +52,9 @@ export default function AdminUsers() {
 
         setUsers(usersData);
         setPharmacyList(pharmaciesData);
+
+        const linesData = await getProductLines();
+        setProductLines(linesData);
 
         const phMap: Record<string, Pharmacy> = {};
         pharmaciesData.forEach(p => phMap[p.id] = p);
@@ -68,13 +80,18 @@ export default function AdminUsers() {
                 phone: newRep.phone,
                 role: 'salesRep',
                 status: 'active',
-                zone: newRep.zone, // Now passing array directly
+                role: 'salesRep',
+                status: 'active',
+                zone: [],
+                assignedPharmacies: newRep.assignedPharmacies,
+                productLines: newRep.productLines,
                 avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`
             });
 
             toast({ title: "Vendedor Creado", description: "El usuario ha sido registrado exitosamente." });
             setIsDialogOpen(false);
-            setNewRep({ name: '', email: '', password: '', phone: '', zone: [] });
+            setIsDialogOpen(false);
+            setNewRep({ name: '', email: '', password: '', phone: '', zone: [], assignedPharmacies: [], productLines: [] });
             loadUsers(); // Refresh list
         } catch (error: any) {
             console.error(error);
@@ -154,10 +171,19 @@ export default function AdminUsers() {
                                         <Input id="phone" value={newRep.phone} onChange={(e) => setNewRep({ ...newRep, phone: e.target.value })} required />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="zone">Zonas Asignadas</Label>
-                                        <ZoneMultiSelect
-                                            selectedZones={newRep.zone}
-                                            onChange={(zones) => setNewRep({ ...newRep, zone: zones })}
+                                        <Label>Farmacias Asignadas</Label>
+                                        <PharmacyMultiSelect
+                                            pharmacies={pharmacyList}
+                                            selectedIds={newRep.assignedPharmacies}
+                                            onChange={(ids) => setNewRep({ ...newRep, assignedPharmacies: ids })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Líneas de Producto</Label>
+                                        <ProductLineMultiSelect
+                                            lines={productLines}
+                                            selectedLines={newRep.productLines}
+                                            onChange={(lines) => setNewRep({ ...newRep, productLines: lines })}
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -212,14 +238,29 @@ export default function AdminUsers() {
                                             {user.status === 'pending' && <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800 border-yellow-200">Pendiente</Badge>}
                                         </TableCell>
                                         <TableCell>
-                                            {/* Sales Rep Zones */}
-                                            {user.role === 'salesRep' && user.zone && (
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="text-xs text-muted-foreground font-semibold">Zonas:</span>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {user.zone.map(z => (
-                                                            <Badge key={z} variant="secondary" className="text-[10px] px-1 py-0">{z}</Badge>
-                                                        ))}
+                                            {/* Sales Rep Assignments */}
+                                            {user.role === 'salesRep' && (
+                                                <div className="flex flex-col gap-2">
+                                                    <div>
+                                                        <span className="text-xs text-muted-foreground font-semibold">Farmacias:</span>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {(user.assignedPharmacies || []).map(phId => {
+                                                                const ph = pharmacies[phId];
+                                                                return ph ? (
+                                                                    <Badge key={phId} variant="outline" className="text-[10px] px-1 py-0">{ph.name}</Badge>
+                                                                ) : null;
+                                                            })}
+                                                            {(!user.assignedPharmacies || user.assignedPharmacies.length === 0) && <span className="text-[10px] text-muted-foreground italic">Ninguna</span>}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-xs text-muted-foreground font-semibold">Líneas:</span>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {(user.productLines || []).map(line => (
+                                                                <Badge key={line} variant="secondary" className="text-[10px] px-1 py-0">{line}</Badge>
+                                                            ))}
+                                                            {(!user.productLines || user.productLines.length === 0) && <span className="text-[10px] text-muted-foreground italic">Todas/General</span>}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             )}
@@ -246,7 +287,7 @@ export default function AdminUsers() {
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <EditUserDialog user={user} pharmacies={pharmacyList} onUpdate={loadUsers} />
+                                            <EditUserDialog user={user} pharmacies={pharmacyList} productLines={productLines} onUpdate={loadUsers} />
                                         </TableCell>
                                     </TableRow>
                                 )
@@ -259,7 +300,7 @@ export default function AdminUsers() {
     );
 }
 
-function EditUserDialog({ user, pharmacies, onUpdate }: { user: User, pharmacies: Pharmacy[], onUpdate: () => void }) {
+function EditUserDialog({ user, pharmacies, productLines, onUpdate }: { user: User, pharmacies: Pharmacy[], productLines: ProductLineConfig[], onUpdate: () => void }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
@@ -268,7 +309,8 @@ function EditUserDialog({ user, pharmacies, onUpdate }: { user: User, pharmacies
         phone: user.phone || '',
         role: user.role,
         zone: user.zone || [] as string[],
-        assignedPharmacies: user.assignedPharmacies || (user.pharmacyId ? [user.pharmacyId] : []) as string[]
+        assignedPharmacies: user.assignedPharmacies || (user.pharmacyId ? [user.pharmacyId] : []) as string[],
+        productLines: user.productLines || [] as string[]
     });
 
     const handleUpdate = async () => {
@@ -281,7 +323,10 @@ function EditUserDialog({ user, pharmacies, onUpdate }: { user: User, pharmacies
             };
 
             if (data.role === 'salesRep') {
-                updates.zone = data.zone;
+                updates.assignedPharmacies = data.assignedPharmacies;
+                updates.productLines = data.productLines;
+                // Clear zone if moving away from it
+                updates.zone = [];
             }
             if (data.role === 'clerk') {
                 updates.assignedPharmacies = data.assignedPharmacies;
@@ -325,13 +370,24 @@ function EditUserDialog({ user, pharmacies, onUpdate }: { user: User, pharmacies
                     </div>
 
                     {data.role === 'salesRep' && (
-                        <div className="space-y-2">
-                            <Label>Zonas</Label>
-                            <ZoneMultiSelect
-                                selectedZones={data.zone}
-                                onChange={(zones) => setData({ ...data, zone: zones })}
-                            />
-                        </div>
+                        <>
+                            <div className="space-y-2">
+                                <Label>Farmacias Asignadas</Label>
+                                <PharmacyMultiSelect
+                                    pharmacies={pharmacies}
+                                    selectedIds={data.assignedPharmacies}
+                                    onChange={(ids) => setData({ ...data, assignedPharmacies: ids })}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Líneas de Producto</Label>
+                                <ProductLineMultiSelect
+                                    lines={productLines}
+                                    selectedLines={data.productLines}
+                                    onChange={(lines) => setData({ ...data, productLines: lines })}
+                                />
+                            </div>
+                        </>
                     )}
 
                     {data.role === 'clerk' && (

@@ -11,8 +11,9 @@ export interface User {
     avatar?: string;
     email?: string;
     cedula?: string;
-    zone?: string[];
-    assignedPharmacies?: string[]; // List of pharmacy IDs this user works at
+    zone?: string[]; // Deprecated for Sales Reps, kept for legacy
+    assignedPharmacies?: string[]; // List of pharmacy IDs this user works at (Clerks) or covers (Sales Reps)
+    productLines?: string[]; // New: For Sales Reps, list of line names they represent (e.g., ['Nutrición', 'Oftalmología'])
     status?: 'active' | 'pending' | 'disabled';
     createdAt?: any;
     scanCount?: number;

@@ -16,8 +16,8 @@ export function SalesRepFollowUp() {
 
     useEffect(() => {
         const load = async () => {
-            if (currentUser?.zone) {
-                const data = await getTeamMembers(currentUser.zone);
+            if (currentUser?.id) {
+                const data = await getTeamMembers(currentUser.id);
                 setClerks(data as RegisteredClerk[]);
             }
             setLoading(false);

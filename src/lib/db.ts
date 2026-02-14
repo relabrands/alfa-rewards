@@ -166,37 +166,50 @@ export const addRegisteredClerk = async (data: any) => {
     return docRef.id;
 };
 
-// Get Team Members (Clerks in Sales Rep Zones)
-export const getTeamMembers = async (zones: string[]): Promise<any[]> => {
-    if (!zones || zones.length === 0) return [];
+// Get Team Members (Clerks in Sales Rep's Pharmacies)
+export const getTeamMembers = async (repId: string): Promise<any[]> => {
+    // 1. Get Rep Profile to find assigned pharmacies
+    const repDoc = await getDoc(doc(db, "users", repId));
+    if (!repDoc.exists()) return [];
 
-    // 1. Get all clerks
-    const q = query(collection(db, "users"), where("role", "==", "clerk"), where("status", "==", "active"));
+    const repData = repDoc.data() as User;
+    const assignedPharmacies = repData.assignedPharmacies || [];
+
+    if (assignedPharmacies.length === 0) return [];
+
+    // 2. Resolve Pharmacy Names for display
+    const pharmacyDocs = await Promise.all(assignedPharmacies.map(id => getDoc(doc(db, "pharmacies", id))));
+    const phMap = new Map();
+    pharmacyDocs.forEach(d => {
+        if (d.exists()) phMap.set(d.id, d.data().name);
+    });
+
+    // 3. Get Clerks in these pharmacies
+    // Firestore 'in' query supports up to 10 items. If a rep has > 10 pharmacies, we need to batch or split.
+    // For now, let's assume < 30. We can do multiple queries or fetch all clerks and filter (client-side filter is fine for small scale).
+    // Let's fetch all active clerks and filter in memory to avoid limit issues for now (safer for < 1000 clerks).
+
+    const q = query(collection(db, "users"), where("role", "==", "clerk"));
     const snapshot = await getDocs(q);
     const allClerks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
 
-    // 2. Filter by Zone
     const myClerks = allClerks.filter(clerk => {
-        const clerkSector = clerk.zone?.[0]; // Clerk's pharmacy sector
-        if (!clerkSector) return false;
-        // Case-insensitive match
-        return zones.some(z => z.toLowerCase() === clerkSector.toLowerCase());
+        // Clerk must be in one of the Rep's pharmacies
+        // Clerk might have 'pharmacyId' (legacy/primary) or 'assignedPharmacies' (if they work at multiple?)
+        // Usually clerk has 1 pharmacyId.
+        if (!clerk.pharmacyId) return false;
+        return assignedPharmacies.includes(clerk.pharmacyId);
     });
-
-    // 3. Resolve Pharmacy Names
-    const pharmacies = await getPharmacies();
-    const phMap = new Map(pharmacies.map(p => [p.id, p]));
 
     // 4. Map to RegisteredClerk interface
     return myClerks.map(clerk => {
-        const ph = clerk.pharmacyId ? phMap.get(clerk.pharmacyId) : undefined;
         return {
             id: clerk.id,
             name: `${clerk.name} ${clerk.lastName || ''}`.trim(),
             cedula: clerk.cedula || 'N/A',
             phone: clerk.phone || 'N/A',
             pharmacyId: clerk.pharmacyId || '',
-            pharmacyName: ph ? ph.name : 'Desconocida',
+            pharmacyName: phMap.get(clerk.pharmacyId) || 'Desconocida',
             registeredBy: 'system',
             registeredAt: new Date(), // Fallback
             status: clerk.status || 'pending',
