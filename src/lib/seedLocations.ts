@@ -30,10 +30,16 @@ interface RawDistrict {
 }
 
 interface RawSection {
-    section_id: number;
-    district_id?: number; // Might be linked to district or municipality directly depending on structure
-    municipality_id?: number;
-    name: string;
+    id: number;
+    distritoId?: number;
+    municipioId?: number;
+    nombre: string;
+}
+
+interface RawBarrio {
+    id: number;
+    nombre: string;
+    seccionId: number;
 }
 
 interface LocationStructure {
@@ -50,17 +56,62 @@ export const seedLocations = async () => {
         console.log('Starting seed process...');
 
         // 1. Fetch Data
-        const [provincesRes, municipalitiesRes, districtsRes] = await Promise.all([
+        const [provincesRes, municipalitiesRes, districtsRes, sectionsRes, barriosRes] = await Promise.all([
             fetch(BASE_URL + SOURCES.provinces),
             fetch(BASE_URL + SOURCES.municipalities),
-            fetch(BASE_URL + SOURCES.districts)
+            fetch(BASE_URL + SOURCES.districts),
+            fetch(BASE_URL + SOURCES.sectors),
+            fetch(BASE_URL + SOURCES.neighborhoods)
         ]);
 
         const provinces: RawProvince[] = await provincesRes.json();
         const municipalities: RawMunicipality[] = await municipalitiesRes.json();
         const districts: RawDistrict[] = await districtsRes.json();
+        const sections: RawSection[] = await sectionsRes.json();
+        const barrios: RawBarrio[] = await barriosRes.json();
 
-        console.log(`Fetched: ${provinces.length} provinces, ${municipalities.length} municipalities, ${districts.length} districts.`);
+        console.log(`Fetched: ${provinces.length} provinces, ${municipalities.length} municipalities, ${districts.length} districts, ${sections.length} sections, ${barrios.length} barrios.`);
+
+        // --- PRE-PROCESS SECTORS ---
+
+        // Map: SeccionID -> List of Barrio Names
+        const sectionToBarriosMap = new Map<number, string[]>();
+        barrios.forEach(b => {
+            const list = sectionToBarriosMap.get(b.seccionId) || [];
+            list.push(b.nombre);
+            sectionToBarriosMap.set(b.seccionId, list);
+        });
+
+        // Map: MunicipalityID -> Set of Sector Names (Set to avoid dupes)
+        const municipalitySectorsMap = new Map<number, Set<string>>();
+        // Map: DistrictID -> Set of Sector Names
+        const districtSectorsMap = new Map<number, Set<string>>();
+
+        sections.forEach(s => {
+            const barriosList = sectionToBarriosMap.get(s.id) || [];
+
+            // If valid barrios exist, use them. 
+            // If no barrios (rural section?), maybe use the section name itself? 
+            // For now, let's stick to barrios if available, or section name if list is empty.
+            // Actually, "Zona Urbana" sections usually have barrios. Rural ones might not have "barrios" listed in JSON?
+            // Let's include BOTH? Or just barrios?
+            // User wants "Sectors". Use Barrios. If no Barrios, use Section Name.
+
+            const namesToAdd = barriosList.length > 0 ? barriosList : [s.nombre];
+
+            if (s.distritoId) {
+                // Belongs to a District
+                const set = districtSectorsMap.get(s.distritoId) || new Set();
+                namesToAdd.forEach(n => set.add(n));
+                districtSectorsMap.set(s.distritoId, set);
+            } else if (s.municipioId) {
+                // Belongs to a Municipality (direct)
+                const set = municipalitySectorsMap.get(s.municipioId) || new Set();
+                namesToAdd.forEach(n => set.add(n));
+                municipalitySectorsMap.set(s.municipioId, set);
+            }
+        });
+
 
         // 2. Process Hierachy
         const batch = writeBatch(db);
@@ -81,36 +132,32 @@ export const seedLocations = async () => {
         municipalities.forEach(m => {
             const prov = provinceMap.get(m.provinciaId);
             if (prov) {
+                const sectorsSet = municipalitySectorsMap.get(m.id);
+                const sectorList = sectorsSet ? Array.from(sectorsSet).sort() : [];
+
                 prov.municipalities.push({
                     name: m.nombre,
-                    sectors: []
+                    sectors: sectorList
                 });
             }
         });
 
-        // Map Districts (as Municipalities or sub-municipalities? User asked for Prov->Muni->Sector)
-        // Let's treat districts as municipalities for now to be safe, or just skip if they obscure real munis.
-        // Actually, many "Distritos Municipales" are what users interact with. 
-        // NOTE: The JSON for districts likely uses `municipioId` or similar. 
-        // Debugging showed: Munis use `provinciaId`. Process Districts similarly.
-
+        // Map Districts (as Municipalities)
         districts.forEach(d => {
-            // We need to find the province of the municipality this district belongs to.
-            // Map MunicipalityId -> ProvinceId first
-            const muni = municipalities.find(m => m.id === d.municipioId); // Assuming structure based on standard
+            const muni = municipalities.find(m => m.id === d.municipioId);
             if (muni) {
                 const prov = provinceMap.get(muni.provinciaId);
                 if (prov) {
+                    const sectorsSet = districtSectorsMap.get(d.id);
+                    const sectorList = sectorsSet ? Array.from(sectorsSet).sort() : [];
+
                     prov.municipalities.push({
                         name: d.nombre,
-                        sectors: []
+                        sectors: sectorList
                     });
                 }
             } else {
-                // Fallback: maybe district key names are different? 
-                // We only saw prop names for prov/muni. 
-                // Let's assume standard (id, municipioId, nombre).
-                // If it fails, it's just districts.
+                // Try finding province directly via other means if needed, currently reliant on parent municipality
             }
         });
 
