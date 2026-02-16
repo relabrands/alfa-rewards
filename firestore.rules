@@ -88,5 +88,11 @@ service cloud.firestore {
     match /identity_scans/{scanId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Rules for 'locations' (Dominican Republic Political Divisions)
+    match /locations/{locationId} {
+      allow read: if isAuthenticated(); // Anyone can read locations
+      allow write: if isAdmin(); // Only admins can seed/modify
+    }
   }
 }
