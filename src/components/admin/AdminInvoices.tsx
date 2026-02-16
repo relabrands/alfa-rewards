@@ -5,11 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getAllScans, getAllPharmacies, getAllUsers } from '@/lib/db';
+import { getAllScans, getAllPharmacies, getAllUsers, rejectInvoice } from '@/lib/db';
 import { ScanRecord, Pharmacy, User } from '@/lib/types';
-import { FileText, Search, Filter, Eye, X } from 'lucide-react';
+import { FileText, Search, Filter, Eye, X, Ban, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog';
+import { useToast } from "@/hooks/use-toast";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function AdminInvoices() {
     const [scans, setScans] = useState<ScanRecord[]>([]);
@@ -26,6 +29,50 @@ export default function AdminInvoices() {
     const [selectedInvoice, setSelectedInvoice] = useState<ScanRecord | null>(null);
     const [invoiceImageUrl, setInvoiceImageUrl] = useState<string | null>(null);
     const [imageLoading, setImageLoading] = useState(false);
+
+    // Rejection State
+    const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+    const [scanToReject, setScanToReject] = useState<ScanRecord | null>(null);
+    const [rejectionReason, setRejectionReason] = useState('');
+    const [isRejecting, setIsRejecting] = useState(false);
+    const { toast } = useToast();
+
+    const openRejectDialog = (scan: ScanRecord) => {
+        setScanToReject(scan);
+        setRejectionReason('');
+        setIsRejectDialogOpen(true);
+    };
+
+    const handleRejectConfirm = async () => {
+        if (!scanToReject || !rejectionReason.trim()) return;
+
+        setIsRejecting(true);
+        try {
+            await rejectInvoice(scanToReject.id, rejectionReason);
+            toast({
+                title: "Factura Rechazada",
+                description: "Se han revertido los puntos al dependiente.",
+            });
+            setIsRejectDialogOpen(false);
+            setScanToReject(null);
+
+            // Refund Local State update to reflect change immediately (Optimistic UI or Reload)
+            setScans(prev => prev.map(s =>
+                s.id === scanToReject.id
+                    ? { ...s, status: 'rejected', rejectionReason: rejectionReason }
+                    : s
+            ));
+        } catch (error) {
+            console.error("Error rejecting invoice:", error);
+            toast({
+                title: "Error",
+                description: "No se pudo rechazar la factura.",
+                variant: "destructive"
+            });
+        } finally {
+            setIsRejecting(false);
+        }
+    };
 
     useEffect(() => {
         const loadData = async () => {
@@ -230,10 +277,15 @@ export default function AdminInvoices() {
                                             <TableCell className="text-right font-bold text-primary">
                                                 {scan.pointsEarned > 0 ? `+${scan.pointsEarned}` : '-'}
                                             </TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="text-right flex items-center justify-end gap-1">
                                                 <Button variant="ghost" size="sm" onClick={() => setSelectedInvoice(scan)}>
                                                     <Eye className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                                                 </Button>
+                                                {scan.status === 'processed' || scan.status === 'pending' || scan.status === 'flagged' ? (
+                                                    <Button variant="ghost" size="sm" onClick={() => openRejectDialog(scan)} title="Rechazar Factura">
+                                                        <Ban className="h-4 w-4 text-destructive/70 hover:text-destructive" />
+                                                    </Button>
+                                                ) : null}
                                             </TableCell>
                                         </TableRow>
                                     );

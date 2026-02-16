@@ -14,7 +14,8 @@ import {
     Timestamp,
     serverTimestamp,
     deleteDoc,
-    writeBatch
+    writeBatch,
+    increment
 } from "firebase/firestore";
 import { User, Pharmacy, ScanRecord, Reward, Product, LevelConfig, RedemptionRequest, ProductLineConfig } from "./types";
 
