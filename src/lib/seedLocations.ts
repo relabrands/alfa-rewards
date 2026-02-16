@@ -132,15 +132,39 @@ export const seedLocations = async () => {
 
         // 3. Write to Firestore
         // We write each Province as a document
+        const collectionRef = collection(db, 'locations'); // Create reference once
+
         provinceMap.forEach((data, id) => {
-            const docRef = doc(collection(db, 'locations'), data.name); // ID is Province Name
-            batch.set(docRef, data);
-            batchCount++;
+            const cleanName = data.name ? data.name.trim() : '';
+
+            if (!cleanName) {
+                console.warn(`Skipping province ID ${id} due to empty name.`);
+                return;
+            }
+
+            // Also check for empty string just in case
+            if (cleanName.length === 0) {
+                console.warn(`Skipping province ID ${id} due to empty name string.`);
+                return;
+            }
+
+            try {
+                const docRef = doc(collectionRef, cleanName); // Use validated name
+                batch.set(docRef, data);
+                batchCount++;
+            } catch (err) {
+                console.error(`Error creating doc ref for province: ${cleanName}`, err);
+            }
         });
 
-        await batch.commit();
-        console.log(`Successfully seeded ${batchCount} provinces with municipalities.`);
-        return { success: true, count: batchCount };
+        if (batchCount > 0) {
+            await batch.commit();
+            console.log(`Successfully seeded ${batchCount} provinces with municipalities.`);
+            return { success: true, count: batchCount };
+        } else {
+            console.warn("No valid provinces to seed.");
+            return { success: false, message: "No valid data found." };
+        }
 
     } catch (error) {
         console.error("Seeding failed:", error);
