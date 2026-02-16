@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from "@/hooks/use-toast";
 import { getProducts, createProduct, updateProduct, deleteProduct, getProductLines, createProductLine, updateProductLine, deleteProductLine } from '@/lib/db';
 import { Product, ProductLineConfig } from '@/lib/types';
-import { ScanBarcode, PlusCircle, Trash2, Loader2, Tag, Upload, Percent, Layers, Pencil } from 'lucide-react';
+import { ScanBarcode, PlusCircle, Trash2, Loader2, Tag, Upload, Percent, Layers, Pencil, FileSpreadsheet } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import Papa from 'papaparse';
@@ -255,6 +255,29 @@ export default function AdminProducts() {
         });
     };
 
+    const handleDownloadTemplate = () => {
+        const headers = ['Name', 'Keywords', 'Points', 'Commission', 'Image', 'Line'];
+        const rows = [
+            ['Ejemplo Aspirina', 'dolor, cabeza, fiebre', '10', '5', '💊', 'General'],
+            ['Jarabe Tos', 'tos, gripe, garganta', '15', '10', 'aa', 'Pediatria']
+        ];
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'plantilla_productos.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="h-full space-y-6">
             {/* Top Section: Line Management */}
@@ -345,6 +368,10 @@ export default function AdminProducts() {
                             <CardDescription>Gestión de productos individuales.</CardDescription>
                         </div>
                         <div className="flex gap-2">
+                            <Button variant="outline" onClick={handleDownloadTemplate} title="Descargar plantilla CSV">
+                                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                Plantilla
+                            </Button>
                             <input
                                 type="file"
                                 accept=".csv"
