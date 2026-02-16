@@ -27,6 +27,7 @@ export interface Pharmacy {
     lng: number;
     sector?: string;
     city?: string; // Explicitly add city
+    province?: string; // New: Province
     clientCode?: string;
     isActive?: boolean;
     monthlyPoints?: number;

@@ -15,6 +15,7 @@ import { SECTORS, DR_LOCATIONS } from '@/lib/locations';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Checkbox } from "@/components/ui/checkbox";
+import LocationSelector from '@/components/common/LocationSelector';
 
 type ProductLine = ProductLineType;
 
@@ -32,13 +33,15 @@ export default function AdminPharmacies() {
     const [newPharmacy, setNewPharmacy] = useState<{
         name: string;
         address: string;
-        city: string;
+        province: string;
+        city: string; // Will store Municipality
         sector: string;
         clientCode: string;
         repAssignments: { [repId: string]: ProductLine[] };
     }>({
         name: '',
         address: '',
+        province: '',
         city: '',
         sector: '',
         clientCode: '',
@@ -85,6 +88,7 @@ export default function AdminPharmacies() {
             await createPharmacy({
                 name: newPharmacy.name,
                 address: newPharmacy.address,
+                province: newPharmacy.province,
                 city: newPharmacy.city,
                 sector: newPharmacy.sector,
                 clientCode: newPharmacy.clientCode,
@@ -100,7 +104,7 @@ export default function AdminPharmacies() {
 
             toast({ title: "Farmacia Creada", description: "Se ha agregado la farmacia exitosamente." });
             setIsSingleDialogOpen(false);
-            setNewPharmacy({ name: '', address: '', city: '', sector: '', clientCode: '', repAssignments: {} });
+            setNewPharmacy({ name: '', address: '', province: '', city: '', sector: '', clientCode: '', repAssignments: {} });
             loadPharmacies();
         } catch (error) {
             toast({ title: "Error", description: "No se pudo crear la farmacia.", variant: "destructive" });
@@ -163,40 +167,16 @@ export default function AdminPharmacies() {
                                         <Input id="name" value={newPharmacy.name} onChange={(e) => setNewPharmacy({ ...newPharmacy, name: e.target.value })} required />
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label>Ciudad</Label>
-                                            <Select
-                                                value={newPharmacy.city}
-                                                onValueChange={(val) => setNewPharmacy({ ...newPharmacy, city: val, sector: '' })}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Selecciona Ciudad" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {Object.keys(DR_LOCATIONS).sort().map(city => (
-                                                        <SelectItem key={city} value={city}>{city}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>Sector</Label>
-                                            <Select
-                                                value={newPharmacy.sector}
-                                                onValueChange={(val) => setNewPharmacy({ ...newPharmacy, sector: val })}
-                                                disabled={!newPharmacy.city}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Selecciona Sector" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {availableSectors.map(sec => (
-                                                        <SelectItem key={sec} value={sec}>{sec}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
+                                    <div className="space-y-4 border p-4 rounded-md bg-slate-50">
+                                        <Label>Ubicación</Label>
+                                        <LocationSelector
+                                            onLocationChange={(loc) => setNewPharmacy({
+                                                ...newPharmacy,
+                                                province: loc.province,
+                                                city: loc.municipality,
+                                                sector: loc.sector
+                                            })}
+                                        />
                                     </div>
 
                                     <div className="space-y-2">
@@ -295,7 +275,7 @@ export default function AdminPharmacies() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Nombre</TableHead>
-                                <TableHead>Dirección / Sector</TableHead>
+                                <TableHead>Ubicación</TableHead>
                                 <TableHead>Código Cliente</TableHead>
                                 <TableHead>Vendedores</TableHead>
                                 <TableHead className="text-right">Estado</TableHead>
@@ -314,9 +294,10 @@ export default function AdminPharmacies() {
                                     <TableRow key={p.id}>
                                         <TableCell className="font-medium">{p.name}</TableCell>
                                         <TableCell>
-                                            <div className="flex flex-col">
-                                                <span>{p.address}</span>
-                                                {p.sector && <span className="text-xs text-muted-foreground">{p.sector}</span>}
+                                            <div className="flex flex-col text-sm">
+                                                <span className="font-medium">{p.province || 'Sin Provincia'}</span>
+                                                <span>{p.city}, {p.sector}</span>
+                                                <span className="text-xs text-muted-foreground">{p.address}</span>
                                             </div>
                                         </TableCell>
                                         <TableCell>
@@ -371,6 +352,8 @@ function EditPharmacyDialog({ pharmacy, reps, onUpdate }: { pharmacy: Pharmacy, 
     const [data, setData] = useState({
         name: pharmacy.name,
         address: pharmacy.address,
+        province: pharmacy.province || '', // New field
+        city: pharmacy.city || '',
         sector: pharmacy.sector || '',
         clientCode: pharmacy.clientCode || '',
         isActive: pharmacy.isActive,
@@ -418,23 +401,19 @@ function EditPharmacyDialog({ pharmacy, reps, onUpdate }: { pharmacy: Pharmacy, 
                         <Label>Dirección</Label>
                         <Input value={data.address} onChange={e => setData({ ...data, address: e.target.value })} />
                     </div>
-                    <div className="space-y-2">
-                        <Label>Sector</Label>
-                        <Select
-                            value={data.sector}
-                            onValueChange={(value) => setData({ ...data, sector: value })}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Selecciona un sector" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {SECTORS.map((sector) => (
-                                    <SelectItem key={sector} value={sector}>
-                                        {sector}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                    <div className="space-y-4 border p-4 rounded-md bg-slate-50">
+                        <Label>Ubicación</Label>
+                        <LocationSelector
+                            initialProvince={data.province}
+                            initialMunicipality={data.city}
+                            initialSector={data.sector}
+                            onLocationChange={(loc) => setData({
+                                ...data,
+                                province: loc.province,
+                                city: loc.municipality,
+                                sector: loc.sector
+                            })}
+                        />
                     </div>
 
                     <div className="space-y-2">
