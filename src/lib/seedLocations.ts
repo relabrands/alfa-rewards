@@ -129,10 +129,13 @@ export const seedLocations = async () => {
         });
 
         // Map Municipalities
-        municipalities.forEach(m => {
+        // NOTE: The source JSON for municipalities does NOT have an 'id' field. 
+        // We assume ID = index + 1 based on the relational data in sections/districts.
+        municipalities.forEach((m, index) => {
+            const muniId = index + 1;
             const prov = provinceMap.get(m.provinciaId);
             if (prov) {
-                const sectorsSet = municipalitySectorsMap.get(m.id);
+                const sectorsSet = municipalitySectorsMap.get(muniId) || new Set(); // Use generated ID
                 const sectorList = sectorsSet ? Array.from(sectorsSet).sort() : [];
 
                 prov.municipalities.push({
@@ -143,12 +146,23 @@ export const seedLocations = async () => {
         });
 
         // Map Districts (as Municipalities)
-        districts.forEach(d => {
-            const muni = municipalities.find(m => m.id === d.municipioId);
+        // Similarly, districts might lack IDs or need index-based logic. 
+        // Let's check if districts have IDs. If not, use index + 1. 
+        // Actually, district IDs might conflict with Muni IDs if we just use 1..N.
+        // But here we are just mapping SECTORS to them. 
+        // unique ID for district is needed to find its sectors.
+        districts.forEach((d, index) => {
+            // If District has no ID, assume Index + 1. 
+            // We need to check if 'd' has 'id'. 
+            // The simulation showed 'distritoId' in sections, so districts must have IDs. 
+            // Let's assume District JSON order matches IDs: 1..N.
+            const distId = (d as any).id || (index + 1);
+
+            const muni = municipalities.find((m, mIndex) => (mIndex + 1) === d.municipioId);
             if (muni) {
                 const prov = provinceMap.get(muni.provinciaId);
                 if (prov) {
-                    const sectorsSet = districtSectorsMap.get(d.id);
+                    const sectorsSet = districtSectorsMap.get(distId);
                     const sectorList = sectorsSet ? Array.from(sectorsSet).sort() : [];
 
                     prov.municipalities.push({
