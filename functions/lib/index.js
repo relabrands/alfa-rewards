@@ -251,6 +251,11 @@ exports.processInvoice = functions.firestore
                         points = quantity * pointsPerUnit;
                     }
                 }
+                // CHECK STATUS: If Inactive, points = 0
+                if (productConfig.status === 'inactive') {
+                    console.log(`Product ${match.name} is INACTIVE. Zero points awarded.`);
+                    points = 0;
+                }
                 totalPoints += points;
                 validProducts.push({
                     product: match.name,
@@ -289,6 +294,13 @@ exports.processInvoice = functions.firestore
         updates.pointsEarned = totalPoints;
         updates.productsFound = validProducts;
         updates.ncf = aiData.ncf;
+        updates.invoiceDate = aiData.invoiceDate;
+        updates.pharmacyId = matchedPharmacy.id;
+        updates.salesRepRewards = repRewards; // Store who got what
+        // Expiration Logic: 12 Months from now
+        const expirationDate = new Date();
+        expirationDate.setFullYear(expirationDate.getFullYear() + 1);
+        updates.expiresAt = admin.firestore.Timestamp.fromDate(expirationDate);
         updates.invoiceDate = aiData.invoiceDate;
         updates.pharmacyId = matchedPharmacy.id;
         updates.salesRepRewards = repRewards; // Store who got what
