@@ -206,22 +206,32 @@ export default function AdminProducts() {
 
                 try {
                     for (const row of data) {
-                        if (row.Name) {
-                            const keywords = row.Keywords
-                                ? row.Keywords.toString().split(',').map((k: string) => k.trim().toLowerCase())
-                                : [row.Name.toLowerCase()];
+                        // Support both English (Legacy) and Spanish (New) headers
+                        const name = row.Name || row.Producto;
+
+                        if (name) {
+                            const keywordsRaw = row.Keywords || row['Palabras Clave'];
+                            const keywords = keywordsRaw
+                                ? keywordsRaw.toString().split(',').map((k: string) => k.trim().toLowerCase())
+                                : [name.toLowerCase()];
 
                             // Line Matching
-                            const lineName = row.Line ? row.Line.trim() : 'General';
+                            const lineNameRaw = row.Line || row.Linea || 'General';
+                            const lineName = lineNameRaw.trim();
                             const matchedLine = lines.find(l => l.name.toLowerCase() === lineName.toLowerCase());
-                            const commission = matchedLine ? matchedLine.commission : (parseFloat(row.Commission) || 0);
+
+                            const commissionRaw = row.Commission || row['Comisión'];
+                            const commission = matchedLine ? matchedLine.commission : (parseFloat(commissionRaw) || 0);
+
+                            const image = row.Image || row.Img || '💊';
+                            const points = parseInt(row.Points || '0');
 
                             await createProduct({
-                                name: row.Name,
-                                points: parseInt(row.Points) || 0, // Legacy
+                                name: name,
+                                points: points, // Legacy
                                 commission: commission,
                                 keywords: keywords,
-                                image: row.Image || '💊',
+                                image: image,
                                 line: matchedLine ? matchedLine.name : lineName
                             });
                             count++;
@@ -256,10 +266,11 @@ export default function AdminProducts() {
     };
 
     const handleDownloadTemplate = () => {
-        const headers = ['Name', 'Keywords', 'Points', 'Commission', 'Image', 'Line'];
+        // Updated Headers to Spanish as requested: Img, Producto, Linea, Palabras Clave, Comisión
+        const headers = ['Img', 'Producto', 'Linea', 'Palabras Clave', 'Comisión'];
         const rows = [
-            ['Ejemplo Aspirina', 'dolor, cabeza, fiebre', '10', '5', '💊', 'General'],
-            ['Jarabe Tos', 'tos, gripe, garganta', '15', '10', 'aa', 'Pediatria']
+            ['💊', 'Ejemplo Aspirina', 'General', 'dolor, cabeza, fiebre', '5'],
+            ['aa', 'Jarabe Tos', 'Pediatria', 'tos, gripe, garganta', '10']
         ];
 
         const csvContent = [

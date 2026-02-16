@@ -658,3 +658,46 @@ export const getClerkPerformance = async () => {
         };
     }).sort((a, b) => b.lifetimePoints - a.lifetimePoints); // Sort by lifetime points
 };
+// Invoices rejection
+export const rejectInvoice = async (scanId: string, reason: string) => {
+    const scanRef = doc(db, "scans", scanId);
+    const scanSnap = await getDoc(scanRef);
+
+    if (!scanSnap.exists()) {
+        throw new Error("Factura no encontrada");
+    }
+
+    const scanData = scanSnap.data() as ScanRecord;
+    const { userId, pointsEarned, pharmacyId } = scanData;
+
+    const batch = writeBatch(db);
+
+    // 1. Update Scan Status
+    batch.update(scanRef, {
+        status: 'rejected',
+        rejectionReason: reason
+    });
+
+    // 2. Reverse User Points (if user exists and points were > 0)
+    if (userId && pointsEarned > 0) {
+        const userRef = doc(db, "users", userId);
+        batch.update(userRef, {
+            points: increment(-pointsEarned),
+            scanCount: increment(-1),
+            monthlyPoints: increment(-pointsEarned),
+            monthlySales: increment(-pointsEarned * 10)
+        });
+    }
+
+    // 3. Reverse Pharmacy Stats (if pharmacy exists)
+    if (pharmacyId && pointsEarned > 0) {
+        const pharmacyRef = doc(db, "pharmacies", pharmacyId);
+        batch.update(pharmacyRef, {
+            scanCount: increment(-1),
+            monthlyPoints: increment(-pointsEarned),
+            lifetimePoints: increment(-pointsEarned)
+        });
+    }
+
+    await batch.commit();
+};
