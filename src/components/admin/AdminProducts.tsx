@@ -38,7 +38,8 @@ export default function AdminProducts() {
         points: 0,
         commission: 0,
         image: '💊',
-        line: ''
+        line: '',
+        status: 'active'
     });
 
     const [lineForm, setLineForm] = useState({
@@ -123,7 +124,8 @@ export default function AdminProducts() {
                 points: product.points,
                 commission: product.commission || 0,
                 image: product.image || '💊',
-                line: product.line || ''
+                line: product.line || '',
+                status: product.status || 'active'
             });
         } else {
             setEditingProduct(null);
@@ -133,7 +135,8 @@ export default function AdminProducts() {
                 points: 0,
                 commission: 0,
                 image: '💊',
-                line: ''
+                line: '',
+                status: 'active'
             });
         }
         setIsProductDialogOpen(true);
@@ -161,7 +164,8 @@ export default function AdminProducts() {
                 points: productForm.points,
                 commission: productForm.commission,
                 image: productForm.image,
-                line: productForm.line
+                line: productForm.line,
+                status: productForm.status as 'active' | 'inactive' | 'pending'
             };
 
             if (editingProduct) {
@@ -466,6 +470,22 @@ export default function AdminProducts() {
                                                 placeholder="💊"
                                             />
                                         </div>
+                                        <div className="space-y-2">
+                                            <Label>Estado</Label>
+                                            <Select
+                                                value={productForm.status}
+                                                onValueChange={(val) => setProductForm({ ...productForm, status: val })}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="active">Activo (Genera Puntos)</SelectItem>
+                                                    <SelectItem value="inactive">Inactivo (No Genera Puntos)</SelectItem>
+                                                    <SelectItem value="pending">Pendiente</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                         <DialogFooter>
                                             <Button type="submit" disabled={isLoading}>
                                                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -488,6 +508,7 @@ export default function AdminProducts() {
                                     <TableHead>Línea</TableHead>
                                     <TableHead>Palabras Clave</TableHead>
                                     <TableHead>Comisión</TableHead>
+                                    <TableHead>Estado</TableHead>
                                     <TableHead className="text-right">Acciones</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -524,6 +545,11 @@ export default function AdminProducts() {
                                                     <Percent className="h-3 w-3" />
                                                     {product.commission || 0}%
                                                 </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant={product.status === 'inactive' ? 'destructive' : product.status === 'pending' ? 'secondary' : 'default'} className={product.status === 'active' || !product.status ? 'bg-green-600' : ''}>
+                                                    {product.status === 'active' || !product.status ? 'Activo' : product.status === 'inactive' ? 'Inactivo' : 'Pendiente'}
+                                                </Badge>
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <Button

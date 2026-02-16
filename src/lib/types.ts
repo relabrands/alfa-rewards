@@ -112,6 +112,7 @@ export interface Product {
     commission?: number; // New: Percentage (0-100) - Denormalized from Line
     image?: string;
     line?: string; // Changed from ProductLine to string to support dynamic lines
+    status?: 'active' | 'inactive' | 'pending';
 }
 
 // Stats Interfaces

@@ -256,6 +256,12 @@ export const processInvoice = functions.firestore
                         }
                     }
 
+                    // CHECK STATUS: If Inactive, points = 0
+                    if (productConfig.status === 'inactive') {
+                        console.log(`Product ${match.name} is INACTIVE. Zero points awarded.`);
+                        points = 0;
+                    }
+
                     totalPoints += points;
                     validProducts.push({
                         product: match.name,
