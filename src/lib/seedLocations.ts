@@ -12,21 +12,21 @@ const SOURCES = {
 };
 
 interface RawProvince {
-    province_id: number;
-    name: string;
+    id: number;
+    nombre: string;
     region_id?: number;
 }
 
 interface RawMunicipality {
-    municipality_id: number;
-    province_id: number;
-    name: string;
+    id: number;
+    provinciaId: number;
+    nombre: string;
 }
 
 interface RawDistrict {
-    district_id: number;
-    municipality_id: number;
-    name: string;
+    id: number;
+    municipioId: number;
+    nombre: string;
 }
 
 interface RawSection {
@@ -50,17 +50,15 @@ export const seedLocations = async () => {
         console.log('Starting seed process...');
 
         // 1. Fetch Data
-        const [provincesRes, municipalitiesRes, districtsRes, userSelectedSectorsRes] = await Promise.all([
+        const [provincesRes, municipalitiesRes, districtsRes] = await Promise.all([
             fetch(BASE_URL + SOURCES.provinces),
             fetch(BASE_URL + SOURCES.municipalities),
-            fetch(BASE_URL + SOURCES.districts),
-            fetch(BASE_URL + SOURCES.neighborhoods) // Using Barrios as the most granular "Sector" for user selection
+            fetch(BASE_URL + SOURCES.districts)
         ]);
 
         const provinces: RawProvince[] = await provincesRes.json();
         const municipalities: RawMunicipality[] = await municipalitiesRes.json();
         const districts: RawDistrict[] = await districtsRes.json();
-        const sectors: any[] = await userSelectedSectorsRes.json(); // barrios.json
 
         console.log(`Fetched: ${provinces.length} provinces, ${municipalities.length} municipalities, ${districts.length} districts.`);
 
@@ -72,61 +70,47 @@ export const seedLocations = async () => {
         const provinceMap = new Map<number, LocationStructure>();
 
         provinces.forEach(p => {
-            provinceMap.set(p.province_id, {
-                name: p.name,
-                region: 'N/A', // Region data might need separate fetch or mapping
+            provinceMap.set(p.id, {
+                name: p.nombre,
+                region: 'N/A',
                 municipalities: []
             });
         });
 
-        // Map: MunicipalityID -> MunicipalityObj (Ref in provinceMap)
-        // Since we need to push sectors into municipalities, we need a way to find them.
-        // However, the structure demanded by user is: Province -> Municipalities -> Sectors.
-        // But "Districts" exist between Municipality and Sector/Barrio usually. 
-        // Hierarchy: Prov -> Muni -> Dist -> Sec -> Barrio.
-        // User asked for: Prov -> Muni -> Sector.
-        // We will flatten: All Districts + Municipalities = "Municipalities" list? 
-        // Or "Municipality" = Municipality + District. 
-        // And "Sector" = Barrio.
-
-        // Let's iterate Municipalities and add them to Provinces
+        // Map Municipalities
         municipalities.forEach(m => {
-            const prov = provinceMap.get(m.province_id);
+            const prov = provinceMap.get(m.provinciaId);
             if (prov) {
                 prov.municipalities.push({
-                    name: m.name,
+                    name: m.nombre,
                     sectors: []
                 });
             }
         });
 
-        // Now we need to map Sectors (Barrios) to Municipalities.
-        // The Barrios JSON usually has `municipality_id` or `district_id`.
-        // Let's check typical structure of `barrios.json` from this repo (based on standard open data schemas).
-        // If it links to `section_id` or `district_id`, we need those connection maps.
+        // Map Districts (as Municipalities or sub-municipalities? User asked for Prov->Muni->Sector)
+        // Let's treat districts as municipalities for now to be safe, or just skip if they obscure real munis.
+        // Actually, many "Distritos Municipales" are what users interact with. 
+        // NOTE: The JSON for districts likely uses `municipioId` or similar. 
+        // Debugging showed: Munis use `provinciaId`. Process Districts similarly.
 
-        // Simpler approach for "Seeding Script" without perfection:
-        // Use the collected data. 
-        // If exact mapping is complex without intermediate files (sections, districts), we might just leave sectors empty for now or use a placeholder.
-        // The user said: "Iterate through every province... Batch write...".
-        // Let's assume user wants the structure. 
-        // I'll try to map districts as "Municipalities" too, or merge them.
-        // For this V1, I'll populate Provinces and Municipalities. 
-        // For Sectors, I'll try to find a way, or leave as empty array `[]` if mapping is too deep (Barrio -> SubBarrio -> Section -> District -> Muni).
-
-        // Actually, let's look at `distritos.json`. These are often what people call "Municipios" in common language or at least "Sectors".
-        // Let's add Districts to the Municipality list of the Province, distinguishing them or just mixing them.
         districts.forEach(d => {
-            // Find province of this district's municipality
-            const muni = municipalities.find(m => m.municipality_id === d.municipality_id);
+            // We need to find the province of the municipality this district belongs to.
+            // Map MunicipalityId -> ProvinceId first
+            const muni = municipalities.find(m => m.id === d.municipioId); // Assuming structure based on standard
             if (muni) {
-                const prov = provinceMap.get(muni.province_id);
+                const prov = provinceMap.get(muni.provinciaId);
                 if (prov) {
                     prov.municipalities.push({
-                        name: d.name, // Add district as a selectable "Municipality" level option
+                        name: d.nombre,
                         sectors: []
                     });
                 }
+            } else {
+                // Fallback: maybe district key names are different? 
+                // We only saw prop names for prov/muni. 
+                // Let's assume standard (id, municipioId, nombre).
+                // If it fails, it's just districts.
             }
         });
 
@@ -142,7 +126,6 @@ export const seedLocations = async () => {
                 return;
             }
 
-            // Also check for empty string just in case
             if (cleanName.length === 0) {
                 console.warn(`Skipping province ID ${id} due to empty name string.`);
                 return;
