@@ -12,8 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { auth, firebaseConfig } from '@/lib/firebase';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SECTORS } from '@/lib/locations';
@@ -70,7 +71,11 @@ export default function AdminUsers() {
         e.preventDefault();
         setIsLoading(true);
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, newRep.email, newRep.password);
+            // Use a secondary Firebase app to avoid logging out the admin
+            const secondaryApp = getApps().find(app => app.name === "Secondary") || initializeApp(firebaseConfig, "Secondary");
+            const secondaryAuth = getAuth(secondaryApp);
+
+            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newRep.email, newRep.password);
             const user = userCredential.user;
 
             await createUserProfile(user.uid, {
@@ -86,8 +91,10 @@ export default function AdminUsers() {
                 avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`
             });
 
+            // Sign out the secondary auth so we don't hold the user's session
+            await signOut(secondaryAuth);
+
             toast({ title: "Vendedor Creado", description: "El usuario ha sido registrado exitosamente." });
-            setIsDialogOpen(false);
             setIsDialogOpen(false);
             setNewRep({ name: '', email: '', password: '', phone: '', zone: [], assignedPharmacies: [], productLines: [] });
             loadUsers(); // Refresh list
