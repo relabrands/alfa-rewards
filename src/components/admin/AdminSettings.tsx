@@ -3,13 +3,43 @@ import { Button } from '@/components/ui/button';
 import { Settings, Save, AlertTriangle, Database } from 'lucide-react';
 import { resetSystemDatabase } from '@/lib/db';
 import { seedLocations } from '@/lib/seedLocations';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { getSystemConfig, updateSystemConfig } from '@/lib/db';
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminSettings() {
     const [isResetting, setIsResetting] = useState(false);
     const [isSeeding, setIsSeeding] = useState(false);
+    const [globalAiRules, setGlobalAiRules] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        loadConfig();
+    }, []);
+
+    const loadConfig = async () => {
+        const config = await getSystemConfig();
+        if (config && config.globalAIRules) {
+            setGlobalAiRules(config.globalAIRules);
+        }
+    };
+
+    const handleSaveGlobalAiRules = async () => {
+        setIsSaving(true);
+        try {
+            await updateSystemConfig({ globalAIRules: globalAiRules });
+            toast({ title: 'Configuración de IA Guardada', description: 'Las reglas globales han sido actualizadas.' });
+        } catch (error) {
+            console.error(error);
+            toast({ title: 'Error', description: 'No se pudieron guardar las reglas de IA.', variant: 'destructive' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const handleReset = async () => {
         if (confirm("⚠️ ¿ESTÁS SEGURO? \n\nEsto borrará TODOS los puntos de los usuarios, eliminará EL HISTORIAL de escaneos y reiniciará la base de datos operativa. \n\nEsta acción NO se puede deshacer.")) {
@@ -69,6 +99,33 @@ export default function AdminSettings() {
                     <Button>
                         <Save className="mr-2 h-4 w-4" /> Guardar Cambios
                     </Button>
+                </div>
+
+                <div className="border-t border-purple-100 bg-purple-50/50 p-6 rounded-xl mt-4">
+                    <div className="flex flex-col gap-4">
+                        <div>
+                            <h3 className="text-lg font-bold text-purple-700">Reglas Globales de IA (Prompt Global)</h3>
+                            <p className="text-sm text-purple-600/80 mb-2">
+                                Estas instrucciones se enviarán siempre a la IA en cada análisis de factura, independientemente de la farmacia.
+                                Usa esto para reglas de validación de NCF, formatos de fecha o exclusiones generales.
+                            </p>
+                            <Textarea
+                                value={globalAiRules}
+                                onChange={(e) => setGlobalAiRules(e.target.value)}
+                                placeholder="Ej: Las facturas deben tener un NCF que empiece con B o E. La fecha debe estar en el año actual..."
+                                className="min-h-[150px] bg-white border-purple-200"
+                            />
+                        </div>
+                        <div className="flex justify-end">
+                            <Button
+                                onClick={handleSaveGlobalAiRules}
+                                disabled={isSaving}
+                                className="bg-purple-600 hover:bg-purple-700"
+                            >
+                                {isSaving ? "Guardando..." : "Guardar Reglas de IA"}
+                            </Button>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="border-t border-blue-100 bg-blue-50/50 p-6 rounded-xl mt-4">

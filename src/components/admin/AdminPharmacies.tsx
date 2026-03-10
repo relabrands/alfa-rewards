@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from "@/hooks/use-toast";
 import { getPharmacies, createPharmacy, updatePharmacy, deletePharmacy } from '@/lib/db';
 import { Pharmacy, User, ProductLineType } from '@/lib/types';
-import { Building2, Plus, Upload, Loader2, Search, FileSpreadsheet, Pencil, X, Check, Trash2, AlertTriangle } from 'lucide-react';
+import { Building2, Plus, Upload, Loader2, Search, FileSpreadsheet, Pencil, X, Check, Trash2, AlertTriangle, Sparkles } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SECTORS, DR_LOCATIONS } from '@/lib/locations';
 import { collection, query, where, getDocs } from 'firebase/firestore';
@@ -37,6 +37,7 @@ export default function AdminPharmacies() {
         city: string; // Will store Municipality
         sector: string;
         clientCode: string;
+        aiRules: string;
         repAssignments: { [repId: string]: ProductLine[] };
     }>({
         name: '',
@@ -45,6 +46,7 @@ export default function AdminPharmacies() {
         city: '',
         sector: '',
         clientCode: '',
+        aiRules: '',
         repAssignments: {}
     });
 
@@ -92,6 +94,7 @@ export default function AdminPharmacies() {
                 city: newPharmacy.city,
                 sector: newPharmacy.sector,
                 clientCode: newPharmacy.clientCode,
+                aiRules: newPharmacy.aiRules,
                 repAssignments: newPharmacy.repAssignments,
                 assignedRepIds: assignedRepIds,
                 // Deprecated but kept for compatibility logic loops
@@ -104,7 +107,7 @@ export default function AdminPharmacies() {
 
             toast({ title: "Farmacia Creada", description: "Se ha agregado la farmacia exitosamente." });
             setIsSingleDialogOpen(false);
-            setNewPharmacy({ name: '', address: '', province: '', city: '', sector: '', clientCode: '', repAssignments: {} });
+            setNewPharmacy({ name: '', address: '', province: '', city: '', sector: '', clientCode: '', aiRules: '', repAssignments: {} });
             loadPharmacies();
         } catch (error) {
             toast({ title: "Error", description: "No se pudo crear la farmacia.", variant: "destructive" });
@@ -198,6 +201,22 @@ export default function AdminPharmacies() {
                                     <div className="space-y-2">
                                         <Label htmlFor="clientCode">Código de Cliente (Opcional)</Label>
                                         <Input id="clientCode" value={newPharmacy.clientCode || ''} onChange={(e) => setNewPharmacy({ ...newPharmacy, clientCode: e.target.value })} />
+                                    </div>
+
+                                    <div className="space-y-4 border p-4 rounded-md bg-purple-50 border-purple-100">
+                                        <div className="flex items-center gap-2">
+                                            <Sparkles className="h-4 w-4 text-purple-600" />
+                                            <Label className="text-purple-700 font-semibold">Instrucciones Específicas de IA</Label>
+                                        </div>
+                                        <p className="text-xs text-purple-600/80">
+                                            Añade reglas o contexto especial que la IA deba considerar <b>únicamente para esta farmacia</b>.
+                                        </p>
+                                        <textarea
+                                            value={newPharmacy.aiRules}
+                                            onChange={(e) => setNewPharmacy({ ...newPharmacy, aiRules: e.target.value })}
+                                            placeholder="Ej: Aceptar recibos manuales timbrados, o el NCF puede tener este formato especial..."
+                                            className="w-full min-h-[80px] p-3 rounded-md border border-purple-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        />
                                     </div>
 
                                     <DialogFooter>
@@ -356,6 +375,7 @@ function EditPharmacyDialog({ pharmacy, reps, onUpdate }: { pharmacy: Pharmacy, 
         city: pharmacy.city || '',
         sector: pharmacy.sector || '',
         clientCode: pharmacy.clientCode || '',
+        aiRules: pharmacy.aiRules || '',
         isActive: pharmacy.isActive,
         repAssignments: pharmacy.repAssignments || (pharmacy.assigned_rep_id ? { [pharmacy.assigned_rep_id]: ['OTC', 'Genericos', 'Eticos', 'Varios'] as ProductLine[] } : {})
     });
@@ -431,6 +451,23 @@ function EditPharmacyDialog({ pharmacy, reps, onUpdate }: { pharmacy: Pharmacy, 
                         <Label>Código Cliente</Label>
                         <Input value={data.clientCode} onChange={e => setData({ ...data, clientCode: e.target.value })} />
                     </div>
+
+                    <div className="space-y-4 border p-4 rounded-md bg-purple-50 border-purple-100">
+                        <div className="flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-purple-600" />
+                            <Label className="text-purple-700 font-semibold">Instrucciones Específicas de IA</Label>
+                        </div>
+                        <p className="text-xs text-purple-600/80">
+                            Añade reglas o contexto especial que la IA deba considerar <b>únicamente para esta farmacia</b>.
+                        </p>
+                        <textarea
+                            value={data.aiRules}
+                            onChange={(e) => setData({ ...data, aiRules: e.target.value })}
+                            placeholder="Ej: Aceptar recibos manuales timbrados, o el NCF puede tener este formato especial..."
+                            className="w-full min-h-[80px] p-3 rounded-md border border-purple-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
+                    </div>
+
                     <div className="space-y-2">
                         <Label>Estado</Label>
                         <Select

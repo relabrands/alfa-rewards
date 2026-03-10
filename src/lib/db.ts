@@ -17,7 +17,7 @@ import {
     writeBatch,
     increment
 } from "firebase/firestore";
-import { User, Pharmacy, ScanRecord, Reward, Product, LevelConfig, RedemptionRequest, ProductLineConfig } from "./types";
+import { User, Pharmacy, ScanRecord, Reward, Product, LevelConfig, RedemptionRequest, ProductLineConfig, SystemConfig } from "./types";
 
 // Users
 export const getUserProfile = async (uid: string): Promise<User | null> => {
@@ -700,4 +700,21 @@ export const rejectInvoice = async (scanId: string, reason: string) => {
     }
 
     await batch.commit();
+};
+// System Config
+export const getSystemConfig = async (): Promise<SystemConfig | null> => {
+    const docRef = doc(db, "system", "config");
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as SystemConfig;
+    } else {
+        return null;
+    }
+};
+
+export const updateSystemConfig = async (data: Partial<SystemConfig>) => {
+    const docRef = doc(db, "system", "config");
+    // Use setDoc with merge to create it if it doesn't exist
+    await setDoc(docRef, data, { merge: true });
 };

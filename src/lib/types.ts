@@ -37,6 +37,7 @@ export interface Pharmacy {
     repAssignments?: { [repId: string]: string[] }; // Map repId -> ['OTC', 'Eticos', etc.]
     // Deprecated but kept for backward compatibility if needed temporarily
     assigned_rep_id?: string;
+    aiRules?: string; // Specific AI instructions for this pharmacy
 }
 
 export interface ScanRecord {
@@ -136,4 +137,9 @@ export interface LevelConfig {
     rewardDescription: string;
     rewardImage?: string;
     color?: string; // Hex code or tailwind class
+}
+
+export interface SystemConfig {
+    id: string;
+    globalAIRules?: string;
 }

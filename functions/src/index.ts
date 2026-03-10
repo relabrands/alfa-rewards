@@ -45,19 +45,51 @@ export const processInvoice = functions.firestore
             const pharmacies = pharmaciesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             const pharmacyNames = pharmacies.map((p: any) => p.name).join(', ');
 
+            // Fetch System Config for Global AI Rules
+            const configSnap = await db.collection('system').doc('config').get();
+            const globalAIRules = configSnap.exists ? configSnap.data()?.globalAIRules || '' : '';
+
+            // Fetch User Profile to identify Local Context (Pharmacy)
+            const userRef = db.collection('users').doc(newData.userId);
+            const userSnap = await userRef.get();
+            if (!userSnap.exists) {
+                throw new Error("User not found");
+            }
+            const userData = userSnap.data();
+
+            // Build Local Context
+            // For Clerks, usually they have 1 assigned pharmacy.
+            const allowedPharmacyIds = userData?.assignedPharmacies || [];
+            if (userData?.pharmacyId && !allowedPharmacyIds.includes(userData.pharmacyId)) {
+                allowedPharmacyIds.push(userData.pharmacyId);
+            }
+
+            // Find their pharmacies to extract names and specific AI rules
+            const userPharmacies = pharmacies.filter((p: any) => allowedPharmacyIds.includes(p.id));
+            const expectedPharmacyNames = userPharmacies.map((p: any) => p.name).join(' OR ');
+            const localAiRules = userPharmacies.map((p: any) => p.aiRules).filter(Boolean).join('\n');
+            const expectedClientCodes = userPharmacies.map((p: any) => p.clientCode).filter(Boolean).join(', ');
+
             console.log(`Context: ${products.length} products, ${pharmacies.length} pharmacies.`);
 
-            // 2. Strict Prompt Construction
+            // 2. Strict Prompt Construction (Two-Layer)
+            const LAYER_1_GLOBAL = globalAIRules ? `[GLOBAL RULES]\n${globalAIRules}` : '';
+            const LAYER_2_LOCAL = `[LOCAL CONTEXT]\nExpected_Pharmacy_Name: ${expectedPharmacyNames || 'Ninguna Asignada'} \nExpected_Client_Codes: ${expectedClientCodes || 'N/A'}\nSpecific_Alerts: ${localAiRules || 'Ninguna'}`;
+
             const prompt = `
-                Analyze this invoice image STRICTLY.
+                ${LAYER_1_GLOBAL}
+                ---
+                ${LAYER_2_LOCAL}
+                ---
+                Analyze this invoice image STRICTLY taking into consideration the rules above.
                 
                 You must extract and validate the following information against my provided lists:
 
                 1. PHARMACY MATCHING:
                    - Extract the pharmacy name from the header.
-                   - Check if it matches ANY of these registered pharmacies: [${pharmacyNames}].
-                   - If it matches (even with slight variation), return the EXACT registered name.
-                   - If it does NOT match any, return null for pharmacyName.
+                   - Verify that the extracted pharmacy name matches the 'Expected_Pharmacy_Name' provided in the [LOCAL CONTEXT].
+                   - If it matches the Expected Pharmacy Name (even with slight variation), return the EXACT registered name from this overall list: [${pharmacyNames}].
+                   - If it does NOT match the Expected Pharmacy Name, return null for pharmacyName. This is CRITICAL to prevent users from scanning invoices from other pharmacies.
 
                 2. NCF (Comprobante Fiscal):
                    - Extract the NCF code (e.g. B0100000001, E4500000001). 
@@ -121,11 +153,11 @@ export const processInvoice = functions.firestore
 
             // --- STRICT VALIDATION CHAIN ---
 
-            // Check 1: Pharmacy
+            // Check 1: Pharmacy (Location Mismatch Logic)
             if (!aiData.pharmacyName) {
                 updates.status = 'rejected';
-                updates.rejectionReason = `Farmacia no registrada o no identificada: "${aiData.rawPharmacyName || 'Desconocida'}"`;
-                console.log(`Scan ${scanId} rejected: Invalid Pharmacy`);
+                updates.rejectionReason = `Location Mismatch / Farmacia no identificada: Detectado "${aiData.rawPharmacyName || 'Desconocida'}", Esperado "${expectedPharmacyNames}"`;
+                console.log(`Scan ${scanId} rejected: Location Mismatch`);
                 await db.collection('scans').doc(scanId).update(updates);
                 return null;
             }
@@ -194,14 +226,6 @@ export const processInvoice = functions.firestore
             }
 
             // 5. Strict Pharmacy Assignment Validation
-            const userRef = db.collection('users').doc(newData.userId);
-            const userSnap = await userRef.get();
-            if (!userSnap.exists) {
-                // Should not happen, but safe fail
-                throw new Error("User not found");
-            }
-            const userData = userSnap.data();
-
             // Get detected pharmacy configuration
             const matchedPharmacy = pharmacies.find((p: any) => p.name === aiData.pharmacyName);
             if (!matchedPharmacy) {
@@ -209,15 +233,13 @@ export const processInvoice = functions.firestore
                 return null;
             }
 
-            // Allowed Pharmacy IDs
-            const allowedPharmacies = userData?.assignedPharmacies || [];
-            if (userData?.pharmacyId) allowedPharmacies.push(userData.pharmacyId);
+            // Allowed Pharmacy IDs (already fetched above as allowedPharmacyIds)
 
             // Strict Check
-            if (!allowedPharmacies.includes(matchedPharmacy.id)) {
+            if (!allowedPharmacyIds.includes(matchedPharmacy.id)) {
                 updates.status = 'rejected';
                 updates.rejectionReason = `Farmacia no autorizada para este usuario. (Detectada: ${aiData.pharmacyName})`;
-                console.log(`Scan ${scanId} rejected: Pharmacy ${matchedPharmacy.id} not in user's assigned list [${allowedPharmacies.join(', ')}]`);
+                console.log(`Scan ${scanId} rejected: Pharmacy ${matchedPharmacy.id} not in user's assigned list [${allowedPharmacyIds.join(', ')}]`);
                 await db.collection('scans').doc(scanId).update(updates);
                 return null;
             }
