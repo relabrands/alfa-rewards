@@ -197,6 +197,26 @@ export default function AdminProducts() {
         }
     };
 
+    const handleDeleteAllProducts = async () => {
+        if (!confirm("¿Estás seguro de eliminar TODOS los productos? Esta acción no se puede deshacer.")) return;
+        
+        setIsLoading(true);
+        let count = 0;
+        try {
+            for (const product of products) {
+                await deleteProduct(product.id);
+                count++;
+            }
+            toast({ title: "Productos Eliminados", description: `Se han eliminado ${count} productos correctamente.` });
+            loadData();
+        } catch (error) {
+            console.error("Error deleting all products:", error);
+            toast({ title: "Error", description: "Hubo un problema al eliminar algunos productos.", variant: 'destructive' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -383,6 +403,10 @@ export default function AdminProducts() {
                             <CardDescription>Gestión de productos individuales.</CardDescription>
                         </div>
                         <div className="flex gap-2">
+                            <Button variant="destructive" onClick={handleDeleteAllProducts} disabled={isLoading || products.length === 0} title="Eliminar todos los productos">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Borrar Todos
+                            </Button>
                             <Button variant="outline" onClick={handleDownloadTemplate} title="Descargar plantilla CSV">
                                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                                 Plantilla
