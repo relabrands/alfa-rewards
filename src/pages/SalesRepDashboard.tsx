@@ -14,11 +14,11 @@ export default function SalesRepDashboard() {
   const [activeSection, setActiveSection] = useState<SalesRepSection>('dashboard');
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen flex" style={{ background: 'hsl(210 20% 97%)' }}>
       <SalesRepSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
 
-      <main className="flex-1 p-6 overflow-auto bg-slate-50/50">
-        <div className="max-w-7xl mx-auto">
+      <main className="flex-1 overflow-auto">
+        <div className="max-w-7xl mx-auto p-6 lg:p-8">
           {activeSection === 'dashboard' && <SalesRepStats />}
           {activeSection === 'approvals' && <SalesRepApprovals />}
           {activeSection === 'pharmacies' && <SalesRepPharmacies />}

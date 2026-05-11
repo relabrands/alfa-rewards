@@ -3,116 +3,165 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useApp } from '@/context/AppContext';
-import { getPharmaciesByZone, getTeamMembers } from '@/lib/db';
-import { Trophy, Medal, Building2, Users } from 'lucide-react';
+import { getPharmaciesForRep, getTeamMembers } from '@/lib/db';
+import { Trophy, Medal, Building2, Users, Loader2 } from 'lucide-react';
 import { RegisteredClerk, Pharmacy } from '@/lib/types';
+
+const RANK_STYLES = [
+    { bg: 'linear-gradient(135deg,#f59e0b,#d97706)', text: '#fff', label: '🥇' },
+    { bg: 'linear-gradient(135deg,#9ca3af,#6b7280)', text: '#fff', label: '🥈' },
+    { bg: 'linear-gradient(135deg,#d97706,#b45309)', text: '#fff', label: '🥉' },
+];
 
 export function SalesRepPerformance() {
     const { currentUser } = useApp();
     const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
     const [clerks, setClerks] = useState<RegisteredClerk[]>([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const load = async () => {
-            if (currentUser?.zone) {
-                const phs = await getPharmaciesByZone(currentUser.zone);
-                // Sort by monthly points (assuming monthlyPoints exists)
-                setPharmacies(phs.sort((a, b) => (b.monthlyPoints || 0) - (a.monthlyPoints || 0)));
-
-                const cls = await getTeamMembers(currentUser.zone);
-                setClerks((cls as RegisteredClerk[]).sort((a, b) => (b.pointsGenerated || 0) - (a.pointsGenerated || 0)));
+            if (currentUser?.id) {
+                try {
+                    const [phs, cls] = await Promise.all([
+                        getPharmaciesForRep(currentUser.id),
+                        getTeamMembers(currentUser.id),
+                    ]);
+                    setPharmacies(phs.sort((a, b) => (b.monthlyPoints || 0) - (a.monthlyPoints || 0)));
+                    setClerks((cls as RegisteredClerk[]).sort((a, b) => (b.pointsGenerated || 0) - (a.pointsGenerated || 0)));
+                } catch (err) {
+                    console.error('Error loading performance:', err);
+                }
             }
+            setLoading(false);
         };
         load();
-    }, [currentUser]);
+    }, [currentUser?.id]);
+
+    const RankingItem = ({ rank, name, subtitle, value, unit }: {
+        rank: number; name: string; subtitle: string; value: number | string; unit: string;
+    }) => {
+        const style = RANK_STYLES[rank] || { bg: 'hsl(210 20% 92%)', text: '#64748b', label: `${rank + 1}` };
+        return (
+            <div className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors rounded-xl group">
+                <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-sm font-bold shadow"
+                    style={{ background: style.bg, color: style.text }}
+                >
+                    {style.label}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">{name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
+                </div>
+                <Badge
+                    variant="outline"
+                    className="font-mono text-xs shrink-0 bg-white"
+                >
+                    {typeof value === 'number' ? value.toLocaleString() : value} {unit}
+                </Badge>
+            </div>
+        );
+    };
 
     return (
         <div className="space-y-6 animate-fade-in">
             <div>
                 <h1 className="text-2xl font-bold text-foreground">Rendimiento</h1>
-                <p className="text-muted-foreground">Rankings de tu zona</p>
+                <p className="text-muted-foreground mt-1">Rankings de tu zona</p>
             </div>
 
-            <Tabs defaultValue="clerks" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
-                    <TabsTrigger value="clerks">Top Dependientes</TabsTrigger>
-                    <TabsTrigger value="pharmacies">Top Farmacias</TabsTrigger>
-                </TabsList>
+            {loading ? (
+                <div className="flex items-center justify-center gap-3 py-20 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Cargando rankings...
+                </div>
+            ) : (
+                <Tabs defaultValue="clerks" className="w-full">
+                    <TabsList className="h-10 bg-slate-100 rounded-xl p-1">
+                        <TabsTrigger value="clerks" className="rounded-lg text-sm">
+                            <Users className="h-4 w-4 mr-2" /> Top Dependientes
+                        </TabsTrigger>
+                        <TabsTrigger value="pharmacies" className="rounded-lg text-sm">
+                            <Building2 className="h-4 w-4 mr-2" /> Top Farmacias
+                        </TabsTrigger>
+                    </TabsList>
 
-                <TabsContent value="clerks" className="mt-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Users className="w-5 h-5 text-primary" /> Ranking de Dependientes
-                            </CardTitle>
-                            <CardDescription>Basado en puntos generados (Total Histórico)</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            <div className="divide-y">
-                                {clerks.slice(0, 10).map((clerk, index) => (
-                                    <div key={clerk.id} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors">
-                                        <div className={`
-                                            w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
-                                            ${index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                                                index === 1 ? 'bg-slate-200 text-slate-700' :
-                                                    index === 2 ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-500'}
-                                        `}>
-                                            {index + 1}
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="font-bold text-sm">{clerk.name}</p>
-                                            <p className="text-xs text-muted-foreground">{clerk.pharmacyName}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <Badge variant="outline" className="font-mono">
-                                                {clerk.pointsGenerated.toLocaleString()} pts
-                                            </Badge>
-                                        </div>
+                    <TabsContent value="clerks" className="mt-5">
+                        <Card className="rounded-2xl border shadow-sm overflow-hidden" style={{ borderColor: 'hsl(210 20% 92%)' }}>
+                            <CardHeader className="border-b pb-4" style={{ borderColor: 'hsl(210 20% 92%)' }}>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)' }}>
+                                        <Trophy className="w-5 h-5 text-white" />
                                     </div>
-                                ))}
-                                {clerks.length === 0 && <div className="p-8 text-center text-muted-foreground">Cargando datos...</div>}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+                                    <div>
+                                        <CardTitle className="text-base">Ranking de Dependientes</CardTitle>
+                                        <CardDescription className="text-xs">Basado en puntos generados (total histórico)</CardDescription>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-2">
+                                {clerks.length === 0 ? (
+                                    <div className="p-8 text-center text-muted-foreground">
+                                        <Users className="h-8 w-8 mx-auto mb-3 opacity-30" />
+                                        <p className="text-sm">No hay datos de dependientes.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-1">
+                                        {clerks.slice(0, 10).map((clerk, index) => (
+                                            <RankingItem
+                                                key={clerk.id}
+                                                rank={index}
+                                                name={clerk.name}
+                                                subtitle={clerk.pharmacyName || ''}
+                                                value={clerk.pointsGenerated || 0}
+                                                unit="pts"
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
 
-                <TabsContent value="pharmacies" className="mt-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Building2 className="w-5 h-5 text-primary" /> Ranking de Farmacias
-                            </CardTitle>
-                            <CardDescription>Basado en puntos acumulados este mes</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            <div className="divide-y">
-                                {pharmacies.slice(0, 10).map((ph, index) => (
-                                    <div key={ph.id} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors">
-                                        <div className={`
-                                            w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
-                                            ${index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                                                index === 1 ? 'bg-slate-200 text-slate-700' :
-                                                    index === 2 ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-500'}
-                                        `}>
-                                            {index + 1}
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="font-bold text-sm">{ph.name}</p>
-                                            <p className="text-xs text-muted-foreground">{ph.sector}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <Badge variant="secondary" className="font-mono">
-                                                {ph.monthlyPoints?.toLocaleString() || 0} pts
-                                            </Badge>
-                                        </div>
+                    <TabsContent value="pharmacies" className="mt-5">
+                        <Card className="rounded-2xl border shadow-sm overflow-hidden" style={{ borderColor: 'hsl(210 20% 92%)' }}>
+                            <CardHeader className="border-b pb-4" style={{ borderColor: 'hsl(210 20% 92%)' }}>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
+                                        <Building2 className="w-5 h-5 text-white" />
                                     </div>
-                                ))}
-                                {pharmacies.length === 0 && <div className="p-8 text-center text-muted-foreground">Cargando datos...</div>}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
+                                    <div>
+                                        <CardTitle className="text-base">Ranking de Farmacias</CardTitle>
+                                        <CardDescription className="text-xs">Basado en puntos acumulados este mes</CardDescription>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-2">
+                                {pharmacies.length === 0 ? (
+                                    <div className="p-8 text-center text-muted-foreground">
+                                        <Building2 className="h-8 w-8 mx-auto mb-3 opacity-30" />
+                                        <p className="text-sm">No hay datos de farmacias.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-1">
+                                        {pharmacies.slice(0, 10).map((ph, index) => (
+                                            <RankingItem
+                                                key={ph.id}
+                                                rank={index}
+                                                name={ph.name}
+                                                subtitle={ph.sector || ph.address || ''}
+                                                value={ph.monthlyPoints || 0}
+                                                unit="pts/mes"
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
+            )}
         </div>
     );
 }
