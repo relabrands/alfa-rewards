@@ -15,7 +15,9 @@ import {
     serverTimestamp,
     deleteDoc,
     writeBatch,
-    increment
+    increment,
+    arrayUnion,
+    arrayRemove
 } from "firebase/firestore";
 import { User, Pharmacy, ScanRecord, Reward, Product, LevelConfig, RedemptionRequest, ProductLineConfig, SystemConfig } from "./types";
 
@@ -34,6 +36,24 @@ export const getUserProfile = async (uid: string): Promise<User | null> => {
 export const createUserProfile = async (uid: string, data: Partial<User>) => {
     const docRef = doc(db, "users", uid);
     await setDoc(docRef, data, { merge: true });
+
+    // ─── Bidirectional sync ───────────────────────────────────────────────────
+    // If this user is a salesRep with assigned pharmacies, update each pharmacy's
+    // assignedRepIds so that getPharmaciesForRep always returns correct results.
+    if (data.role === 'salesRep' && data.assignedPharmacies && data.assignedPharmacies.length > 0) {
+        const batch = writeBatch(db);
+        for (const pharmId of data.assignedPharmacies) {
+            const pharmRef = doc(db, "pharmacies", pharmId);
+            batch.update(pharmRef, {
+                assignedRepIds: arrayUnion(uid)
+            });
+        }
+        await batch.commit();
+    }
+    // If this user is a clerk with an assigned pharmacy, keep pharmacyId in sync.
+    if (data.role === 'clerk' && data.assignedPharmacies && data.assignedPharmacies.length > 0) {
+        await updateDoc(docRef, { pharmacyId: data.assignedPharmacies[0] });
+    }
 };
 
 export const updateUserPoints = async (uid: string, newPoints: number) => {
@@ -57,11 +77,49 @@ export const createPharmacy = async (data: Omit<Pharmacy, 'id'>) => {
         ...data,
         isActive: true
     });
-    return docRef.id;
+    const newPharmId = docRef.id;
+
+    // ─── Bidirectional sync ───────────────────────────────────────────────────
+    // Add this new pharmacy to each assigned rep's assignedPharmacies list.
+    const repIds = data.assignedRepIds || Object.keys(data.repAssignments || {});
+    if (repIds.length > 0) {
+        const batch = writeBatch(db);
+        for (const repId of repIds) {
+            const repRef = doc(db, "users", repId);
+            batch.update(repRef, {
+                assignedPharmacies: arrayUnion(newPharmId)
+            });
+        }
+        await batch.commit();
+    }
+    return newPharmId;
 };
 
 export const updatePharmacy = async (id: string, data: Partial<Pharmacy>) => {
     const docRef = doc(db, "pharmacies", id);
+
+    // ─── Bidirectional sync ───────────────────────────────────────────────────
+    // When rep assignments change, we need to:
+    // 1. Remove this pharmacy from reps that were de-assigned.
+    // 2. Add this pharmacy to reps that were newly assigned.
+    if (data.assignedRepIds !== undefined) {
+        const prevSnap = await getDoc(docRef);
+        const prevRepIds: string[] = prevSnap.exists() ? (prevSnap.data().assignedRepIds || []) : [];
+        const newRepIds: string[] = data.assignedRepIds;
+
+        const added = newRepIds.filter(r => !prevRepIds.includes(r));
+        const removed = prevRepIds.filter(r => !newRepIds.includes(r));
+
+        const batch = writeBatch(db);
+        for (const repId of added) {
+            batch.update(doc(db, "users", repId), { assignedPharmacies: arrayUnion(id) });
+        }
+        for (const repId of removed) {
+            batch.update(doc(db, "users", repId), { assignedPharmacies: arrayRemove(id) });
+        }
+        await batch.commit();
+    }
+
     await updateDoc(docRef, data);
 };
 
@@ -395,6 +453,33 @@ export const updateUserStatus = async (uid: string, status: 'active' | 'pending'
 
 export const updateUserProfile = async (uid: string, data: Partial<User>) => {
     const docRef = doc(db, "users", uid);
+
+    // ─── Bidirectional sync ───────────────────────────────────────────────────
+    // When a salesRep's assignedPharmacies change, keep each pharmacy's
+    // assignedRepIds in sync (add/remove as needed).
+    if (data.role === 'salesRep' && data.assignedPharmacies !== undefined) {
+        const prevSnap = await getDoc(docRef);
+        const prevPharmIds: string[] = prevSnap.exists() ? (prevSnap.data().assignedPharmacies || []) : [];
+        const newPharmIds: string[] = data.assignedPharmacies;
+
+        const added = newPharmIds.filter(p => !prevPharmIds.includes(p));
+        const removed = prevPharmIds.filter(p => !newPharmIds.includes(p));
+
+        const batch = writeBatch(db);
+        for (const pharmId of added) {
+            batch.update(doc(db, "pharmacies", pharmId), { assignedRepIds: arrayUnion(uid) });
+        }
+        for (const pharmId of removed) {
+            batch.update(doc(db, "pharmacies", pharmId), { assignedRepIds: arrayRemove(uid) });
+        }
+        await batch.commit();
+    }
+
+    // When a clerk's assignedPharmacies change, keep pharmacyId in sync.
+    if (data.role === 'clerk' && data.assignedPharmacies !== undefined && data.assignedPharmacies.length > 0) {
+        data.pharmacyId = data.assignedPharmacies[0];
+    }
+
     await updateDoc(docRef, data);
 };
 
