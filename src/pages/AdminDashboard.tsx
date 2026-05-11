@@ -2,14 +2,13 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { useApp } from '@/context/AppContext';
-import { liveScanLocations, pharmacies } from '@/lib/constants';
 import { ScanRecord, DashboardStats } from '@/lib/types';
 import { getAdminStats, getFlaggedScans } from '@/lib/db';
 import {
-  Map, Users, DollarSign, TrendingUp, CheckCircle2, XCircle, Trophy, History,
-  AlertTriangle, Settings, LogOut, Pill, BarChart3, Activity, Building2, Gift, Clock, ChevronRight, FileText
+  Map, Users, TrendingUp, CheckCircle2, XCircle, Trophy, History,
+  AlertTriangle, Settings, LogOut, Pill, BarChart3, Activity, Building2, Gift, Clock,
+  FileText, ChevronRight, Zap, ShieldCheck
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
@@ -26,8 +25,21 @@ import AdminInvoices from '@/components/admin/AdminInvoices';
 
 type AdminView = 'dashboard' | 'map' | 'users' | 'pharmacies' | 'settings' | 'rewards' | 'products' | 'analytics' | 'levels' | 'invoices';
 
+const NAV_ITEMS = [
+  { view: 'dashboard' as const, label: 'Dashboard', icon: BarChart3, color: 'from-cyan-500 to-blue-500' },
+  { view: 'invoices' as const, label: 'Facturas', icon: FileText, color: 'from-amber-500 to-orange-500' },
+  { view: 'map' as const, label: 'Mapa en Vivo', icon: Map, color: 'from-emerald-500 to-teal-500' },
+  { view: 'users' as const, label: 'Usuarios', icon: Users, color: 'from-blue-500 to-indigo-500' },
+  { view: 'pharmacies' as const, label: 'Farmacias', icon: Building2, color: 'from-violet-500 to-purple-500' },
+  { view: 'rewards' as const, label: 'Premios', icon: Gift, color: 'from-pink-500 to-rose-500' },
+  { view: 'products' as const, label: 'Productos (IA)', icon: Pill, color: 'from-lime-500 to-green-500' },
+  { view: 'levels' as const, label: 'Niveles', icon: Trophy, color: 'from-yellow-500 to-amber-500' },
+  { view: 'analytics' as const, label: 'Analítica', icon: TrendingUp, color: 'from-orange-500 to-red-500' },
+  { view: 'settings' as const, label: 'Configuración', icon: Settings, color: 'from-slate-500 to-slate-600' },
+];
+
 export default function AdminDashboard() {
-  const { campaignMode, setCampaignMode, logout, currentUser } = useApp();
+  const { logout, currentUser } = useApp();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [currentView, setCurrentView] = useState<AdminView>('dashboard');
@@ -40,9 +52,11 @@ export default function AdminDashboard() {
     roi: '0%'
   });
   const [flaggedInvoices, setFlaggedInvoices] = useState<ScanRecord[]>([]);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
     if (currentView === 'dashboard') {
+      setLoadingStats(true);
       const loadDashboardData = async () => {
         try {
           const data = await getAdminStats();
@@ -51,6 +65,8 @@ export default function AdminDashboard() {
           setFlaggedInvoices(flagged);
         } catch (error) {
           console.error("Error loading admin stats:", error);
+        } finally {
+          setLoadingStats(false);
         }
       };
       loadDashboardData();
@@ -62,15 +78,9 @@ export default function AdminDashboard() {
     navigate('/');
   };
 
-  const handleApprove = (id: string) => {
-    toast({ title: '✅ Factura Aprobada', description: 'Los puntos han sido acreditados' });
-    setFlaggedInvoices(prev => prev.filter(i => i.id !== id));
-  };
-
-  const handleReject = (id: string) => {
-    toast({ title: '❌ Factura Rechazada', description: 'Se ha notificado al dependiente', variant: 'destructive' });
-    setFlaggedInvoices(prev => prev.filter(i => i.id !== id));
-  };
+  const initials = currentUser?.name
+    ? currentUser.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+    : 'A';
 
   const renderContent = () => {
     switch (currentView) {
@@ -83,299 +93,390 @@ export default function AdminDashboard() {
       case 'levels': return <AdminLevels />;
       case 'invoices': return <AdminInvoices />;
       case 'settings': return <AdminSettings />;
-      default: return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Dashboard Director</h1>
-              <p className="text-muted-foreground mt-1">Vista general del rendimiento hoy, {new Date().toLocaleDateString('es-DO', { weekday: 'long', day: 'numeric', month: 'long' })}.</p>
-            </div>
-            <Card className="p-3 bg-secondary/50 border-0">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-white rounded-full shadow-sm">
-                  <Clock className="w-4 h-4 text-primary" />
-                </div>
-                <span className="text-sm font-medium pr-2">Actualizado: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-              </div>
-            </Card>
-          </div>
-
-          {/* KPI Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="hover:shadow-md transition-all border-l-4 border-l-primary/50">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Puntos Hoy</p>
-                    <p className="text-2xl font-black mt-2">{stats.totalPointsToday?.toLocaleString()}</p>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full mt-1 inline-block ${stats.roi.startsWith('-') ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                      {stats.roi}
-                    </span>
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <Trophy className="h-5 w-5 text-primary" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="hover:shadow-md transition-all border-l-4 border-l-purple-500/50">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Dependientes Active</p>
-                    <p className="text-2xl font-black mt-2">{stats.activeClerks}</p>
-                    <span className="text-xs text-purple-600 font-bold bg-purple-100 px-2 py-0.5 rounded-full mt-1 inline-block">En Turno</span>
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
-                    <Users className="h-5 w-5 text-purple-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="hover:shadow-md transition-all border-l-4 border-l-orange-500/50">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Validación</p>
-                    <p className="text-2xl font-black mt-2">{flaggedInvoices.length}</p>
-                    <span className="text-xs text-orange-600 font-bold bg-orange-100 px-2 py-0.5 rounded-full mt-1 inline-block">Pendientes</span>
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
-                    <AlertTriangle className="h-5 w-5 text-orange-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="hover:shadow-md transition-all border-l-4 border-l-green-500/50">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Farmacias</p>
-                    <p className="text-2xl font-black mt-2">{stats.totalPharmacies}</p>
-                    <span className="text-xs text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded-full mt-1 inline-block">Activas</span>
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-                    <Building2 className="h-5 w-5 text-green-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Charts & Lists Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Sales Chart (2 Cols) */}
-            <Card className="lg:col-span-2 shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-primary" />
-                  Tendencia de Puntos (7 Días)
-                </CardTitle>
-                <CardDescription>Puntos generados por escaneos validados</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px] w-full">
-                  {/* Dynamic Chart */}
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stats.pointsChart || []}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis
-                        dataKey="name"
-                        tick={{ fontSize: 12, fill: '#64748b' }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 12, fill: '#64748b' }}
-                        axisLine={false}
-                        tickLine={false}
-                        tickFormatter={(value) => `${value}`}
-                      />
-                      <Tooltip
-                        cursor={{ fill: '#f1f5f9' }}
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      />
-                      <Bar
-                        dataKey="points"
-                        fill="hsl(var(--primary))"
-                        radius={[4, 4, 0, 0]}
-                        barSize={32}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Top Clerks List (1 Col) */}
-            <Card className="shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-gold" />
-                  Top Dependientes
-                </CardTitle>
-                <CardDescription>Líderes de la semana</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-slate-50">
-                  {stats.topClerks?.map((clerk, i) => (
-                    <div key={clerk.id} className="p-4 flex items-center gap-3 hover:bg-slate-50 transition-colors">
-                      <div className={`
-                                    w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs
-                                    ${i === 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-600'}
-                                `}>
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold truncate">{clerk.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{clerk.pharmacyId || 'N/A'}</p>
-                      </div>
-                      <div className="text-right">
-                        <Badge variant="secondary" className="font-mono flex flex-col items-end gap-0.5 h-auto py-1">
-                          <span className="font-bold">{clerk.lifetimePoints?.toLocaleString()} pts</span>
-                          <span className="text-[10px] text-muted-foreground font-normal uppercase">Histórico</span>
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                  {(!stats.topClerks || stats.topClerks.length === 0) && (
-                    <div className="p-8 text-center text-sm text-muted-foreground">Cargando datos...</div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Bottom Row: Map & Recent */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Reusing existing Map Logic */}
-            <Card className="cursor-pointer hover:shadow-md transition-shadow group overflow-hidden" onClick={() => setCurrentView('map')}>
-              <CardHeader className="bg-slate-50/50">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Activity className="h-5 w-5 text-success animate-pulse" />
-                      Mapa en Vivo
-                    </CardTitle>
-                    <CardDescription>Visualización geográfica de escaneos</CardDescription>
-                  </div>
-                  <Button variant="ghost" size="sm" className="group-hover:translate-x-1 transition-transform">
-                    Ver Mapa <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="relative h-64 bg-muted">
-                  {/* Simplified Map Graphic for Dashboard Preview */}
-                  <div className="absolute inset-0 flex items-center justify-center bg-slate-100 text-slate-400">
-                    <Map className="w-12 h-12 opacity-20" />
-                    <span className="absolute mt-16 text-xs font-medium uppercase tracking-widest text-slate-500">Vista Previa del Mapa</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity Stream */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <History className="w-5 h-5 text-muted-foreground" />
-                  Últimos Escaneos
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-border">
-                  {stats.recentActivity?.map((activity, i) => (
-                    <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50">
-                      <div className="flex items-center gap-3">
-                        {activity.status === 'processed' ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        ) : activity.status === 'rejected' ? (
-                          <XCircle className="w-4 h-4 text-red-500" />
-                        ) : (
-                          <Clock className="w-4 h-4 text-yellow-500" />
-                        )}
-                        <div>
-                          <p className="text-sm font-medium">{activity.description}</p>
-                          <p className="text-xs text-muted-foreground">{activity.timestamp}</p>
-                        </div>
-                      </div>
-                      <span className="font-bold text-sm text-primary">{activity.points?.toLocaleString()} pts</span>
-                    </div>
-                  ))}
-                  {(!stats.recentActivity || stats.recentActivity.length === 0) && (
-                    <div className="p-4 text-center text-muted-foreground text-sm">No hay actividad reciente</div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      );
+      default: return <AdminOverview stats={stats} flaggedInvoices={flaggedInvoices} loading={loadingStats} setCurrentView={setCurrentView} />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
-      <aside className="w-64 bg-card border-r border-border flex flex-col h-screen sticky top-0">
-        <div className="p-6 border-b border-border">
+    <div className="min-h-screen flex" style={{ background: 'hsl(210 20% 97%)' }}>
+      {/* Sidebar */}
+      <aside
+        className="w-64 flex flex-col h-screen sticky top-0 shrink-0"
+        style={{
+          background: 'linear-gradient(180deg, hsl(220 25% 10%) 0%, hsl(218 28% 8%) 100%)',
+          borderRight: '1px solid rgba(255,255,255,0.06)',
+        }}
+      >
+        {/* Logo */}
+        <div className="px-5 py-6 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-              <Pill className="h-6 w-6 text-primary-foreground" />
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shrink-0"
+              style={{ background: 'linear-gradient(135deg, #00C2E0, #0077E6)' }}
+            >
+              <Pill className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-foreground">Alfa Rewards</h1>
-              <p className="text-xs text-muted-foreground">Panel de Control</p>
+              <h1 className="font-bold text-white text-sm leading-tight">Alfa Rewards</h1>
+              <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Panel Director</p>
             </div>
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
-          <button onClick={() => setCurrentView('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'dashboard' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
-            <BarChart3 className="h-5 w-5" /> <span className="font-medium">Dashboard</span>
-          </button>
-          <button onClick={() => setCurrentView('invoices')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'invoices' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
-            <FileText className="h-5 w-5" /> <span className="font-medium">Facturas</span>
-          </button>
-          <button onClick={() => setCurrentView('map')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'map' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
-            <Map className="h-5 w-5" /> <span className="font-medium">Mapa en Vivo</span>
-          </button>
-          <button onClick={() => setCurrentView('users')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'users' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
-            <Users className="h-5 w-5" /> <span className="font-medium">Usuarios</span>
-          </button>
-          <button onClick={() => setCurrentView('pharmacies')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'pharmacies' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
-            <Building2 className="h-5 w-5" /> <span className="font-medium">Farmacias</span>
-          </button>
-          <button onClick={() => setCurrentView('rewards')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'rewards' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
-            <Gift className="h-5 w-5" /> <span className="font-medium">Premios</span>
-          </button>
-          <button onClick={() => setCurrentView('products')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'products' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
-            <Pill className="h-5 w-5" /> <span className="font-medium">Productos (IA)</span>
-          </button>
-          <button onClick={() => setCurrentView('levels')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'levels' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
-            <Trophy className="h-5 w-5" /> <span className="font-medium">Niveles</span>
-          </button>
-          <button onClick={() => setCurrentView('analytics')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'analytics' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
-            <TrendingUp className="h-5 w-5" /> <span className="font-medium">Analítica</span>
-          </button>
-          <button onClick={() => setCurrentView('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${currentView === 'settings' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}>
-            <Settings className="h-5 w-5" /> <span className="font-medium">Configuración</span>
-          </button>
+        {/* Navigation */}
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-auto">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentView === item.view;
+            return (
+              <button
+                key={item.view}
+                onClick={() => setCurrentView(item.view)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative"
+                style={{
+                  background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
+                  color: isActive ? '#fff' : 'rgba(255,255,255,0.5)',
+                }}
+              >
+                {isActive && (
+                  <span
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full"
+                    style={{ background: 'linear-gradient(180deg, #00C2E0, #0077E6)' }}
+                  />
+                )}
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all duration-200"
+                  style={isActive
+                    ? { background: 'rgba(255,255,255,0.15)' }
+                    : { background: 'rgba(255,255,255,0.06)' }
+                  }
+                >
+                  <Icon className="h-4 w-4 text-white" />
+                </div>
+                <span className="text-sm font-medium flex-1 text-left">{item.label}</span>
+                {isActive && <ChevronRight className="h-3.5 w-3.5 opacity-40" />}
+              </button>
+            );
+          })}
         </nav>
 
-        <div className="p-4 border-t border-border">
-          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors">
-            <LogOut className="h-5 w-5" /> <span className="font-medium">Cerrar Sesión</span>
+        {/* User & Logout */}
+        <div className="px-3 py-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+          <div
+            className="flex items-center gap-3 px-3 py-3 rounded-xl mb-2"
+            style={{ background: 'rgba(255,255,255,0.05)' }}
+          >
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-sm font-bold text-white"
+              style={{ background: 'linear-gradient(135deg, #00C2E0, #0077E6)' }}
+            >
+              {initials}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white truncate">{currentUser?.name || 'Admin'}</p>
+              <div className="flex items-center gap-1 mt-0.5">
+                <ShieldCheck className="h-3 w-3 text-cyan-400" />
+                <p className="text-[11px] text-cyan-400 font-medium">Director</p>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium"
+            style={{ color: 'rgba(255,80,80,0.75)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(239,68,68,0.1)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
+            <LogOut className="h-4 w-4" />
+            Cerrar Sesión
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 p-6 overflow-auto">
-        <div className="max-w-7xl mx-auto space-y-6">
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto">
+        <div className="max-w-7xl mx-auto p-6 lg:p-8">
           {renderContent()}
         </div>
       </main>
+    </div>
+  );
+}
+
+// ─── Dashboard Overview (extracted for clarity) ────────────────────────────
+function AdminOverview({ stats, flaggedInvoices, loading, setCurrentView }: {
+  stats: DashboardStats;
+  flaggedInvoices: ScanRecord[];
+  loading: boolean;
+  setCurrentView: (v: AdminView) => void;
+}) {
+  const { toast } = useToast();
+
+  const handleApprove = (id: string) => {
+    toast({ title: '✅ Factura Aprobada', description: 'Los puntos han sido acreditados' });
+  };
+  const handleReject = (id: string) => {
+    toast({ title: '❌ Factura Rechazada', description: 'Se ha notificado al dependiente', variant: 'destructive' });
+  };
+
+  const kpiCards = [
+    {
+      label: 'Puntos Hoy',
+      value: loading ? '—' : stats.totalPointsToday?.toLocaleString(),
+      badge: stats.roi,
+      badgePositive: !stats.roi.startsWith('-'),
+      icon: Trophy,
+      gradient: 'linear-gradient(135deg,#f59e0b,#d97706)',
+      glow: 'rgba(245,158,11,0.2)',
+    },
+    {
+      label: 'Dependientes Activos',
+      value: loading ? '—' : stats.activeClerks,
+      badge: 'En Turno',
+      badgePositive: true,
+      icon: Users,
+      gradient: 'linear-gradient(135deg,#8b5cf6,#7c3aed)',
+      glow: 'rgba(139,92,246,0.2)',
+    },
+    {
+      label: 'Facturas en Validación',
+      value: loading ? '—' : flaggedInvoices.length,
+      badge: 'Pendientes',
+      badgePositive: flaggedInvoices.length === 0,
+      icon: AlertTriangle,
+      gradient: 'linear-gradient(135deg,#f97316,#ea580c)',
+      glow: 'rgba(249,115,22,0.2)',
+    },
+    {
+      label: 'Farmacias Activas',
+      value: loading ? '—' : stats.totalPharmacies,
+      badge: 'Total',
+      badgePositive: true,
+      icon: Building2,
+      gradient: 'linear-gradient(135deg,#10b981,#059669)',
+      glow: 'rgba(16,185,129,0.2)',
+    },
+  ];
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Dashboard Director</h1>
+          <p className="text-muted-foreground mt-1">
+            {new Date().toLocaleDateString('es-DO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+        </div>
+        <div
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium self-start"
+          style={{ background: 'rgba(16,185,129,0.07)', borderColor: 'rgba(16,185,129,0.25)', color: '#059669' }}
+        >
+          <Zap className="h-4 w-4" />
+          Actualizado: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {kpiCards.map((card, i) => {
+          const Icon = card.icon;
+          return (
+            <div
+              key={i}
+              className="rounded-2xl p-5 border bg-white transition-all duration-300 hover:-translate-y-0.5"
+              style={{ borderColor: 'hsl(210 20% 92%)', boxShadow: `0 4px 20px ${card.glow}` }}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center shadow"
+                  style={{ background: card.gradient }}
+                >
+                  <Icon className="h-5 w-5 text-white" />
+                </div>
+                <span
+                  className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                  style={{
+                    background: card.badgePositive ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                    color: card.badgePositive ? '#059669' : '#dc2626',
+                  }}
+                >
+                  {card.badge}
+                </span>
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{card.label}</p>
+              {loading ? (
+                <div className="h-8 w-20 bg-slate-100 rounded animate-pulse" />
+              ) : (
+                <p className="text-3xl font-bold text-foreground">{card.value}</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Bar Chart */}
+        <Card className="lg:col-span-2 rounded-2xl border shadow-sm" style={{ borderColor: 'hsl(210 20% 92%)' }}>
+          <CardHeader className="border-b pb-4" style={{ borderColor: 'hsl(210 20% 92%)' }}>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
+                <BarChart3 className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Tendencia de Puntos (7 Días)</CardTitle>
+                <CardDescription className="text-xs">Puntos por escaneos validados</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="h-[280px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.pointsChart || []} barSize={28}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(210 20% 94%)" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(99,102,241,0.05)' }}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid hsl(210 20% 92%)', boxShadow: '0 10px 25px rgba(0,0,0,0.08)' }}
+                  />
+                  <Bar dataKey="points" fill="url(#barGradient)" radius={[6, 6, 0, 0]} />
+                  <defs>
+                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#6366f1" />
+                      <stop offset="100%" stopColor="#3b82f6" />
+                    </linearGradient>
+                  </defs>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Top Clerks */}
+        <Card className="rounded-2xl border shadow-sm overflow-hidden" style={{ borderColor: 'hsl(210 20% 92%)' }}>
+          <CardHeader className="border-b pb-4" style={{ borderColor: 'hsl(210 20% 92%)' }}>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)' }}>
+                <Trophy className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Top Dependientes</CardTitle>
+                <CardDescription className="text-xs">Líderes por puntos históricos</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y" style={{ borderColor: 'hsl(210 20% 94%)' }}>
+              {stats.topClerks?.map((clerk, i) => (
+                <div key={clerk.id} className="px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors">
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 text-white"
+                    style={{
+                      background: i === 0
+                        ? 'linear-gradient(135deg,#f59e0b,#d97706)'
+                        : i === 1
+                        ? 'linear-gradient(135deg,#9ca3af,#6b7280)'
+                        : i === 2
+                        ? 'linear-gradient(135deg,#d97706,#b45309)'
+                        : 'linear-gradient(135deg,#e2e8f0,#cbd5e1)',
+                      color: i >= 3 ? '#64748b' : '#fff',
+                    }}
+                  >
+                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate">{clerk.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{clerk.pharmacyId || 'N/A'}</p>
+                  </div>
+                  <Badge variant="secondary" className="font-mono text-xs shrink-0">
+                    {clerk.lifetimePoints?.toLocaleString()} pts
+                  </Badge>
+                </div>
+              ))}
+              {(!stats.topClerks || stats.topClerks.length === 0) && (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  {loading ? 'Cargando...' : 'Sin datos aún'}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Bottom Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Map Preview */}
+        <div
+          className="rounded-2xl border bg-white cursor-pointer hover:shadow-md transition-all group overflow-hidden"
+          style={{ borderColor: 'hsl(210 20% 92%)' }}
+          onClick={() => setCurrentView('map')}
+        >
+          <div className="p-5 flex items-center justify-between border-b" style={{ borderColor: 'hsl(210 20% 92%)' }}>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#10b981,#059669)' }}>
+                <Activity className="h-4 w-4 text-white animate-pulse" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Mapa en Vivo</p>
+                <p className="text-xs text-muted-foreground">Visualización geográfica</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="gap-1 text-xs group-hover:gap-2 transition-all">
+              Ver Mapa <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <div className="h-52 flex items-center justify-center" style={{ background: 'hsl(210 20% 97%)' }}>
+            <div className="text-center">
+              <Map className="h-12 w-12 mx-auto mb-2 text-slate-300" />
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Vista Previa del Mapa</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <Card className="rounded-2xl border shadow-sm overflow-hidden" style={{ borderColor: 'hsl(210 20% 92%)' }}>
+          <CardHeader className="border-b pb-4" style={{ borderColor: 'hsl(210 20% 92%)' }}>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#64748b,#475569)' }}>
+                <History className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Últimos Escaneos</CardTitle>
+                <CardDescription className="text-xs">Actividad reciente del sistema</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y" style={{ borderColor: 'hsl(210 20% 94%)' }}>
+              {stats.recentActivity?.map((activity, i) => (
+                <div key={i} className="px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    {activity.status === 'processed' ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                    ) : activity.status === 'rejected' ? (
+                      <XCircle className="w-4 h-4 text-red-500 shrink-0" />
+                    ) : (
+                      <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">{activity.description}</p>
+                      <p className="text-xs text-muted-foreground">{activity.timestamp}</p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-sm text-blue-600">{activity.points?.toLocaleString()} pts</span>
+                </div>
+              ))}
+              {(!stats.recentActivity || stats.recentActivity.length === 0) && (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  {loading ? 'Cargando...' : 'No hay actividad reciente'}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
