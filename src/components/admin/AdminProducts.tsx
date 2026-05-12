@@ -257,6 +257,8 @@ export default function AdminProducts() {
 
                             const image = row.Image || row.Img || '💊';
                             const points = parseInt(row.Points || '0');
+                            const approxBoxPriceRaw = row['Precio Caja'] || row.approxBoxPrice;
+                            const approxUnitPriceRaw = row['Precio Unidad'] || row.approxUnitPrice;
 
                             await createProduct({
                                 name: name,
@@ -264,7 +266,9 @@ export default function AdminProducts() {
                                 commission: commission,
                                 keywords: keywords,
                                 image: image,
-                                line: matchedLine ? matchedLine.name : lineName
+                                line: matchedLine ? matchedLine.name : lineName,
+                                approxBoxPrice: approxBoxPriceRaw ? parseFloat(approxBoxPriceRaw) : 0,
+                                approxUnitPrice: approxUnitPriceRaw ? parseFloat(approxUnitPriceRaw) : null
                             });
                             count++;
                         }
@@ -298,11 +302,28 @@ export default function AdminProducts() {
     };
 
     const handleDownloadTemplate = () => {
-        // Updated Headers to Spanish as requested: Img, Producto, Linea, Palabras Clave, Comisión
-        const headers = ['Img', 'Producto', 'Linea', 'Palabras Clave', 'Comisión'];
+        const headers = ['Img', 'Producto', 'Linea', 'Precio Caja', 'Precio Unidad', 'Palabras Clave', 'Comisión'];
+        
+        let exampleLine1 = 'General';
+        let exampleComm1 = '5';
+        let exampleLine2 = 'Pediatria';
+        let exampleComm2 = '10';
+
+        if (lines && lines.length > 0) {
+            exampleLine1 = lines[0].name;
+            exampleComm1 = lines[0].commission.toString();
+            if (lines.length > 1) {
+                exampleLine2 = lines[1].name;
+                exampleComm2 = lines[1].commission.toString();
+            } else {
+                exampleLine2 = lines[0].name;
+                exampleComm2 = lines[0].commission.toString();
+            }
+        }
+
         const rows = [
-            ['💊', 'Ejemplo Aspirina', 'General', 'dolor, cabeza, fiebre', '5'],
-            ['aa', 'Jarabe Tos', 'Pediatria', 'tos, gripe, garganta', '10']
+            ['💊', 'Ejemplo Aspirina', exampleLine1, '1200', '120', '"dolor, cabeza, fiebre"', exampleComm1],
+            ['💧', 'Jarabe Tos', exampleLine2, '800', '', '"tos, gripe, garganta"', exampleComm2]
         ];
 
         const csvContent = [

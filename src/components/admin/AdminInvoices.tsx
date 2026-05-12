@@ -283,7 +283,7 @@ export default function AdminInvoices() {
                     { icon: DollarSign, label: 'Puntos Acreditados', value: selectedInvoice.pointsEarned > 0 ? `+${selectedInvoice.pointsEarned.toLocaleString()} pts` : '0 pts', highlight: true },
                     { icon: UserIcon, label: 'Dependiente', value: user ? `${user.name} ${user.lastName ?? ''}`.trim() : 'Desconocido' },
                     { icon: Building2, label: 'Farmacia', value: pharmacy?.name ?? 'No detectada' },
-                    { icon: DollarSign, label: 'Monto Factura', value: selectedInvoice.invoiceAmount ? `RD$${selectedInvoice.invoiceAmount.toLocaleString()}` : 'N/A' },
+                    { icon: DollarSign, label: 'Monto Factura', value: selectedInvoice.productsFound && selectedInvoice.productsFound.length > 0 ? `RD$${selectedInvoice.productsFound.reduce((sum, p) => sum + ((p.unitPrice || 0) * p.quantity), 0).toLocaleString()}` : 'N/A' },
                   ].map((item, i) => {
                     const Icon = item.icon;
                     return (
@@ -345,7 +345,7 @@ export default function AdminInvoices() {
                               <div>
                                 <p className="text-sm font-semibold leading-tight">{p.product}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  Cantidad: {p.quantity} | {p.saleType || 'Caja'} (RD${p.unitPrice || 0})
+                                  Cantidad: {p.quantity} | {p.saleType?.toLowerCase() === 'unit' ? (p.quantity === 1 ? 'Unidad' : 'Unidades') : (p.quantity === 1 ? 'Caja' : 'Cajas')} (RD${p.unitPrice || 0})
                                 </p>
                               </div>
                             </div>
