@@ -59,7 +59,14 @@ exports.processInvoice = functions.firestore
         // 1. Fetch Active Products & Pharmacies
         const productsSnapshot = await db.collection('products').get();
         const products = productsSnapshot.docs.map(doc => doc.data());
-        const productNames = products.map((p) => p.name).join(', ');
+        const productsConfigString = products.map((p) => {
+            let str = `- Name: "${p.name}"`;
+            if (p.approxBoxPrice)
+                str += `, BoxPrice: ${p.approxBoxPrice}`;
+            if (p.approxUnitPrice)
+                str += `, UnitPrice: ${p.approxUnitPrice}`;
+            return str;
+        }).join('\n                   ');
         const pharmaciesSnapshot = await db.collection('pharmacies').get();
         const pharmacies = pharmaciesSnapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
         const pharmacyNames = pharmacies.map((p) => p.name).join(', ');
@@ -113,11 +120,16 @@ exports.processInvoice = functions.firestore
                    - If invalid or not found, return null.
 
                 4. PRODUCTS:
-                   - Look for these specific active products: [${productNames}].
+                   - Look for these specific active products and their reference prices:
+                   ${productsConfigString}
                    - Return ONLY products that appear in this list.
                    - for each match, extract:
                      - Quantity
                      - Unit Price (Extract the specific price per unit for this item from the invoice columns)
+                     - Sale Type (Box or Unit). STRICT RULES:
+                       * IF the 'UnitPrice' reference is missing/empty for this product in the list above, immediately classify as 'Box'.
+                       * IF both reference prices exist, mathematically determine which reference price the extracted Unit Price is closer to. If closer to BoxPrice, return 'Box'. If closer to UnitPrice, return 'Unit'.
+                       * If you are unsure or the extracted price is exactly in the middle, return 'Manual Review'.
 
                 5. TOTAL AMOUNT:
                    - Extract the total invoice amount.
@@ -127,7 +139,7 @@ exports.processInvoice = functions.firestore
                     "pharmacyName": "Registered Name" | null,
                     "ncf": "String" | null,
                     "invoiceDate": "YYYY-MM-DD" | null,
-                    "products": [ { "name": "Registered Product Name", "quantity": number, "unitPrice": number } ],
+                    "products": [ { "name": "Registered Product Name", "quantity": number, "unitPrice": number, "saleType": "Box" | "Unit" | "Manual Review" } ],
                     "totalAmount": number,
                     "rawPharmacyName": "What you actually saw",
                     "confidence": "high" | "medium" | "low"
@@ -239,9 +251,10 @@ exports.processInvoice = functions.firestore
             await db.collection('scans').doc(scanId).update(updates);
             return null;
         }
-        // If we are here, everything is VALID
+        // If we are here, everything is VALID, but we must check for Manual Review flags
         let totalPoints = 0;
         const validProducts = [];
+        let needsManualReview = false;
         const repRewards = {}; // { repId: points }
         // Fetch Reps assigned to this pharmacy
         const repsSnapshot = await db.collection('users')
@@ -250,6 +263,9 @@ exports.processInvoice = functions.firestore
             .get();
         const reps = repsSnapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
         aiData.products.forEach((match) => {
+            if (match.saleType === 'Manual Review') {
+                needsManualReview = true;
+            }
             const productConfig = products.find((p) => p.name === match.name);
             if (productConfig) {
                 const quantity = Number(match.quantity) || 1;
@@ -278,6 +294,7 @@ exports.processInvoice = functions.firestore
                     product: match.name,
                     quantity,
                     unitPrice,
+                    saleType: match.saleType,
                     commissionPct,
                     points,
                     line: productConfig.line || 'General'
@@ -307,7 +324,13 @@ exports.processInvoice = functions.firestore
                 }
             }
         });
-        updates.status = 'processed';
+        if (needsManualReview) {
+            updates.status = 'pending_review';
+            updates.rejectionReason = 'Revisión manual requerida: Tipo de venta dudoso (Caja vs Unidad)';
+        }
+        else {
+            updates.status = 'processed';
+        }
         updates.pointsEarned = totalPoints;
         updates.productsFound = validProducts;
         updates.ncf = aiData.ncf;
@@ -322,21 +345,32 @@ exports.processInvoice = functions.firestore
         updates.pharmacyId = matchedPharmacy.id;
         updates.salesRepRewards = repRewards; // Store who got what
         await db.collection('scans').doc(scanId).update(updates);
-        // Update User Wallet & Stats
-        const userUpdatePromise = totalPoints > 0 ?
-            db.collection('users').doc(newData.userId).update({
-                points: admin.firestore.FieldValue.increment(totalPoints),
-                scanCount: admin.firestore.FieldValue.increment(1)
-            }) :
-            db.collection('users').doc(newData.userId).update({
+        // Update User Wallet & Stats ONLY if processed
+        let userUpdatePromise;
+        if (updates.status === 'processed') {
+            userUpdatePromise = totalPoints > 0 ?
+                db.collection('users').doc(newData.userId).update({
+                    points: admin.firestore.FieldValue.increment(totalPoints),
+                    scanCount: admin.firestore.FieldValue.increment(1)
+                }) :
+                db.collection('users').doc(newData.userId).update({
+                    scanCount: admin.firestore.FieldValue.increment(1)
+                });
+        }
+        else {
+            userUpdatePromise = db.collection('users').doc(newData.userId).update({
                 scanCount: admin.firestore.FieldValue.increment(1)
             });
-        // Update Pharmacy Stats
-        const pharmacyUpdatePromise = db.collection('pharmacies').doc(matchedPharmacy.id).update({
-            scanCount: admin.firestore.FieldValue.increment(1),
-            monthlyPoints: admin.firestore.FieldValue.increment(totalPoints),
-            lifetimePoints: admin.firestore.FieldValue.increment(totalPoints)
-        });
+        }
+        // Update Pharmacy Stats ONLY if processed
+        let pharmacyUpdatePromise;
+        if (updates.status === 'processed') {
+            pharmacyUpdatePromise = db.collection('pharmacies').doc(matchedPharmacy.id).update({
+                scanCount: admin.firestore.FieldValue.increment(1),
+                monthlyPoints: admin.firestore.FieldValue.increment(totalPoints),
+                lifetimePoints: admin.firestore.FieldValue.increment(totalPoints)
+            });
+        }
         // Update Sales Rep Buckets
         const repUpdates = Object.keys(repRewards).map(repId => {
             const points = repRewards[repId];

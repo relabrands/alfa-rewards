@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getAllScans, getAllPharmacies, getAllUsers, rejectInvoice } from '@/lib/db';
+import { getAllScans, getAllPharmacies, getAllUsers, rejectInvoice, approveInvoice } from '@/lib/db';
 import { ScanRecord, Pharmacy, User } from '@/lib/types';
 import {
   FileText, Search, Filter, Eye, Ban, CheckCircle2, XCircle,
@@ -40,6 +40,7 @@ export default function AdminInvoices() {
   const [scanToReject, setScanToReject] = useState<ScanRecord | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isRejecting, setIsRejecting] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -87,11 +88,23 @@ export default function AdminInvoices() {
     try {
       await rejectInvoice(scanToReject.id, rejectionReason);
       setScans(prev => prev.map(s => s.id === scanToReject.id ? { ...s, status: 'rejected', rejectionReason } : s));
-      toast({ title: 'Factura Rechazada', description: 'Los puntos han sido revertidos.' });
+      toast({ title: 'Factura Rechazada', description: 'Los puntos han sido revertidos/cancelados.' });
       setIsRejectOpen(false);
     } catch {
       toast({ title: 'Error', description: 'No se pudo rechazar.', variant: 'destructive' });
     } finally { setIsRejecting(false); }
+  };
+
+  const handleApprove = async (scan: ScanRecord) => {
+    setIsApproving(true);
+    try {
+      await approveInvoice(scan.id);
+      setScans(prev => prev.map(s => s.id === scan.id ? { ...s, status: 'processed', rejectionReason: undefined } : s));
+      toast({ title: 'Factura Aprobada', description: 'Los puntos han sido acreditados correctamente.' });
+      setSelectedInvoice(null);
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo aprobar la factura.', variant: 'destructive' });
+    } finally { setIsApproving(false); }
   };
 
   const counts = useMemo(() => ({
@@ -331,12 +344,14 @@ export default function AdminInvoices() {
                               </div>
                               <div>
                                 <p className="text-sm font-semibold leading-tight">{p.product}</p>
-                                <p className="text-xs text-muted-foreground">Cantidad: {p.quantity}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Cantidad: {p.quantity} | {p.saleType || 'Caja'} (RD${p.unitPrice || 0})
+                                </p>
                               </div>
                             </div>
                             <div className="text-right shrink-0">
                               <p className="text-sm font-bold text-indigo-600">+{p.points} pts</p>
-                              <p className="text-[10px] text-muted-foreground">por unidad</p>
+                              <p className="text-[10px] text-muted-foreground">total</p>
                             </div>
                           </div>
                         ))}
@@ -365,11 +380,16 @@ export default function AdminInvoices() {
                 </div>
 
                 {/* Footer Actions */}
-                {['processed', 'pending', 'flagged'].includes(selectedInvoice.status) && (
-                  <div className="px-6 py-4 border-t flex justify-end" style={{ borderColor: 'hsl(210 20% 92%)' }}>
+                {['processed', 'pending', 'flagged', 'pending_review'].includes(selectedInvoice.status) && (
+                  <div className="px-6 py-4 border-t flex justify-end gap-2" style={{ borderColor: 'hsl(210 20% 92%)' }}>
                     <Button variant="destructive" size="sm" onClick={() => { setScanToReject(selectedInvoice); setRejectionReason(''); setIsRejectOpen(true); setSelectedInvoice(null); }}>
                       <Ban className="h-4 w-4 mr-2" />Rechazar Factura
                     </Button>
+                    {selectedInvoice.status === 'pending_review' && (
+                       <Button variant="default" className="bg-emerald-600 hover:bg-emerald-700 text-white" size="sm" disabled={isApproving} onClick={() => handleApprove(selectedInvoice)}>
+                         {isApproving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />} Aprobar Factura
+                       </Button>
+                    )}
                   </div>
                 )}
               </>

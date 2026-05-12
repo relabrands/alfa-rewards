@@ -37,6 +37,8 @@ export default function AdminProducts() {
         keywordsString: '',
         points: 0,
         commission: 0,
+        approxBoxPrice: '',
+        approxUnitPrice: '',
         image: '💊',
         line: '',
         status: 'active'
@@ -123,6 +125,8 @@ export default function AdminProducts() {
                 keywordsString: product.keywords.join(', '),
                 points: product.points,
                 commission: product.commission || 0,
+                approxBoxPrice: product.approxBoxPrice?.toString() || '',
+                approxUnitPrice: product.approxUnitPrice?.toString() || '',
                 image: product.image || '💊',
                 line: product.line || '',
                 status: product.status || 'active'
@@ -134,6 +138,8 @@ export default function AdminProducts() {
                 keywordsString: '',
                 points: 0,
                 commission: 0,
+                approxBoxPrice: '',
+                approxUnitPrice: '',
                 image: '💊',
                 line: '',
                 status: 'active'
@@ -163,6 +169,8 @@ export default function AdminProducts() {
                 keywords,
                 points: productForm.points,
                 commission: productForm.commission,
+                approxBoxPrice: productForm.approxBoxPrice ? parseFloat(productForm.approxBoxPrice) : 0,
+                approxUnitPrice: productForm.approxUnitPrice ? parseFloat(productForm.approxUnitPrice) : null,
                 image: productForm.image,
                 line: productForm.line,
                 status: productForm.status as 'active' | 'inactive' | 'pending'
@@ -475,6 +483,29 @@ export default function AdminProducts() {
                                                     />
                                                 </div>
                                                 <p className="text-[10px] text-muted-foreground">Heredado de la línea o manual.</p>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label>Precio Caja Aprox.</Label>
+                                                <Input
+                                                    type="number"
+                                                    value={productForm.approxBoxPrice}
+                                                    onChange={e => setProductForm({ ...productForm, approxBoxPrice: e.target.value })}
+                                                    placeholder="Ej. 1200"
+                                                    required
+                                                />
+                                                <p className="text-[10px] text-muted-foreground">Usado para identificar tipo de venta.</p>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Precio Unidad/Blister Aprox.</Label>
+                                                <Input
+                                                    type="number"
+                                                    value={productForm.approxUnitPrice}
+                                                    onChange={e => setProductForm({ ...productForm, approxUnitPrice: e.target.value })}
+                                                    placeholder="Opcional. Ej. 120"
+                                                />
+                                                <p className="text-[10px] text-muted-foreground">Si está vacío, siempre se asume Caja.</p>
                                             </div>
                                         </div>
                                         <div className="space-y-2">

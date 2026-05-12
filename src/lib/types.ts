@@ -52,7 +52,7 @@ export interface ScanRecord {
     ncf?: string;
     imageUrl?: string;
     rejectionReason?: string;
-    productsFound?: { product: string; quantity: number; points: number }[];
+    productsFound?: { product: string; quantity: number; points: number; saleType?: 'Box' | 'Unit' | 'Manual Review'; unitPrice?: number }[];
     expiresAt?: Date; // Points expiration date (12 months from approval)
 }
 
@@ -112,6 +112,8 @@ export interface Product {
     keywords: string[]; // e.g., ["aspirina", "bayer"]
     points: number; // Keep for backward compat or display "Avg Points"
     commission?: number; // New: Percentage (0-100) - Denormalized from Line
+    approxBoxPrice?: number; // New: Price Anchoring Box Price
+    approxUnitPrice?: number; // New: Price Anchoring Unit/Blister Price
     image?: string;
     line?: string; // Changed from ProductLine to string to support dynamic lines
     status?: 'active' | 'inactive' | 'pending';
