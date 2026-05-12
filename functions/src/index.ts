@@ -18,6 +18,7 @@ const model = vertexAI.preview.getGenerativeModel({
         'temperature': 0.2, // Lower temperature for more deterministic/strict output
         'topP': 1,
         'topK': 32,
+        'responseMimeType': 'application/json',
     },
 });
 
