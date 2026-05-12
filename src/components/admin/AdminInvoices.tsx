@@ -345,7 +345,7 @@ export default function AdminInvoices() {
                               <div>
                                 <p className="text-sm font-semibold leading-tight">{p.product}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  Cantidad: {p.quantity} | {p.saleType?.toLowerCase() === 'unit' ? (p.quantity === 1 ? 'Unidad' : 'Unidades') : (p.quantity === 1 ? 'Caja' : 'Cajas')} (RD${p.unitPrice || 0})
+                                  Cantidad: {p.quantity} | {p.saleType?.toLowerCase() === 'unit' ? (p.quantity === 1 ? 'Pastilla' : 'Pastillas') : p.saleType?.toLowerCase() === 'box' ? (p.quantity === 1 ? 'Caja' : 'Cajas') : (p.saleType || (p.quantity === 1 ? 'Caja' : 'Cajas'))} (RD${p.unitPrice || 0})
                                 </p>
                               </div>
                             </div>
@@ -358,7 +358,7 @@ export default function AdminInvoices() {
                         {/* Points Summary */}
                         <div className="rounded-xl px-3 py-2.5 flex items-center justify-between" style={{ background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.2)' }}>
                           <span className="text-sm font-semibold text-emerald-700">Total de Puntos</span>
-                          <span className="text-base font-bold text-emerald-600">+{selectedInvoice.productsFound.reduce((sum, p) => sum + (p.points * p.quantity), 0).toLocaleString()} pts</span>
+                          <span className="text-base font-bold text-emerald-600">+{selectedInvoice.productsFound.reduce((sum, p) => sum + (p.points || 0), 0).toLocaleString()} pts</span>
                         </div>
                       </div>
                     ) : (
