@@ -155,7 +155,7 @@ export const processInvoice = functions.firestore
 
             // 4. Parse & Validate
             const jsonStr = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-            let aiData;
+            let aiData: any;
             try {
                 aiData = JSON.parse(jsonStr);
             } catch (parseError) {
@@ -466,7 +466,7 @@ export const processIdentity = functions.firestore
             if (!textResponse) throw new Error("Empty AI response");
 
             const jsonStr = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-            let aiData;
+            let aiData: any;
             try {
                 aiData = JSON.parse(jsonStr);
             } catch (parseError) {

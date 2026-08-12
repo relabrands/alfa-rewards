@@ -166,7 +166,14 @@ exports.processInvoice = functions.firestore
             throw new Error("Empty response from AI");
         // 4. Parse & Validate
         const jsonStr = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-        const aiData = JSON.parse(jsonStr);
+        let aiData;
+        try {
+            aiData = JSON.parse(jsonStr);
+        }
+        catch (parseError) {
+            console.error("JSON Parse Error:", parseError, "Raw String:", jsonStr);
+            throw new Error("Error analizando la factura. La imagen no es lo suficientemente clara o tiene un formato complejo. Por favor, intenta tomar otra foto.");
+        }
         console.log("AI Analysis Result:", JSON.stringify(aiData));
         const updates = {
             aiResponse: aiData,
@@ -432,7 +439,14 @@ exports.processIdentity = functions.firestore
         if (!textResponse)
             throw new Error("Empty AI response");
         const jsonStr = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-        const aiData = JSON.parse(jsonStr);
+        let aiData;
+        try {
+            aiData = JSON.parse(jsonStr);
+        }
+        catch (parseError) {
+            console.error("JSON Parse Error on Identity:", parseError, "Raw String:", jsonStr);
+            throw new Error("Error leyendo la cédula. Por favor toma una foto más clara donde el texto sea legible.");
+        }
         await db.collection('identity_scans').doc(scanId).update({
             status: 'processed',
             data: aiData,
