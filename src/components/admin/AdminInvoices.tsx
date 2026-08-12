@@ -200,7 +200,7 @@ export default function AdminInvoices() {
                       <p className="text-xs text-muted-foreground">{scan.timestamp?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     </TableCell>
                     <TableCell>
-                      <p className="font-mono text-sm font-semibold">{scan.ncf || <span className="text-muted-foreground italic text-xs">Sin NCF</span>}</p>
+                      <p className="font-mono text-sm font-semibold">{scan.ncf || (scan as any).aiResponse?.ncf || <span className="text-muted-foreground italic text-xs">Sin NCF</span>}</p>
                       <p className="text-[10px] text-muted-foreground font-mono">{scan.id.slice(0, 8)}…</p>
                     </TableCell>
                     <TableCell>
@@ -213,7 +213,7 @@ export default function AdminInvoices() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <p className="text-sm">{pharmacy?.name ?? <span className="text-muted-foreground italic text-xs">No detectada</span>}</p>
+                      <p className="text-sm">{pharmacy?.name ?? (scan as any).aiResponse?.pharmacyName ?? (scan as any).aiResponse?.rawPharmacyName ?? <span className="text-muted-foreground italic text-xs">No detectada</span>}</p>
                       {pharmacy?.sector && <p className="text-xs text-muted-foreground">{pharmacy.sector}</p>}
                     </TableCell>
                     <TableCell>
@@ -278,12 +278,12 @@ export default function AdminInvoices() {
                 {/* Info Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-0 border-b" style={{ borderColor: 'hsl(210 20% 92%)' }}>
                   {[
-                    { icon: Hash, label: 'NCF', value: selectedInvoice.ncf || 'Sin NCF', mono: true },
+                    { icon: Hash, label: 'NCF', value: selectedInvoice.ncf || (selectedInvoice as any).aiResponse?.ncf || 'Sin NCF', mono: true },
                     { icon: Calendar, label: 'Fecha', value: selectedInvoice.timestamp?.toLocaleString('es-DO') ?? 'N/A' },
                     { icon: DollarSign, label: 'Puntos Acreditados', value: selectedInvoice.pointsEarned > 0 ? `+${selectedInvoice.pointsEarned.toLocaleString()} pts` : '0 pts', highlight: true },
                     { icon: UserIcon, label: 'Dependiente', value: user ? `${user.name} ${user.lastName ?? ''}`.trim() : 'Desconocido' },
-                    { icon: Building2, label: 'Farmacia', value: pharmacy?.name ?? 'No detectada' },
-                    { icon: DollarSign, label: 'Monto Factura', value: selectedInvoice.productsFound && selectedInvoice.productsFound.length > 0 ? `RD$${selectedInvoice.productsFound.reduce((sum, p) => sum + ((p.unitPrice || 0) * p.quantity), 0).toLocaleString()}` : 'N/A' },
+                    { icon: Building2, label: 'Farmacia', value: pharmacy?.name ?? (selectedInvoice as any).aiResponse?.pharmacyName ?? (selectedInvoice as any).aiResponse?.rawPharmacyName ?? 'No detectada' },
+                    { icon: DollarSign, label: 'Monto Factura', value: selectedInvoice.productsFound && selectedInvoice.productsFound.length > 0 ? `RD$${selectedInvoice.productsFound.reduce((sum, p) => sum + ((p.unitPrice || 0) * p.quantity), 0).toLocaleString()}` : ((selectedInvoice as any).aiResponse?.totalAmount ? `RD$${(selectedInvoice as any).aiResponse?.totalAmount.toLocaleString()}` : 'N/A') },
                   ].map((item, i) => {
                     const Icon = item.icon;
                     return (
