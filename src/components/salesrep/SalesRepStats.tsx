@@ -42,84 +42,83 @@ export function SalesRepStats() {
             label: 'Farmacias Asignadas',
             value: stats.pharmacies,
             icon: Building2,
-            gradient: 'linear-gradient(135deg, #3b82f6, #6366f1)',
-            glow: 'rgba(99,102,241,0.25)',
-            textColor: '#6366f1',
-            bg: 'rgba(99,102,241,0.06)',
+            accent: '#00C2E0',
+            accentBg: 'rgba(0,194,224,0.08)',
         },
         {
             label: 'Dependientes Activos',
             value: stats.clerks,
             icon: Users,
-            gradient: 'linear-gradient(135deg, #10b981, #059669)',
-            glow: 'rgba(16,185,129,0.25)',
-            textColor: '#10b981',
-            bg: 'rgba(16,185,129,0.06)',
+            accent: '#10b981',
+            accentBg: 'rgba(16,185,129,0.08)',
         },
         {
             label: 'Puntos Generados',
             value: stats.points.toLocaleString(),
             icon: Trophy,
-            gradient: 'linear-gradient(135deg, #f59e0b, #d97706)',
-            glow: 'rgba(245,158,11,0.25)',
-            textColor: '#d97706',
-            bg: 'rgba(245,158,11,0.06)',
+            accent: '#00C2E0',
+            accentBg: 'rgba(0,194,224,0.08)',
         },
         {
             label: 'Tendencia Semanal',
             value: `+${stats.weeklyGrowth}%`,
             icon: TrendingUp,
-            gradient: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
-            glow: 'rgba(139,92,246,0.25)',
-            textColor: '#8b5cf6',
-            bg: 'rgba(139,92,246,0.06)',
+            accent: '#10b981',
+            accentBg: 'rgba(16,185,129,0.08)',
         },
     ];
 
     return (
-        <div className="space-y-8 animate-fade-in">
+        <div className="space-y-7">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-foreground">Bienvenido, {currentUser?.name?.split(' ')[0]} 👋</h1>
-                <p className="text-muted-foreground mt-1">Resumen de rendimiento en tu zona</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-xl font-semibold" style={{ color: '#0d1117' }}>
+                        Bienvenido, {currentUser?.name?.split(' ')[0]}
+                    </h1>
+                    <p className="text-sm mt-0.5" style={{ color: '#94a3b8' }}>Resumen de rendimiento en tu zona</p>
+                </div>
+                <div
+                    className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border"
+                    style={{ borderColor: 'rgba(0,194,224,0.3)', color: '#00C2E0', background: 'rgba(0,194,224,0.06)' }}
+                >
+                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#00C2E0' }} />
+                    En vivo
+                </div>
             </div>
 
             {/* Stat Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {statCards.map((card, i) => {
                     const Icon = card.icon;
                     return (
                         <div
                             key={i}
-                            className="rounded-2xl p-5 border transition-all duration-300 hover:-translate-y-0.5"
-                            style={{
-                                background: '#fff',
-                                borderColor: 'hsl(210 20% 92%)',
-                                boxShadow: `0 4px 20px ${card.glow}`,
-                            }}
+                            className="rounded-xl p-5 border bg-white transition-all duration-200 hover:shadow-md"
+                            style={{ borderColor: '#e8edf2' }}
                         >
-                            <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center justify-between mb-4">
                                 <div
-                                    className="w-11 h-11 rounded-xl flex items-center justify-center shadow-md"
-                                    style={{ background: card.gradient }}
+                                    className="w-9 h-9 rounded-lg flex items-center justify-center"
+                                    style={{ background: card.accentBg }}
                                 >
-                                    <Icon className="h-5 w-5 text-white" />
+                                    <Icon style={{ width: '17px', height: '17px', color: card.accent }} />
                                 </div>
                                 <span
-                                    className="text-xs font-medium flex items-center gap-0.5"
-                                    style={{ color: card.textColor }}
+                                    className="text-[11px] font-medium flex items-center gap-0.5"
+                                    style={{ color: card.accent }}
                                 >
-                                    <ArrowUpRight className="h-3 w-3" />
+                                    <ArrowUpRight style={{ width: '12px', height: '12px' }} />
                                     Live
                                 </span>
                             </div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                            <p className="text-[11px] font-medium uppercase tracking-wider mb-1" style={{ color: '#94a3b8' }}>
                                 {card.label}
                             </p>
                             {loading ? (
-                                <div className="h-8 w-20 bg-slate-100 rounded animate-pulse" />
+                                <div className="h-7 w-16 bg-slate-100 rounded-md animate-pulse" />
                             ) : (
-                                <p className="text-3xl font-bold" style={{ color: card.textColor }}>
+                                <p className="text-2xl font-bold" style={{ color: '#0d1117' }}>
                                     {card.value}
                                 </p>
                             )}
@@ -129,22 +128,22 @@ export function SalesRepStats() {
             </div>
 
             {/* Placeholder Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <div
-                    className="rounded-2xl border-2 border-dashed h-64 flex flex-col items-center justify-center gap-3"
-                    style={{ borderColor: 'hsl(210 20% 88%)', background: 'hsl(210 20% 98%)' }}
+                    className="rounded-xl border-2 border-dashed h-56 flex flex-col items-center justify-center gap-2"
+                    style={{ borderColor: '#e8edf2', background: '#f8fafc' }}
                 >
-                    <TrendingUp className="h-8 w-8 text-slate-300" />
-                    <p className="text-sm font-medium text-muted-foreground">Gráfico de Tendencia</p>
-                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Próximamente</span>
+                    <TrendingUp style={{ width: '28px', height: '28px', color: '#cbd5e1' }} />
+                    <p className="text-sm font-medium" style={{ color: '#94a3b8' }}>Gráfico de Tendencia</p>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: '#f0f3f6', color: '#94a3b8' }}>Próximamente</span>
                 </div>
                 <div
-                    className="rounded-2xl border-2 border-dashed h-64 flex flex-col items-center justify-center gap-3"
-                    style={{ borderColor: 'hsl(210 20% 88%)', background: 'hsl(210 20% 98%)' }}
+                    className="rounded-xl border-2 border-dashed h-56 flex flex-col items-center justify-center gap-2"
+                    style={{ borderColor: '#e8edf2', background: '#f8fafc' }}
                 >
-                    <Building2 className="h-8 w-8 text-slate-300" />
-                    <p className="text-sm font-medium text-muted-foreground">Mapa de Calor por Zona</p>
-                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Próximamente</span>
+                    <Building2 style={{ width: '28px', height: '28px', color: '#cbd5e1' }} />
+                    <p className="text-sm font-medium" style={{ color: '#94a3b8' }}>Mapa de Calor por Zona</p>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: '#f0f3f6', color: '#94a3b8' }}>Próximamente</span>
                 </div>
             </div>
         </div>

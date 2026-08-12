@@ -14,7 +14,7 @@ export default function SalesRepDashboard() {
   const [activeSection, setActiveSection] = useState<SalesRepSection>('dashboard');
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'hsl(210 20% 97%)' }}>
+    <div className="min-h-screen flex" style={{ background: '#f4f6f9' }}>
       <SalesRepSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
 
       <main className="flex-1 overflow-auto">
