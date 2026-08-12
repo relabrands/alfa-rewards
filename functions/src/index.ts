@@ -73,6 +73,7 @@ export const processInvoice = functions.firestore
             // Find their pharmacies to extract names and specific AI rules
             const userPharmacies = pharmacies.filter((p: any) => allowedPharmacyIds.includes(p.id));
             const expectedPharmacyNames = userPharmacies.map((p: any) => p.name).join(' OR ');
+            const expectedPharmacyRncs = userPharmacies.map((p: any) => p.rnc).filter(Boolean).join(' OR ');
             const localAiRules = userPharmacies.map((p: any) => p.aiRules).filter(Boolean).join('\n');
             const expectedClientCodes = userPharmacies.map((p: any) => p.clientCode).filter(Boolean).join(', ');
 
@@ -80,7 +81,7 @@ export const processInvoice = functions.firestore
 
             // 2. Strict Prompt Construction (Two-Layer)
             const LAYER_1_GLOBAL = globalAIRules ? `[GLOBAL RULES]\n${globalAIRules}` : '';
-            const LAYER_2_LOCAL = `[LOCAL CONTEXT]\nExpected_Pharmacy_Name: ${expectedPharmacyNames || 'Ninguna Asignada'} \nExpected_Client_Codes: ${expectedClientCodes || 'N/A'}\nSpecific_Alerts: ${localAiRules || 'Ninguna'}`;
+            const LAYER_2_LOCAL = `[LOCAL CONTEXT]\nExpected_Pharmacy_Name: ${expectedPharmacyNames || 'Ninguna Asignada'} \nExpected_Pharmacy_RNC: ${expectedPharmacyRncs || 'N/A'}\nExpected_Client_Codes: ${expectedClientCodes || 'N/A'}\nSpecific_Alerts: ${localAiRules || 'Ninguna'}`;
 
             const prompt = `
                 ${LAYER_1_GLOBAL}
@@ -92,10 +93,10 @@ export const processInvoice = functions.firestore
                 You must extract and validate the following information against my provided lists:
 
                 1. PHARMACY MATCHING:
-                   - Extract the pharmacy name from the header.
-                   - Verify that the extracted pharmacy name matches the 'Expected_Pharmacy_Name' provided in the [LOCAL CONTEXT].
-                   - If it matches the Expected Pharmacy Name (even with slight variation), return the EXACT registered name from this overall list: [${pharmacyNames}].
-                   - If it does NOT match the Expected Pharmacy Name, return null for pharmacyName. This is CRITICAL to prevent users from scanning invoices from other pharmacies.
+                   - Extract the pharmacy name and RNC (if present) from the header.
+                   - Verify that the extracted pharmacy name OR RNC matches the 'Expected_Pharmacy_Name' or 'Expected_Pharmacy_RNC' provided in the [LOCAL CONTEXT].
+                   - If it matches the Expected Pharmacy Name or RNC (even with slight variation), return the EXACT registered name from this overall list: [${pharmacyNames}].
+                   - If it does NOT match the Expected Pharmacy Name or RNC, return null for pharmacyName. This is CRITICAL to prevent users from scanning invoices from other pharmacies.
 
                 2. NCF (Comprobante Fiscal):
                    - Extract the NCF code (e.g. B0100000001, E4500000001). 
@@ -167,7 +168,7 @@ export const processInvoice = functions.firestore
             // Check 1: Pharmacy (Location Mismatch Logic)
             if (!aiData.pharmacyName) {
                 updates.status = 'rejected';
-                updates.rejectionReason = `Location Mismatch / Farmacia no identificada: Detectado "${aiData.rawPharmacyName || 'Desconocida'}", Esperado "${expectedPharmacyNames}"`;
+                updates.rejectionReason = `No perteneces a esta farmacia. (Detectado: "${aiData.rawPharmacyName || 'Desconocida'}")`;
                 console.log(`Scan ${scanId} rejected: Location Mismatch`);
                 await db.collection('scans').doc(scanId).update(updates);
                 return null;
@@ -176,7 +177,7 @@ export const processInvoice = functions.firestore
             // Check 2: Products
             if (!aiData.products || aiData.products.length === 0) {
                 updates.status = 'rejected';
-                updates.rejectionReason = 'No se encontraron productos participantes';
+                updates.rejectionReason = 'No detectamos productos participantes en esta factura.';
                 console.log(`Scan ${scanId} rejected: No products`);
                 await db.collection('scans').doc(scanId).update(updates);
                 return null;
@@ -188,7 +189,7 @@ export const processInvoice = functions.firestore
                 // Actually user said: "Si el NCF ya existe... DUPLICADA". "Si fecha no valida... PENDIENTE".
                 // Doesn't explicitly say what to do if NCF invalid format, but implies strictness.
                 updates.status = 'rejected';
-                updates.rejectionReason = `NCF Inválido o no legible: ${aiData.ncf}`;
+                updates.rejectionReason = `El NCF no es válido o no se pudo leer correctamente. (Detectado: ${aiData.ncf || 'Ninguno'})`;
                 await db.collection('scans').doc(scanId).update(updates);
                 return null;
             }
@@ -203,7 +204,7 @@ export const processInvoice = functions.firestore
 
             if (isDuplicate) {
                 updates.status = 'rejected';
-                updates.rejectionReason = `Factura Duplicada (NCF: ${aiData.ncf})`;
+                updates.rejectionReason = `Esta factura ya fue registrada anteriormente. (NCF: ${aiData.ncf})`;
                 console.log(`Scan ${scanId} rejected: Duplicate NCF`);
                 await db.collection('scans').doc(scanId).update(updates);
                 return null;
@@ -215,10 +216,10 @@ export const processInvoice = functions.firestore
 
             if (!invDate || isNaN(invDate.getTime())) {
                 updates.status = 'pending_review';
-                updates.rejectionReason = 'Fecha ilegible';
+                updates.rejectionReason = 'La fecha de la factura no se pudo leer correctamente.';
             } else if (invDate > today) {
                 updates.status = 'pending_review';
-                updates.rejectionReason = `Fecha futura detectada: ${aiData.invoiceDate}`;
+                updates.rejectionReason = `La fecha detectada es en el futuro, por favor verifica la factura. (Detectado: ${aiData.invoiceDate})`;
             } else {
                 // Date is OK
             }
@@ -226,7 +227,7 @@ export const processInvoice = functions.firestore
             // Check 5: Coherence (Simple check)
             if (!aiData.totalAmount || aiData.totalAmount < 10) { // arbitrary sanity check
                 updates.status = updates.status === 'pending_review' ? updates.status : 'pending_review';
-                updates.rejectionReason = updates.rejectionReason || 'Monto total sospechosamente bajo';
+                updates.rejectionReason = updates.rejectionReason || 'El monto total parece incorrecto o muy bajo.';
             }
 
             // Stop if pending review
@@ -249,7 +250,7 @@ export const processInvoice = functions.firestore
             // Strict Check
             if (!allowedPharmacyIds.includes(matchedPharmacy.id)) {
                 updates.status = 'rejected';
-                updates.rejectionReason = `Farmacia no autorizada para este usuario. (Detectada: ${aiData.pharmacyName})`;
+                updates.rejectionReason = `No perteneces a esta farmacia. (Detectado: "${aiData.pharmacyName}")`;
                 console.log(`Scan ${scanId} rejected: Pharmacy ${matchedPharmacy.id} not in user's assigned list [${allowedPharmacyIds.join(', ')}]`);
                 await db.collection('scans').doc(scanId).update(updates);
                 return null;
@@ -341,7 +342,7 @@ export const processInvoice = functions.firestore
 
             if (needsManualReview) {
                 updates.status = 'pending_review';
-                updates.rejectionReason = 'Revisión manual requerida: Tipo de venta dudoso (Caja vs Unidad)';
+                updates.rejectionReason = 'Revisión manual requerida: Hay dudas si la venta fue por caja o por unidad.';
             } else {
                 updates.status = 'processed';
             }

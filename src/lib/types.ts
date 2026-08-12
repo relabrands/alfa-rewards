@@ -22,6 +22,7 @@ export interface User {
 export interface Pharmacy {
     id: string;
     name: string;
+    rnc?: string;
     address: string;
     lat: number;
     lng: number;

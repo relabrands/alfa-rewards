@@ -32,6 +32,7 @@ export default function AdminPharmacies() {
     // assignments is a map of repId -> lines[]
     const [newPharmacy, setNewPharmacy] = useState<{
         name: string;
+        rnc: string;
         address: string;
         province: string;
         city: string; // Will store Municipality
@@ -41,6 +42,7 @@ export default function AdminPharmacies() {
         repAssignments: { [repId: string]: ProductLine[] };
     }>({
         name: '',
+        rnc: '',
         address: '',
         province: '',
         city: '',
@@ -89,6 +91,7 @@ export default function AdminPharmacies() {
 
             await createPharmacy({
                 name: newPharmacy.name,
+                rnc: newPharmacy.rnc,
                 address: newPharmacy.address,
                 province: newPharmacy.province,
                 city: newPharmacy.city,
@@ -107,7 +110,7 @@ export default function AdminPharmacies() {
 
             toast({ title: "Farmacia Creada", description: "Se ha agregado la farmacia exitosamente." });
             setIsSingleDialogOpen(false);
-            setNewPharmacy({ name: '', address: '', province: '', city: '', sector: '', clientCode: '', aiRules: '', repAssignments: {} });
+            setNewPharmacy({ name: '', rnc: '', address: '', province: '', city: '', sector: '', clientCode: '', aiRules: '', repAssignments: {} });
             loadPharmacies();
         } catch (error) {
             toast({ title: "Error", description: "No se pudo crear la farmacia.", variant: "destructive" });
@@ -165,9 +168,15 @@ export default function AdminPharmacies() {
                                     <DialogDescription>Ingresa los detalles reales de la farmacia.</DialogDescription>
                                 </DialogHeader>
                                 <form onSubmit={handleSingleCreate} className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="name">Nombre de Farmacia</Label>
-                                        <Input id="name" value={newPharmacy.name} onChange={(e) => setNewPharmacy({ ...newPharmacy, name: e.target.value })} required />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="name">Nombre de Farmacia</Label>
+                                            <Input id="name" value={newPharmacy.name} onChange={(e) => setNewPharmacy({ ...newPharmacy, name: e.target.value })} required />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="rnc">RNC</Label>
+                                            <Input id="rnc" placeholder="Opcional" value={newPharmacy.rnc} onChange={(e) => setNewPharmacy({ ...newPharmacy, rnc: e.target.value })} />
+                                        </div>
                                     </div>
 
                                     <div className="space-y-4 border p-4 rounded-md bg-slate-50">
@@ -370,6 +379,7 @@ function EditPharmacyDialog({ pharmacy, reps, onUpdate }: { pharmacy: Pharmacy, 
     // ... existing code ...
     const [data, setData] = useState({
         name: pharmacy.name,
+        rnc: pharmacy.rnc || '',
         address: pharmacy.address,
         province: pharmacy.province || '', // New field
         city: pharmacy.city || '',
@@ -413,9 +423,15 @@ function EditPharmacyDialog({ pharmacy, reps, onUpdate }: { pharmacy: Pharmacy, 
                     <DialogTitle>Editar Farmacia</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                        <Label>Nombre</Label>
-                        <Input value={data.name} onChange={e => setData({ ...data, name: e.target.value })} />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>Nombre</Label>
+                            <Input value={data.name} onChange={e => setData({ ...data, name: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>RNC</Label>
+                            <Input value={data.rnc} placeholder="Opcional" onChange={e => setData({ ...data, rnc: e.target.value })} />
+                        </div>
                     </div>
                     <div className="space-y-2">
                         <Label>Dirección</Label>

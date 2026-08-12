@@ -20,9 +20,9 @@ import { Textarea } from '@/components/ui/textarea';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   processed: { label: 'Aprobada', color: '#059669', bg: 'rgba(16,185,129,0.1)', icon: CheckCircle2 },
-  rejected:  { label: 'Rechazada', color: '#dc2626', bg: 'rgba(220,38,38,0.1)',  icon: XCircle },
-  flagged:   { label: 'Revisión',  color: '#d97706', bg: 'rgba(217,119,6,0.1)',  icon: AlertTriangle },
-  pending:   { label: 'Pendiente', color: '#64748b', bg: 'rgba(100,116,139,0.1)', icon: Clock },
+  rejected: { label: 'Rechazada', color: '#dc2626', bg: 'rgba(220,38,38,0.1)', icon: XCircle },
+  flagged: { label: 'Revisión', color: '#d97706', bg: 'rgba(217,119,6,0.1)', icon: AlertTriangle },
+  pending: { label: 'Pendiente', color: '#64748b', bg: 'rgba(100,116,139,0.1)', icon: Clock },
 };
 
 export default function AdminInvoices() {
@@ -331,7 +331,7 @@ export default function AdminInvoices() {
                     <div className="px-4 pt-4 pb-2">
                       <p className="text-sm font-semibold flex items-center gap-1.5">
                         <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
-                        Productos Identificados por IA
+                        Productos Identificados
                       </p>
                     </div>
                     {selectedInvoice.productsFound && selectedInvoice.productsFound.length > 0 ? (
@@ -386,9 +386,9 @@ export default function AdminInvoices() {
                       <Ban className="h-4 w-4 mr-2" />Rechazar Factura
                     </Button>
                     {selectedInvoice.status === 'pending_review' && (
-                       <Button variant="default" className="bg-emerald-600 hover:bg-emerald-700 text-white" size="sm" disabled={isApproving} onClick={() => handleApprove(selectedInvoice)}>
-                         {isApproving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />} Aprobar Factura
-                       </Button>
+                      <Button variant="default" className="bg-emerald-600 hover:bg-emerald-700 text-white" size="sm" disabled={isApproving} onClick={() => handleApprove(selectedInvoice)}>
+                        {isApproving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />} Aprobar Factura
+                      </Button>
                     )}
                   </div>
                 )}
